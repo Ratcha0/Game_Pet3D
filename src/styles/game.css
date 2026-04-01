@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-[#000] text-white m-0 overflow-hidden h-screen flex items-center justify-center font-sans antialiased;
+    }
+}
+
+@layer components {
+    .glass {
+        @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    }
+    .btn-action {
+        @apply bg-gradient-to-br from-arc8-pink to-arc8-accent shadow-2xl;
+    }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+}
+
+.animate-float {
+    animation: float 3s ease-in-out infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
