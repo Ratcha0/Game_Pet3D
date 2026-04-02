@@ -13,9 +13,17 @@ const MOCK_BOARD = [
 const STATE = {
     tokens: 2500, hunger: 85, happy: 92, clean: 70, stamina: 90,
     maxStamina: 100, xp: 350, level: 5, maxExp: 1000,
-    config: { template:'pet', sky:'day', ground:'grass',
-              season_name:'Season 1', season_weeks:1,
-              costs:{ feed:10, clean:8, repair:5, play:12 } }
+    config: {
+        template: 'pet', sky: 'day', ground: 'grass',
+        season_name: 'Season 1', season_weeks: 1,
+        costs: { feed: 10, clean: 8, repair: 5, play: 12 },
+        shop: {
+            small: { cost: 500, amt: 50 },
+            medium: { cost: 900, amt: 100 },
+            large: { cost: 2000, amt: 250 }
+        },
+        happy_drop_rate: 0.7 
+    }
 };
 
 const $ = id => document.getElementById(id);
@@ -24,6 +32,12 @@ function updateUI() {
     const t=$('hud-tokens'); if(t) t.innerText=Math.floor(STATE.tokens).toLocaleString();
     const l=$('hud-level'); if(l) l.innerText=STATE.level;
     const xpBar=$('bar-xp'); if(xpBar) xpBar.style.width=`${(STATE.xp/STATE.maxExp)*100}%`;
+
+    // Update Shop display from config
+    ['small','medium','large'].forEach(tier => {
+        const c = $(`shop-cost-${tier}`); if(c) c.innerText = STATE.config.shop[tier].cost;
+        const a = $(`shop-amt-${tier}`); if(a) a.innerText = STATE.config.shop[tier].amt;
+    });
 
     [['bar-hunger','val-hunger',STATE.hunger],['bar-happy','val-happy',STATE.happy],
      ['bar-clean','val-clean',STATE.clean],['bar-stamina','val-stamina',STATE.stamina]]
@@ -55,6 +69,25 @@ function spawn(text) {
     setTimeout(()=>e.remove(),2000);
 }
 
+window.toggleShop = (close) => {
+    const m = $('shop-modal'); if(!m) return;
+    if(close) m.classList.add('translate-y-full');
+    else m.classList.remove('translate-y-full');
+};
+
+window.buyPackage = (tier) => {
+    const pkg = STATE.config.shop[tier];
+    if (!pkg) return;
+    if (STATE.tokens < pkg.cost) { spawn('🏆 Score ไม่พอสำหรับแพ็คนี้!'); return; }
+    if (STATE.stamina >= STATE.maxStamina) { spawn('⚡ Stamina เต็มอยู่แล้ว!'); return; }
+
+    STATE.tokens -= pkg.cost;
+    STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + pkg.amt);
+    spawn(`📦 ซื้อแพ็ค ${tier.toUpperCase()} สำเร็จ! (+${pkg.amt})`);
+    updateUI(); save();
+    setTimeout(() => toggleShop(true), 500); // ปิดร้านค้าอัตโนมัติ
+};
+
 window.doAction = (type) => {
     const cost = STATE.config.costs[type];
     if (STATE.stamina < cost) { spawn('⚡ พลังงานไม่พอ!'); return; }
@@ -62,7 +95,8 @@ window.doAction = (type) => {
 
     const mech = STATE.config.mechanics || {
         rst_feed:15, rxp_feed:15, rst_clean:20, rxp_clean:10, 
-        rst_play:20, rxp_play:25, rst_repair:10, rxp_repair:12
+        rst_play:20, rxp_play:25, rst_repair:10, rxp_repair:12,
+        rscore_scoop: 20
     };
 
     switch(type) {
@@ -70,8 +104,12 @@ window.doAction = (type) => {
         case 'clean': STATE.clean=Math.min(100,STATE.clean+mech.rst_clean); STATE.xp+=mech.rxp_clean; spawn(`🧼 สะอาด! +${mech.rxp_clean}XP`); break;
         case 'repair': 
             if (collectPoopByUI()) {
-                STATE.clean=Math.min(100,STATE.clean+mech.rst_repair); STATE.happy=Math.min(100,STATE.happy+5); STATE.xp+=mech.rxp_repair; 
-                spawn(`💩 เก็บแล้ว! +${mech.rxp_repair}XP`); 
+                STATE.clean=Math.min(100,STATE.clean+mech.rst_repair); 
+                STATE.happy=Math.min(100,STATE.happy+5); 
+                STATE.xp+=mech.rxp_repair; 
+                const scoreGain = mech.rscore_scoop || 0;
+                STATE.tokens += scoreGain;
+                spawn(`💩 เก็บแล้ว! +${mech.rxp_repair}XP +${scoreGain}🏆`); 
             } else {
                 spawn('✨ พื้นสะอาดอยู่แล้ว');
             }
@@ -84,7 +122,10 @@ window.doAction = (type) => {
         STATE.level++;
         STATE.xp -= STATE.maxExp; // ทบ XP ไปเลเวลถัดไป ไม่ให้หายฟรี
         STATE.maxExp = Math.floor(STATE.maxExp * 1.25); // ปรับจาก 1.4 เหลือ 1.25 ให้สมดุลขึ้น
-        spawn('🆙 LEVEL UP!');
+        
+        const lvlBonus = (STATE.config.mechanics && STATE.config.mechanics.rscore_level) || 1000;
+        STATE.tokens += lvlBonus;
+        spawn(`🆙 LEVEL UP! +${lvlBonus}🏆`);
     }
     updateUI(); save();
 };
@@ -101,13 +142,20 @@ function loadAdminConfig() {
         STATE.config.ground=p.ground||'grass';
         STATE.config.season_name=p.season_name||'Season 1';
         STATE.config.season_weeks=p.season_weeks||1;
-        STATE.config.costs={ feed:p.cost_feed||10, clean:p.cost_clean||8, repair:p.cost_repair||5, play:p.cost_play||12 };
+        STATE.config.costs = { feed:p.cost_feed||10, clean:p.cost_clean||8, repair:p.cost_repair||5, play:p.cost_play||12 };
+        STATE.config.shop = {
+            small: { cost: p.shop_s_cost || 500, amt: p.shop_s_amt || 50 },
+            medium: { cost: p.shop_m_cost || 900, amt: p.shop_m_amt || 100 },
+            large: { cost: p.shop_l_cost || 2000, amt: p.shop_l_amt || 250 }
+        };
+        STATE.config.happy_drop_rate = p.happy_drop_rate ?? 0.7;
         STATE.maxStamina = p.max_stamina || 100;
         STATE.config.mechanics = {
             dec_hunger: p.dec_hunger ?? 0.12, dec_clean: p.dec_clean ?? 0.06, dec_happy: p.dec_happy ?? 0.08,
             reg_stamina: p.reg_stamina ?? 0.5,
             rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 20, rxp_play: p.rxp_play ?? 25,
             rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
+            rscore_scoop: p.rscore_scoop ?? 20, rscore_level: p.rscore_level ?? 1000,
             sp_min: p.sp_min ?? 60, sp_max: p.sp_max ?? 150
         };
     }
@@ -133,12 +181,19 @@ window.addEventListener('message', (e) => {
         STATE.config.season_name = p.season_name || 'Season 1';
         STATE.config.season_weeks = p.season_weeks || 1;
         STATE.config.costs = { feed:p.cost_feed||10, clean:p.cost_clean||8, repair:p.cost_repair||5, play:p.cost_play||12 };
+        STATE.config.shop = {
+            small: { cost: p.shop_s_cost || 500, amt: p.shop_s_amt || 50 },
+            medium: { cost: p.shop_m_cost || 900, amt: p.shop_m_amt || 100 },
+            large: { cost: p.shop_l_cost || 2000, amt: p.shop_l_amt || 250 }
+        };
+        STATE.config.happy_drop_rate = p.happy_drop_rate ?? 0.7;
         STATE.maxStamina = p.max_stamina || 100;
         STATE.config.mechanics = {
             dec_hunger: p.dec_hunger ?? 0.12, dec_clean: p.dec_clean ?? 0.06, dec_happy: p.dec_happy ?? 0.08,
             reg_stamina: p.reg_stamina ?? 0.5,
             rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 20, rxp_play: p.rxp_play ?? 25,
             rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
+            rscore_scoop: p.rscore_scoop ?? 20, rscore_level: p.rscore_level ?? 1000,
             sp_min: p.sp_min ?? 60, sp_max: p.sp_max ?? 150
         };
         
@@ -281,10 +336,11 @@ window.toggleFullScreen = () => {
         STATE.stamina=Math.min(STATE.maxStamina, STATE.stamina+mech.reg_stamina);
 
         // --- HAPPY BONUS DROP ---
-        // ถ้าความสุข > 85% มีโอกาสเสกเหรียญให้คนเล่นสะสม
-        if (STATE.happy > 85 && Math.random() > 0.7) {
+        // ถ้าความสุขสูง มีโอกาสเสกเหรียญ (ปรับได้ผ่าน Admin)
+        const dropRate = STATE.config.happy_drop_rate || 0.7;
+        if (STATE.happy > 85 && Math.random() > dropRate) {
             spawnReward('coin');
-            spawn('🎁 น้องมีความสุขจนอยากให้ของขวัญ!');
+            spawn('🎁 น้องมีความสุขจนอยากให้รางวัล!');
         }
 
         updateUI();

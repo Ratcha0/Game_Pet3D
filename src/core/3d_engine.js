@@ -451,36 +451,42 @@ function updateIndicators() {
     const container = document.getElementById('poop-indicators');
     if (!container || !camera) return;
 
-    // Remove indicators for deleted poops
+    // Remove indicators for deleted objects (poop & rewards)
     for (const [mesh, el] of indicatorElements.entries()) {
-        const stillExists = poopObjects.some(p => p.mesh === mesh);
-        if (!stillExists) {
+        const poopExists = poopObjects.some(p => p.mesh === mesh);
+        const rewardExists = rewardObjects.some(r => r.mesh === mesh);
+        if (!poopExists && !rewardExists) {
             el.remove();
             indicatorElements.delete(mesh);
         }
     }
 
-    const radarRadius = container.clientWidth / 2; // Circular boundary
+    const radarRadius = container.clientWidth * 0.45; // slightly inside boundary
 
-    poopObjects.forEach((p) => {
+    const allTrackables = [
+        ...poopObjects.map(p => ({ mesh: p.mesh, icon: '💩', color: '#ec4899', type: 'poop' })),
+        ...rewardObjects.map(r => ({ mesh: r.mesh, icon: '🪙', color: '#fbbf24', type: 'reward' }))
+    ];
+
+    allTrackables.forEach((obj) => {
         // Project to NDC [-1, 1]
-        const pos = p.mesh.position.clone();
+        const pos = obj.mesh.position.clone();
         pos.y += 0.4;
         pos.project(camera);
 
-        let el = indicatorElements.get(p.mesh);
+        let el = indicatorElements.get(obj.mesh);
         if (!el) {
             el = document.createElement('div');
             el.className = 'absolute top-1/2 left-1/2 -mt-6 -ml-6 w-12 h-12 flex items-center justify-center transition-all duration-300';
             el.innerHTML = `
                 <div class="relative w-full h-full flex items-center justify-center">
-                    <div class="absolute inset-0 bg-neon-pink/10 rounded-full blur-[8px]"></div>
-                    <div class="text-[14px] z-10 filter brightness-110 drop-shadow-[0_0_5px_rgba(236,72,153,0.8)]">💩</div>
-                    <div class="indicator-arrow absolute -top-4 w-1.5 h-3 bg-neon-pink rounded-t-full rounded-b-sm shadow-[0_0_10px_#ec4899]"></div>
+                    <div class="absolute inset-0 rounded-full blur-[8px]" style="background-color: ${obj.color}20"></div>
+                    <div class="text-[14px] z-10 filter brightness-110 drop-shadow-[0_0_5px_${obj.color}]">${obj.icon}</div>
+                    <div class="indicator-arrow absolute -top-4 w-1.5 h-3 rounded-t-full rounded-b-sm" style="background-color: ${obj.color}; box-shadow: 0 0 10px ${obj.color}"></div>
                 </div>
             `;
             container.appendChild(el);
-            indicatorElements.set(p.mesh, el);
+            indicatorElements.set(obj.mesh, el);
         }
 
         // Calculate direction on a circle

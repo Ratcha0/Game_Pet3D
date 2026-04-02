@@ -39,6 +39,17 @@ function loadConfig() {
     if($('cfg-sp-min')) $('cfg-sp-min').value = STATE.sp_min || 60;
     if($('cfg-sp-max')) $('cfg-sp-max').value = STATE.sp_max || 150;
 
+    if($('cfg-happy-drop-rate')) $('cfg-happy-drop-rate').value = STATE.happy_drop_rate || 0.7;
+
+    if($('cfg-shop-s-cost')) $('cfg-shop-s-cost').value = STATE.shop_s_cost || 500;
+    if($('cfg-shop-s-amt')) $('cfg-shop-s-amt').value = STATE.shop_s_amt || 50;
+    if($('cfg-shop-m-cost')) $('cfg-shop-m-cost').value = STATE.shop_m_cost || 900;
+    if($('cfg-shop-m-amt')) $('cfg-shop-m-amt').value = STATE.shop_m_amt || 100;
+    if($('cfg-shop-l-amt')) $('cfg-shop-l-amt').value = STATE.shop_l_amt || 250;
+
+    if($('cfg-rscore-scoop')) $('cfg-rscore-scoop').value = STATE.rscore_scoop || 20;
+    if($('cfg-rscore-level')) $('cfg-rscore-level').value = STATE.rscore_level || 1000;
+
     highlightTpl();
     
     // Attach live preview events so changes reflect immediately in the iframe
@@ -46,7 +57,9 @@ function loadConfig() {
         'cfg-sky', 'cfg-ground', 'cfg-season-name', 'cfg-season-weeks', 'cfg-feed', 'cfg-clean', 'cfg-repair', 'cfg-play',
         'cfg-max-stamina', 'cfg-reg-stamina', 'cfg-dec-hunger', 'cfg-dec-clean', 'cfg-dec-happy',
         'cfg-rst-feed', 'cfg-rxp-feed', 'cfg-rst-play', 'cfg-rxp-play', 'cfg-rst-clean', 'cfg-rxp-clean', 'cfg-rst-repair', 'cfg-rxp-repair',
-        'cfg-sp-min', 'cfg-sp-max'
+        'cfg-sp-min', 'cfg-sp-max', 'cfg-happy-drop-rate',
+        'cfg-shop-s-cost', 'cfg-shop-s-amt', 'cfg-shop-m-cost', 'cfg-shop-m-amt', 'cfg-shop-l-cost', 'cfg-shop-l-amt',
+        'cfg-rscore-scoop', 'cfg-rscore-level'
     ];
     allInputs.forEach(id => {
         const el = $(id);
@@ -70,6 +83,15 @@ function sendPreview() {
         dec_hunger: parseFloat($('cfg-dec-hunger')?.value) || 0.12,
         dec_clean: parseFloat($('cfg-dec-clean')?.value) || 0.06,
         dec_happy: parseFloat($('cfg-dec-happy')?.value) || 0.08,
+        happy_drop_rate: parseFloat($('cfg-happy-drop-rate')?.value) || 0.7,
+        shop_s_cost: parseInt($('cfg-shop-s-cost')?.value) || 500,
+        shop_s_amt: parseInt($('cfg-shop-s-amt')?.value) || 50,
+        shop_m_cost: parseInt($('cfg-shop-m-cost')?.value) || 900,
+        shop_m_amt: parseInt($('cfg-shop-m-amt')?.value) || 100,
+        shop_l_cost: parseInt($('cfg-shop-l-cost')?.value) || 2000,
+        shop_l_amt: parseInt($('cfg-shop-l-amt')?.value) || 250,
+        rscore_scoop: parseInt($('cfg-rscore-scoop')?.value) || 20,
+        rscore_level: parseInt($('cfg-rscore-level')?.value) || 1000,
         rst_feed: parseInt($('cfg-rst-feed')?.value) || 15,
         rxp_feed: parseInt($('cfg-rxp-feed')?.value) || 15,
         rst_play: parseInt($('cfg-rst-play')?.value) || 20,
@@ -108,6 +130,15 @@ window.saveAll = () => {
         dec_hunger: parseFloat($('cfg-dec-hunger')?.value) || 0.12,
         dec_clean: parseFloat($('cfg-dec-clean')?.value) || 0.06,
         dec_happy: parseFloat($('cfg-dec-happy')?.value) || 0.08,
+        happy_drop_rate: parseFloat($('cfg-happy-drop-rate')?.value) || 0.7,
+        shop_s_cost: parseInt($('cfg-shop-s-cost')?.value) || 500,
+        shop_s_amt: parseInt($('cfg-shop-s-amt')?.value) || 50,
+        shop_m_cost: parseInt($('cfg-shop-m-cost')?.value) || 900,
+        shop_m_amt: parseInt($('cfg-shop-m-amt')?.value) || 100,
+        shop_l_cost: parseInt($('cfg-shop-l-cost')?.value) || 2000,
+        shop_l_amt: parseInt($('cfg-shop-l-amt')?.value) || 250,
+        rscore_scoop: parseInt($('cfg-rscore-scoop')?.value) || 20,
+        rscore_level: parseInt($('cfg-rscore-level')?.value) || 1000,
         rst_feed: parseInt($('cfg-rst-feed')?.value) || 15,
         rxp_feed: parseInt($('cfg-rxp-feed')?.value) || 15,
         rst_play: parseInt($('cfg-rst-play')?.value) || 20,
