@@ -16,6 +16,10 @@ export default {
         'arc8-pink': '#ff3399',
         'arc8-gold': '#f59e0b',
         'premium-accent': '#8b5cf6',
+        'neon-purple': '#8b5cf6',
+        'neon-pink': '#ec4899',
+        'neon-gold': '#f59e0b',
+        'surface': '#111827',
         premium: {
           dark: '#0f0a24',
           card: 'rgba(30, 24, 60, 0.7)',

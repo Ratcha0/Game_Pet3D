@@ -147,14 +147,22 @@ window.toggleRanking = () => {
         }
     );
 
-    // สุ่มอึทุก 10-15 วินาที (ชั่วคราวเพื่อเทส)
+    // สุ่มอึตามสถานะของสัตว์เลี้ยง (สมดุลขึ้น)
     function scheduleNextPoop() {
-        const delay = (10 + Math.random() * 5) * 1000;
+        // อึทุกๆ 60 - 150 วินาที (1 - 2.5 นาที)
+        const baseDelay = (60 + Math.random() * 90) * 1000;
+        
         setTimeout(() => {
-            spawnPoop();
-            spawn('💩 น้องอึแล้ว!');
+            // โอกาสอึขึ้นอยู่กับความหิว (อิ่มมากยิ่งอึบ่อย) และความสะอาด
+            const poopChance = (STATE.hunger / 100) * (1.2 - (STATE.clean / 100)); // ค่าสุ่มระหว่าง 0 - 1.2
+            
+            if (poopChance > 0.4) {
+                spawnPoop();
+                spawn('💩 น้องปวดท้องอึ!');
+            }
+            
             scheduleNextPoop();
-        }, delay);
+        }, baseDelay);
     }
     scheduleNextPoop();
 

@@ -1,4 +1,6 @@
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 
 let scene, camera, renderer, petModel, clock, particles, groundMesh;
 let ambientLight, sunLight, purpleLight, pinkLight;
@@ -15,6 +17,7 @@ const poopObjects = [];       // { mesh, timer, warningMesh }
 let onPoopCollected = null;   // callback to game.js
 let onPoopExpired = null;     // callback to game.js
 const POOP_LIFETIME = 30;     // วินาที ก่อนจะส่งผลเสีย
+const MAX_POOPS = 5;          // จำนวนอึสูงสุดบนพื้น
 
 // --- REALISTIC COLORS ---
 const SKY_COLORS = {
@@ -219,112 +222,30 @@ function createPetObject() {
     const innerEarMat = new THREE.MeshStandardMaterial({ color: 0xf4a0b0 }); // Pink inner ear
 
     if (currentTemplate === 'pet') {
-        // Body
-        const body = new THREE.Mesh(new THREE.SphereGeometry(0.7, 32, 32), bodyMat);
-        body.castShadow = true;
-        body.scale.set(1, 0.88, 1); // Slightly squished = chubbier cat
-
-        // Head (bigger relative to body = cute cat)
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.52, 32, 32), bodyMat);
-        head.position.set(0, 0.95, 0.08); head.castShadow = true;
-        head.scale.set(1.05, 0.98, 0.95);
-
-        // Ears (outer)
-        const earL = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 4), bodyMat);
-        earL.position.set(-0.28, 1.38, 0.05); earL.rotation.z = -0.2;
-        const earR = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 4), bodyMat);
-        earR.position.set(0.28, 1.38, 0.05); earR.rotation.z = 0.2;
-
-        // Inner ear (pink)
-        const innerEarL = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.25, 4), innerEarMat);
-        innerEarL.position.set(-0.28, 1.38, 0.07); innerEarL.rotation.z = -0.2;
-        const innerEarR = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.25, 4), innerEarMat);
-        innerEarR.position.set(0.28, 1.38, 0.07); innerEarR.rotation.z = 0.2;
-
-        // Eye whites
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), whiteMat);
-        eyeL.position.set(-0.18, 0.98, 0.44);
-        const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), whiteMat);
-        eyeR.position.set(0.18, 0.98, 0.44);
-
-        // Amber iris
-        const irisL = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), eyeMat);
-        irisL.position.set(-0.18, 0.98, 0.49);
-        const irisR = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), eyeMat);
-        irisR.position.set(0.18, 0.98, 0.49);
-
-        // Pupils
-        const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), darkMat);
-        pupilL.position.set(-0.18, 0.98, 0.505);
-        const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), darkMat);
-        pupilR.position.set(0.18, 0.98, 0.505);
-
-        // Nose
-        const nose = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), noseMat);
-        nose.position.set(0, 0.84, 0.49);
-
-        // Muzzle (lighter area around mouth/nose)
-        const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 12), accentMat);
-        muzzle.position.set(0, 0.82, 0.44); muzzle.scale.set(1, 0.6, 0.5);
-
-        // Belly (lighter patch)
-        const belly = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), accentMat);
-        belly.position.set(0, -0.05, 0.28); belly.scale.set(0.8, 0.75, 0.4);
-
-        // Tail (curved - 3 segments)
-        const tailMat = new THREE.MeshStandardMaterial({ color: 0xd4691e, roughness: 0.7 });
-        const tail1 = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.5, 8), tailMat);
-        tail1.position.set(0.1, 0.1, -0.65); tail1.rotation.x = -0.9; tail1.rotation.z = 0.2;
-        const tail2 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.4, 8), tailMat);
-        tail2.position.set(0.3, 0.4, -0.85); tail2.rotation.x = -0.3; tail2.rotation.z = 0.5;
-        const tail3 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), tailMat);
-        tail3.position.set(0.48, 0.55, -0.85);
-
-        // Legs (4 paws)
-        const legMat = new THREE.MeshStandardMaterial({ color: 0xc8661a, roughness: 0.7 });
-        const pawMat = new THREE.MeshStandardMaterial({ color: 0xf4d5b0, roughness: 0.6 });
-        const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.42, 8);
-        const fl = new THREE.Mesh(legGeo, legMat); fl.position.set(-0.28, -0.52, 0.28);
-        const fr = new THREE.Mesh(legGeo, legMat); fr.position.set(0.28, -0.52, 0.28);
-        const bl = new THREE.Mesh(legGeo, legMat); bl.position.set(-0.28, -0.52, -0.22);
-        const br = new THREE.Mesh(legGeo, legMat); br.position.set(0.28, -0.52, -0.22);
-
-        // Paw pads
-        const pawGeo = new THREE.SphereGeometry(0.1, 8, 8);
-        const pfl = new THREE.Mesh(pawGeo, pawMat); pfl.position.set(-0.28, -0.73, 0.32); pfl.scale.set(1, 0.5, 1);
-        const pfr = new THREE.Mesh(pawGeo, pawMat); pfr.position.set(0.28, -0.73, 0.32); pfr.scale.set(1, 0.5, 1);
-        const pbl = new THREE.Mesh(pawGeo, pawMat); pbl.position.set(-0.28, -0.73, -0.18); pbl.scale.set(1, 0.5, 1);
-        const pbr = new THREE.Mesh(pawGeo, pawMat); pbr.position.set(0.28, -0.73, -0.18); pbr.scale.set(1, 0.5, 1);
-
-        // Whiskers (หนวดแมว) — 3 เส้นต่อข้าง
-        const whiskerMat = new THREE.MeshBasicMaterial({ color: 0xf5e6cc });
-        const whiskerGeo = new THREE.CylinderGeometry(0.005, 0.002, 0.55, 4);
-
-        // ข้างซ้าย
-        const w1L = new THREE.Mesh(whiskerGeo, whiskerMat);
-        w1L.position.set(-0.22, 0.84, 0.46); w1L.rotation.z = Math.PI / 2; w1L.rotation.x = 0.15;
-
-        const w2L = new THREE.Mesh(whiskerGeo, whiskerMat);
-        w2L.position.set(-0.22, 0.82, 0.46); w2L.rotation.z = Math.PI / 2; w2L.rotation.x = 0.0;
-
-        const w3L = new THREE.Mesh(whiskerGeo, whiskerMat);
-        w3L.position.set(-0.22, 0.80, 0.46); w3L.rotation.z = Math.PI / 2; w3L.rotation.x = -0.15;
-
-        // ข้างขวา
-        const w1R = new THREE.Mesh(whiskerGeo, whiskerMat);
-        w1R.position.set(0.22, 0.84, 0.46); w1R.rotation.z = Math.PI / 2; w1R.rotation.x = 0.15;
-
-        const w2R = new THREE.Mesh(whiskerGeo, whiskerMat);
-        w2R.position.set(0.22, 0.82, 0.46); w2R.rotation.z = Math.PI / 2; w2R.rotation.x = 0.0;
-
-        const w3R = new THREE.Mesh(whiskerGeo, whiskerMat);
-        w3R.position.set(0.22, 0.80, 0.46); w3R.rotation.z = Math.PI / 2; w3R.rotation.x = -0.15;
-
-        petModel.add(body, belly, head, earL, earR, innerEarL, innerEarR,
-                     eyeL, eyeR, irisL, irisR, pupilL, pupilR,
-                     nose, muzzle, tail1, tail2, tail3,
-                     fl, fr, bl, br, pfl, pfr, pbl, pbr,
-                     w1L, w2L, w3L, w1R, w2R, w3R);
+        const mtlLoader = new MTLLoader();
+        mtlLoader.setPath('/models/cat/');
+        mtlLoader.load('12221_Cat_v1_l3.mtl', (materials) => {
+            materials.preload();
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(materials);
+            objLoader.setPath('/models/cat/');
+            objLoader.load('12221_Cat_v1_l3.obj', (object) => {
+                object.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                // ปรับขนาดและตำแหน่งให้พอดี
+                object.scale.set(0.015, 0.015, 0.015); 
+                object.rotation.x = Math.PI / 2; // ปรับให้ขนานพื้น
+                object.rotation.y = 0;
+                object.position.y = -1.1; // ให้ยืนบนพื้นพอดี
+                
+                petModel.add(object);
+            });
+        });
 
     } else if (currentTemplate === 'plant') {
         const potMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 });
@@ -577,6 +498,7 @@ function createPoopMesh(x, z) {
 // เรียกจาก game.js เพื่อสุ่มอึ
 export function spawnPoop() {
     if (!scene || !petModel) return;
+    if (poopObjects.length >= MAX_POOPS) return; // ไม่ให้อึเกินขีดจำกัด
     const px = petModel.position.x + (Math.random() - 0.5) * 0.5;
     const pz = petModel.position.z + (Math.random() - 0.5) * 0.5;
     const mesh = createPoopMesh(px, pz);
