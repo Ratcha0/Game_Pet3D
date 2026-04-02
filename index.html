@@ -29,65 +29,64 @@
 
         /* โหมดจอจิ๋วขีดสุด (Ultra Small / Widget Mode) */
         @media (max-width: 400px), (max-height: 550px) {
-            .stats-panel { transform: scale(0.6) !important; transform-origin: bottom left !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-bottom: -22px !important; padding: 2px 5px !important; gap: 4px !important; }
-            .action-panel { transform: scale(0.6) !important; transform-origin: bottom right !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-bottom: -22px !important; padding: 2px !important; }
-            .profile-box { transform: scale(0.53) !important; transform-origin: top left !important; }
-            .wallet-box { transform: scale(0.53) !important; transform-origin: top right !important; }
-            header { padding: 0 !important; width: 100% !important; }
-            #spawn-area { position: absolute !important; top: 12px !important; left: 50% !important; transform: translateX(-50%) scale(0.35) !important; transform-origin: top center !important; }
+            #bottom-hud { 
+                position: relative !important; 
+                width: 100% !important; 
+                height: 35px !important; 
+                display: block !important; 
+            }
+            .profile-box { transform: scale(0.85) !important; transform-origin: top left !important; }
+            .wallet-box { transform: scale(0.85) !important; transform-origin: top right !important; }
+            header { padding: 1 !important; width: 100% !important; }
+            #spawn-area { position: absolute !important; top: 30px !important; left: 52% !important; transform: translateX(-50%) scale(0.7) !important; transform-origin: top center !important; }
             .hud { padding-top: 0 !important; padding-bottom: 0 !important; }
-            #bottom-hud { gap: 0 !important; padding: 0 4px !important; justify-content: space-between !important; display: flex !important; flex-direction: row !important; min-height: 60px !important; }
             
+            .stats-panel, .action-panel {
+                position: absolute !important;
+                bottom: 0 !important;
+                margin: 0 !important;
+                gap: 4px !important;
+                width: max-content !important; 
+                max-width: none !important;
+                height: 52px !important; 
+                padding: 4px 10px !important;
+                z-index: 10;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: visible !important;
+            }
+            .stats-panel { 
+                left: 0% !important; 
+                transform-origin: bottom left !important; 
+                transform: scale(0.9) !important; 
+                flex-direction: row !important; 
+            }
+            .action-panel { 
+                right: 0% !important; 
+                transform-origin: bottom right !important; 
+                transform: scale(0.9) !important; 
+            }
+
             /* พิเศษสำหรับจอเล็กลงไปอีก (Nano Mode < 300px) */
             @media (max-width: 300px) {
-                .profile-box, .wallet-box { transform: scale(0.4) !important; }
-                #bottom-hud { 
-                    position: relative !important; 
-                    width: 100% !important; 
-                    height: 35px !important; 
-                    display: block !important; 
-                }
-
-                .stats-panel, .action-panel {
-                    position: absolute !important;
-                    bottom: 0 !important;
-                    margin: 0 !important;
-                    gap: 4px !important;
-                    width: max-content !important; /* ปล่อยอิสระ ไม่ตัดขอบ */
-                    max-width: none !important;
-                    height: 52px !important; /* บังคับให้สูงเท่ากัน */
-                    padding: 4px 10px !important;
-                    z-index: 10;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    overflow: visible !important;
-                }
-                
-                /* ชิดขอบซ้ายขวาเป๊ะๆ ไม่ทะลุจอ เพราะขนาดกล่องเดี่ยว < 273px */
-                .stats-panel { 
-                    left: 0% !important; 
-                    transform-origin: bottom left !important; 
-                    transform: scale(0.48) !important; 
-                    flex-direction: row !important; 
-                }
-                .action-panel { 
-                    right: 0% !important; 
-                    transform-origin: bottom right !important; 
-                    transform: scale(0.48) !important; 
-                }
-
-                /* ย่อส่วนหน้าจอเล็กมาก */
-                @media (max-width: 280px) {
-                    .stats-panel, .action-panel { transform: scale(0.42) !important; }
-                }
-                @media (max-width: 250px) {
-                    .stats-panel, .action-panel { transform: scale(0.35) !important; }
-                }
+                .profile-box, .wallet-box { transform: scale(0.55) !important; }
+                .stats-panel { transform: scale(0.55) !important; }
+                .action-panel { transform: scale(0.55) !important; }
 
                 /* ซ่อนข้อความเพื่อให้กล่องเล็กลง */
                 .label-text { display: none !important; }
                 .stats-panel h1, .action-panel h1 { display: none !important; }
+            }
+
+            /* ย่อส่วนหน้าจอเล็กมาก */
+            @media (max-width: 280px) {
+                .stats-panel { transform: scale(0.42) !important; }
+                .action-panel { transform: scale(0.42) !important; }
+            }
+            @media (max-width: 250px) {
+                .stats-panel { transform: scale(0.35) !important; }
+                .action-panel { transform: scale(0.35) !important; }
             }
         }
 
@@ -118,8 +117,8 @@
                 z-index: 100 !important;
             }
             #spawn-area { 
-                position: absolute !important; top: 12px !important; left: 50% !important; 
-                transform: translateX(-50%) scale(0.7) !important;
+                position: absolute !important; top: 4px !important; left: 50% !important; 
+                transform: translateX(-50%) scale(0.55) !important; transform-origin: top center !important;
             }
             .stats-panel, .action-panel { 
                 max-width: 250px !important; 
