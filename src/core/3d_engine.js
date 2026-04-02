@@ -385,11 +385,11 @@ function animate() {
         if (camera) {
             const targetCamPos = new THREE.Vector3(
                 petModel.position.x, 
-                petModel.position.y + 4.5, 
-                petModel.position.z + 8.5
+                petModel.position.y + 3.5, 
+                petModel.position.z + 8.0
             );
             camera.position.lerp(targetCamPos, 0.05);
-            camera.lookAt(petModel.position.x, petModel.position.y + 0.5, petModel.position.z);
+            camera.lookAt(petModel.position.x, petModel.position.y - 0.5, petModel.position.z);
         }
     }
 

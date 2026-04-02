@@ -34,42 +34,60 @@
             .profile-box { transform: scale(0.53) !important; transform-origin: top left !important; }
             .wallet-box { transform: scale(0.53) !important; transform-origin: top right !important; }
             header { padding: 0 !important; width: 100% !important; }
-            #spawn-area { display: none !important; } /* ซ่อนคำแนะนำถาวรในจอเล็กเพื่อประหยัดที่ */
+            #spawn-area { position: absolute !important; top: 12px !important; left: 50% !important; transform: translateX(-50%) scale(0.35) !important; transform-origin: top center !important; }
             .hud { padding-top: 0 !important; padding-bottom: 0 !important; }
             #bottom-hud { gap: 0 !important; padding: 0 4px !important; justify-content: space-between !important; display: flex !important; flex-direction: row !important; min-height: 60px !important; }
             
             /* พิเศษสำหรับจอเล็กลงไปอีก (Nano Mode < 300px) */
             @media (max-width: 300px) {
                 .profile-box, .wallet-box { transform: scale(0.4) !important; }
+                #bottom-hud { 
+                    position: relative !important; 
+                    width: 100% !important; 
+                    height: 35px !important; 
+                    display: block !important; 
+                }
+
                 .stats-panel, .action-panel {
                     position: absolute !important;
                     bottom: 0 !important;
                     margin: 0 !important;
-                    gap: 2px !important;
-                    width: 48% !important;
-                    max-width: 120px !important;
-                    overflow: hidden !important;
+                    gap: 4px !important;
+                    width: max-content !important; /* ปล่อยอิสระ ไม่ตัดขอบ */
+                    max-width: none !important;
+                    height: 52px !important; /* บังคับให้สูงเท่ากัน */
+                    padding: 4px 10px !important;
                     z-index: 10;
-                }
-                .stats-panel { left: 1% !important; transform-origin: bottom left !important; transform: scale(0.45) !important; padding: 4px 5px !important; }
-                .action-panel { right: 1% !important; transform-origin: bottom right !important; transform: scale(0.45) !important; padding: 4px 5px !important; }
-
-                /* ปรับขนาดต่อเนื่องเมื่อจอ <250px */
-                @media (max-width: 250px) {
-                    .stats-panel, .action-panel {
-                        width: 45% !important;
-                        max-width: 100px !important;
-                    }
-                    .stats-panel { transform: scale(0.4) !important; }
-                    .action-panel { transform: scale(0.4) !important; }
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    overflow: visible !important;
                 }
                 
-                /* ซ่อนตัวหนังสือทั้งหมดด้วยคลาสใหม่ */
+                /* ชิดขอบซ้ายขวาเป๊ะๆ ไม่ทะลุจอ เพราะขนาดกล่องเดี่ยว < 273px */
+                .stats-panel { 
+                    left: 0% !important; 
+                    transform-origin: bottom left !important; 
+                    transform: scale(0.48) !important; 
+                    flex-direction: row !important; 
+                }
+                .action-panel { 
+                    right: 0% !important; 
+                    transform-origin: bottom right !important; 
+                    transform: scale(0.48) !important; 
+                }
+
+                /* ย่อส่วนหน้าจอเล็กมาก */
+                @media (max-width: 280px) {
+                    .stats-panel, .action-panel { transform: scale(0.42) !important; }
+                }
+                @media (max-width: 250px) {
+                    .stats-panel, .action-panel { transform: scale(0.35) !important; }
+                }
+
+                /* ซ่อนข้อความเพื่อให้กล่องเล็กลง */
                 .label-text { display: none !important; }
                 .stats-panel h1, .action-panel h1 { display: none !important; }
-.action-panel button[onclick="toggleRanking()"] { display:none !important; }
-                
-                #bottom-hud { position: relative !important; width: 100% !important; height: 35px !important; display: block !important; }
             }
         }
 
@@ -208,7 +226,7 @@
                         <div class="w-px h-6 sm:h-8 bg-white/5 mx-0.5"></div>
                         <button onclick="toggleRanking()" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
                             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-base sm:text-lg">🏆</div>
-                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Rank</span>
+                            <span class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Rank</span>
                         </button>
                     </div>
                 </div>
