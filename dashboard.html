@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard — PetWorld 3D</title>
+    <title>Admin Dashboard — LikeGotchi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <script>
@@ -56,7 +56,7 @@
             <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
             <span class="text-[8px] font-bold text-emerald-400/70 uppercase tracking-[0.3em]">System Online</span>
         </div>
-        <h1 class="text-3xl font-black text-white tracking-tight mb-1">Admin <span class="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-pink">Panel</span></h1>
+        <h1 class="text-3xl font-black text-white tracking-tight mb-1">Like<span class="text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-pink">Gotchi</span></h1>
         <p class="text-white/25 text-xs mb-8">จัดการระบบสำหรับผู้เล่นทุกคน</p>
 
         <div class="space-y-6 max-w-2xl">
@@ -131,6 +131,54 @@
                     <div><label>อาบน้ำ</label><input type="number" id="cfg-clean" value="8"></div>
                     <div><label>เก็บอึ</label><input type="number" id="cfg-repair" value="5"></div>
                     <div><label>เล่น</label><input type="number" id="cfg-play" value="12"></div>
+                </div>
+            </section>
+
+            <!-- ADVANCED STATS -->
+            <section class="glass glow-card rounded-2xl p-6">
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">ระบบหลอดพลังงาน (Max)</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label>Stamina สูงสุด</label><input type="number" id="cfg-max-stamina" value="100"></div>
+                    <div><label>Stamina ฟื้นฟู (ต่อ 5วิ)</label><input type="number" step="0.1" id="cfg-reg-stamina" value="0.5"></div>
+                </div>
+            </section>
+            
+            <section class="glass glow-card rounded-2xl p-6">
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">อัตราการลดลง (ทุก 5 วิ)</div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div><label>ความหิว</label><input type="number" step="0.01" id="cfg-dec-hunger" value="0.12"></div>
+                    <div><label>ความสกปรก</label><input type="number" step="0.01" id="cfg-dec-clean" value="0.06"></div>
+                    <div><label>ความเหงา</label><input type="number" step="0.01" id="cfg-dec-happy" value="0.08"></div>
+                </div>
+            </section>
+
+            <section class="glass glow-card rounded-2xl p-6">
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">ผลตอบแทนการกดปุ่ม (Stat เพิ่ม / XP ที่ได้)</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-4 border-r border-white/10 pr-4">
+                        <div><label class="text-orange-400">ป้อนอาหาร (Stat +)</label><input type="number" id="cfg-rst-feed" value="15"></div>
+                        <div><label class="text-orange-400">ป้อนอาหาร (XP +)</label><input type="number" id="cfg-rxp-feed" value="15"></div>
+                    </div>
+                    <div class="space-y-4">
+                        <div><label class="text-green-400">เล่นด้วย (Stat +)</label><input type="number" id="cfg-rst-play" value="20"></div>
+                        <div><label class="text-green-400">เล่นด้วย (XP +)</label><input type="number" id="cfg-rxp-play" value="25"></div>
+                    </div>
+                    <div class="space-y-4 border-r border-white/10 pr-4 mt-2">
+                        <div><label class="text-cyan-400">อาบน้ำ (Stat +)</label><input type="number" id="cfg-rst-clean" value="20"></div>
+                        <div><label class="text-cyan-400">อาบน้ำ (XP +)</label><input type="number" id="cfg-rxp-clean" value="10"></div>
+                    </div>
+                    <div class="space-y-4 mt-2">
+                        <div><label class="text-amber-400">เก็บกวาด (Stat +)</label><input type="number" id="cfg-rst-repair" value="10"></div>
+                        <div><label class="text-amber-400">เก็บกวาด (XP +)</label><input type="number" id="cfg-rxp-repair" value="12"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass glow-card rounded-2xl p-6">
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">ระบบสุ่มเสกของ (Spawner)</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label>เกิดขั้นต่ำ (วินาที)</label><input type="number" id="cfg-sp-min" value="60"></div>
+                    <div><label>เกิดช้าสุด (วินาที)</label><input type="number" id="cfg-sp-max" value="150"></div>
                 </div>
             </section>
 

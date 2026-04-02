@@ -37,5 +37,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`🚀 PetWorld Server is running at http://localhost:${port}`);
+    console.log(`🚀 LikeGotchi Server is running at http://localhost:${port}`);
 });

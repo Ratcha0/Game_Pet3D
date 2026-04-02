@@ -1,4 +1,4 @@
-import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI } from './3d_engine.js';
+import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI, spawnReward, setRewardCallback } from './3d_engine.js';
 
 // --- MOCK ---
 const MOCK_BOARD = [
@@ -28,8 +28,10 @@ function updateUI() {
     [['bar-hunger','val-hunger',STATE.hunger],['bar-happy','val-happy',STATE.happy],
      ['bar-clean','val-clean',STATE.clean],['bar-stamina','val-stamina',STATE.stamina]]
     .forEach(([b,v,val])=>{
-        const bar=$(b); if(bar) bar.style.width=`${val}%`;
-        const ve=$(v); if(ve) ve.innerText=`${Math.floor(val)}%`;
+        const maxVal = (b === 'bar-stamina') ? (STATE.maxStamina || 100) : 100;
+        const pct = Math.min(100, (val / maxVal) * 100);
+        const bar=$(b); if(bar) bar.style.width=`${pct}%`;
+        const ve=$(v); if(ve) ve.innerText=`${Math.floor(val)}/${maxVal}`;
     });
 
     // Costs
@@ -58,18 +60,23 @@ window.doAction = (type) => {
     if (STATE.stamina < cost) { spawn('⚡ พลังงานไม่พอ!'); return; }
     STATE.stamina -= cost;
 
+    const mech = STATE.config.mechanics || {
+        rst_feed:15, rxp_feed:15, rst_clean:20, rxp_clean:10, 
+        rst_play:20, rxp_play:25, rst_repair:10, rxp_repair:12
+    };
+
     switch(type) {
-        case 'feed': STATE.hunger=Math.min(100,STATE.hunger+15); STATE.xp+=15; spawn('🍖 อร่อย! +15XP'); break;
-        case 'clean': STATE.clean=Math.min(100,STATE.clean+20); STATE.xp+=10; spawn('🧼 สะอาด! +10XP'); break;
+        case 'feed': STATE.hunger=Math.min(100,STATE.hunger+mech.rst_feed); STATE.xp+=mech.rxp_feed; spawn(`🍖 อร่อย! +${mech.rxp_feed}XP`); break;
+        case 'clean': STATE.clean=Math.min(100,STATE.clean+mech.rst_clean); STATE.xp+=mech.rxp_clean; spawn(`🧼 สะอาด! +${mech.rxp_clean}XP`); break;
         case 'repair': 
             if (collectPoopByUI()) {
-                STATE.clean=Math.min(100,STATE.clean+10); STATE.happy=Math.min(100,STATE.happy+5); STATE.xp+=12; 
-                spawn('💩 เก็บแล้ว! +12XP'); 
+                STATE.clean=Math.min(100,STATE.clean+mech.rst_repair); STATE.happy=Math.min(100,STATE.happy+5); STATE.xp+=mech.rxp_repair; 
+                spawn(`💩 เก็บแล้ว! +${mech.rxp_repair}XP`); 
             } else {
                 spawn('✨ พื้นสะอาดอยู่แล้ว');
             }
             break;
-        case 'play': STATE.happy=Math.min(100,STATE.happy+20); STATE.xp+=25; spawn('🎾 สนุก! +25XP'); break;
+        case 'play': STATE.happy=Math.min(100,STATE.happy+mech.rst_play); STATE.xp+=mech.rxp_play; spawn(`🎾 สนุก! +${mech.rxp_play}XP`); break;
     }
 
 
@@ -95,13 +102,46 @@ function loadAdminConfig() {
         STATE.config.season_name=p.season_name||'Season 1';
         STATE.config.season_weeks=p.season_weeks||1;
         STATE.config.costs={ feed:p.cost_feed||10, clean:p.cost_clean||8, repair:p.cost_repair||5, play:p.cost_play||12 };
+        STATE.maxStamina = p.max_stamina || 100;
+        STATE.config.mechanics = {
+            dec_hunger: p.dec_hunger ?? 0.12, dec_clean: p.dec_clean ?? 0.06, dec_happy: p.dec_happy ?? 0.08,
+            reg_stamina: p.reg_stamina ?? 0.5,
+            rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 20, rxp_play: p.rxp_play ?? 25,
+            rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
+            sp_min: p.sp_min ?? 60, sp_max: p.sp_max ?? 150
+        };
     }
 }
 
-// Listen for admin changes
+// Listen for admin changes (from save)
 window.addEventListener('storage', (e) => {
     if(e.key==='pw3d_config') {
         loadAdminConfig();
+        updateTemplate(STATE.config.template);
+        updateEnvironment(STATE.config.sky, STATE.config.ground);
+        updateUI();
+    }
+});
+
+// Listen for LIVE preview from dashboard iframe (without saving)
+window.addEventListener('message', (e) => {
+    if(e.data && e.data.type === 'PW3D_PREVIEW') {
+        const p = e.data.config;
+        STATE.config.template = p.template_type || 'pet';
+        STATE.config.sky = p.sky || 'day';
+        STATE.config.ground = p.ground || 'grass';
+        STATE.config.season_name = p.season_name || 'Season 1';
+        STATE.config.season_weeks = p.season_weeks || 1;
+        STATE.config.costs = { feed:p.cost_feed||10, clean:p.cost_clean||8, repair:p.cost_repair||5, play:p.cost_play||12 };
+        STATE.maxStamina = p.max_stamina || 100;
+        STATE.config.mechanics = {
+            dec_hunger: p.dec_hunger ?? 0.12, dec_clean: p.dec_clean ?? 0.06, dec_happy: p.dec_happy ?? 0.08,
+            reg_stamina: p.reg_stamina ?? 0.5,
+            rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 20, rxp_play: p.rxp_play ?? 25,
+            rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
+            sp_min: p.sp_min ?? 60, sp_max: p.sp_max ?? 150
+        };
+        
         updateTemplate(STATE.config.template);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateUI();
@@ -177,81 +217,45 @@ window.toggleFullScreen = () => {
     }
 };
 
-// ระบบลากนิ้ว (Swipe to Close)
-const initSwipeToClose = () => {
-    const modal = $('ranking-modal');
-    const handle = $('ranking-handle');
-    let startY = 0;
-    let currentY = 0;
-    
-    if(!modal || !handle) return;
-
-    const onTouchStart = (e) => {
-        startY = e.touches[0].clientY;
-        modal.style.transition = 'none'; // ปิด transition ตอนลาก
-    };
-
-    const onTouchMove = (e) => {
-        currentY = e.touches[0].clientY;
-        const deltaY = currentY - startY;
-        if (deltaY > 0) {
-            // ลากลงเท่านั้น
-            modal.style.transform = `translateY(${deltaY}px)`;
-        }
-    };
-
-    const onTouchEnd = () => {
-        const deltaY = currentY - startY;
-        modal.style.transition = 'all 0.4s ease';
-        
-        if (deltaY > 150) {
-            // ถ้าลากลงมาลึกเกิน 150px ให้ปิดเลย
-            toggleRanking(true);
-        } else {
-            // ถ้าไม่ถึง ให้เด้งกลับที่เดิม
-            modal.style.transform = 'translateY(0)';
-        }
-        currentY = 0;
-        startY = 0;
-    };
-
-    // ใส่ Event ให้ทั้งก้อนบนสุดและตัวหูดึง
-    handle.addEventListener('touchstart', onTouchStart);
-    handle.addEventListener('touchmove', onTouchMove);
-    handle.addEventListener('touchend', onTouchEnd);
-    
-    // คลิกที่หูก็ปิดได้เหมือนเดิม
-    handle.onclick = () => toggleRanking(true);
-};
 
 // --- BOOT ---
 (() => {
     load(); loadAdminConfig();
     init3D('three-canvas', STATE.config.template, { sky:STATE.config.sky, ground:STATE.config.ground });
     updateUI();
-    initSwipeToClose(); // เปิดใช้งานระบบลาก
-
     // ตั้ง Poop Callbacks
     setPoopCallbacks(
         // ผู้เล่นเก็บอึสำเร็จ
         () => {
-            STATE.clean = Math.min(100, STATE.clean + 15);
-            STATE.xp += 12;
-            spawn('f4a9 เก็บแล้ว! +12XP');
+            const mech = STATE.config.mechanics || { rst_repair:10, rxp_repair:12 };
+            STATE.clean = Math.min(100, STATE.clean + mech.rst_repair);
+            STATE.xp += mech.rxp_repair;
+            spawn(`💩 เก็บแล้ว! +${mech.rxp_repair}XP`);
             updateUI(); save();
         },
         // อึหมดเวลา — Happy ลด
         () => {
-            STATE.happy = Math.max(0, STATE.happy - 12);
-            spawn('f4a9 อึเน่าเกินไป! -12♥');
+            const mech = STATE.config.mechanics || { dec_happy_poop: 12 };
+            STATE.happy = Math.max(0, STATE.happy - (mech.dec_happy_poop || 12));
+            spawn('💩 อึเน่าเกินไป! -12♥');
             updateUI(); save();
         }
     );
 
+    // ตั้งระบบรางวัล (Token Drop)
+    setRewardCallback((type, val) => {
+        if (type === 'coin') {
+            const tokenGain = Math.floor(10 + Math.random() * 20); // สุ่มเพิ่ม 10-30 Token
+            STATE.tokens += tokenGain;
+            spawn(`🪙 เก็บเหรียญได้ +${tokenGain} Token!`);
+            updateUI(); save();
+        }
+    });
+
     // สุ่มอึตามสถานะของสัตว์เลี้ยง (สมดุลขึ้น)
     function scheduleNextPoop() {
-        // อึทุกๆ 60 - 150 วินาที (1 - 2.5 นาที)
-        const baseDelay = (60 + Math.random() * 90) * 1000;
+        const mech = STATE.config.mechanics || { sp_min:60, sp_max:150 };
+        const baseDelay = (mech.sp_min + Math.random() * (mech.sp_max - mech.sp_min)) * 1000;
         
         setTimeout(() => {
             // โอกาสอึขึ้นอยู่กับความหิว (อิ่มมากยิ่งอึบ่อย) และความสะอาด
@@ -268,10 +272,21 @@ const initSwipeToClose = () => {
     scheduleNextPoop();
 
     setInterval(()=>{
-        STATE.hunger=Math.max(0,STATE.hunger-0.12);
-        STATE.happy=Math.max(0,STATE.happy-0.08);
-        STATE.clean=Math.max(0,STATE.clean-0.06);
-        STATE.stamina=Math.min(STATE.maxStamina,STATE.stamina+0.5); // ปรับจาก 0.2 เป็น 0.5 ให้ฟื้นฟูไวขึ้น
+        const mech = STATE.config.mechanics || { dec_hunger: 0.12, dec_happy: 0.08, dec_clean: 0.06, reg_stamina: 0.5 };
+        STATE.maxStamina = STATE.maxStamina || 100;
+        
+        STATE.hunger=Math.max(0,STATE.hunger-mech.dec_hunger);
+        STATE.happy=Math.max(0,STATE.happy-mech.dec_happy);
+        STATE.clean=Math.max(0,STATE.clean-mech.dec_clean);
+        STATE.stamina=Math.min(STATE.maxStamina, STATE.stamina+mech.reg_stamina);
+
+        // --- HAPPY BONUS DROP ---
+        // ถ้าความสุข > 85% มีโอกาสเสกเหรียญให้คนเล่นสะสม
+        if (STATE.happy > 85 && Math.random() > 0.7) {
+            spawnReward('coin');
+            spawn('🎁 น้องมีความสุขจนอยากให้ของขวัญ!');
+        }
+
         updateUI();
     },5000);
 })();

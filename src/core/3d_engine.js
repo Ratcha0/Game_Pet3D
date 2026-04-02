@@ -16,8 +16,12 @@ let nextAutoWalkTime = 0;
 const poopObjects = [];       // { mesh, timer, warningMesh }
 let onPoopCollected = null;   // callback to game.js
 let onPoopExpired = null;     // callback to game.js
-const POOP_LIFETIME = 30;     // วินาที ก่อนจะส่งผลเสีย
+let onRewardCollected = null;
+const rewardObjects = []; // { mesh, type, value, startY }
+const POOP_LIFETIME = 45;     // วินาที ก่อนจะส่งผลเสีย
+const REWARD_LIFETIME = 25;   // วินาที ก่อนจะส่งผลเสีย
 const MAX_POOPS = 5;          // จำนวนอึสูงสุดบนพื้น
+const MAX_REWARDS = 10;
 
 // --- REALISTIC COLORS ---
 const SKY_COLORS = {
@@ -176,12 +180,7 @@ function createGround() {
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
-    // Grid overlay
-    const grid = new THREE.GridHelper(20, 30, 0x8b5cf6, 0x1e293b);
-    grid.position.y = -1.19;
-    grid.material.opacity = 0.15;
-    grid.material.transparent = true;
-    scene.add(grid);
+
 
     // Glow ring
     const ring = new THREE.Mesh(
@@ -338,6 +337,7 @@ function autoWalk(t) {
 function animate() {
     requestAnimationFrame(animate);
     const t = clock.getElapsedTime();
+    if (window.TWEEN) TWEEN.update();
 
     if (petModel) {
         // Auto-walk AI
@@ -427,6 +427,7 @@ function animate() {
     }
 
     updateIndicators();
+    updateRewards(t);
 
     renderer.render(scene, camera);
 }
@@ -516,6 +517,28 @@ function updateIndicators() {
     });
 }
 
+function updateRewards(t) {
+    for (let i = rewardObjects.length - 1; i >= 0; i--) {
+        const r = rewardObjects[i];
+        if (!r.mesh) continue;
+        
+        // หมุนเหรียญ
+        r.mesh.rotation.y += 0.05;
+        // ลอยขึ้นลงเบาๆ
+        r.mesh.position.y = r.startY + Math.sin(t * 4) * 0.05;
+        
+        // เช็คระยะห่างจากสัตว์เลี้ยง (เดินทับเก็บเหรียญ)
+        if (petModel) {
+            const dist = r.mesh.position.distanceTo(petModel.position);
+            if (dist < 0.6) {
+                scene.remove(r.mesh);
+                rewardObjects.splice(i, 1);
+                if (onRewardCollected) onRewardCollected(r.type, r.value);
+            }
+        }
+    }
+}
+
 // สร้างก้อนอึ 3D บนพื้น
 function createPoopMesh(x, z) {
     const group = new THREE.Group();
@@ -603,15 +626,68 @@ export function setPoopCallbacks(onCollect, onExpire) {
 
 // ฟังก์ชันใหม่: ลบอึออก 1 ก้อน (เมื่อกดปุ่ม UI)
 export function collectPoopByUI() {
-    if (poopObjects.length > 0) {
-        const p = poopObjects.shift(); // ลบก้อนที่เก่าที่สุด
-        if (p && p.mesh) {
-            scene.remove(p.mesh);
-            return true;
-        }
-    }
-    return false;
+    if (poopObjects.length === 0) return false;
+    const p = poopObjects[0];
+    scene.remove(p.mesh);
+    poopObjects.shift();
+    return true;
 }
+
+// --- REWARDS SYSTEM ---
+
+function createCoinMesh() {
+    const group = new THREE.Group();
+    // เหรียญทอง
+    const goldMat = new THREE.MeshStandardMaterial({ 
+        color: 0xffd700, metalness: 0.8, roughness: 0.2, 
+        emissive: 0xaa8800, emissiveIntensity: 0.2 
+    });
+    const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 24);
+    const coin = new THREE.Mesh(geo, goldMat);
+    coin.rotation.x = Math.PI / 2;
+    coin.castShadow = true;
+    group.add(coin);
+
+    // สัญลักษณ์ $ (ใช้ PlaneTexture ง่ายๆ หรือ Cylinder ผอมๆ)
+    const symbolGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.2, 8);
+    const symbol = new THREE.Mesh(symbolGeo, new THREE.MeshBasicMaterial({ color: 0x442200 }));
+    symbol.position.z = 0.03;
+    group.add(symbol);
+
+    return group;
+}
+
+export function spawnReward(type = 'coin', value = 1) {
+    if (!scene || !petModel) return;
+    if (rewardObjects.length >= MAX_REWARDS) return;
+
+    // กระจายรอบๆ ตัวสัตว์เลี้ยงเล็กน้อย
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 0.8 + Math.random() * 0.5;
+    const rx = petModel.position.x + Math.cos(angle) * dist;
+    const rz = petModel.position.z + Math.sin(angle) * dist;
+
+    const mesh = createCoinMesh();
+    mesh.position.set(rx, -1.0, rz);
+    mesh.scale.set(0.1, 0.1, 0.1);
+    scene.add(mesh);
+
+    // Animation เกิด: เด้งออกมา
+    if (window.TWEEN) {
+        new TWEEN.Tween(mesh.scale).to({ x: 1, y: 1, z: 1 }, 500).easing(TWEEN.Easing.Back.Out).start();
+        new TWEEN.Tween(mesh.position).to({ y: -0.9 }, 300).yoyo(true).repeat(1).start();
+    } else {
+        mesh.scale.set(1, 1, 1);
+        mesh.position.y = -0.9;
+    }
+
+    rewardObjects.push({ mesh, type, value, startY: -0.9 });
+}
+
+export function setRewardCallback(callback) {
+    onRewardCollected = callback;
+}
+
 
 
 export function updateTemplate(type) {
