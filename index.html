@@ -29,13 +29,48 @@
 
         /* โหมดจอจิ๋วขีดสุด (Ultra Small / Widget Mode) */
         @media (max-width: 400px), (max-height: 550px) {
-            .stats-panel, .action-panel { transform: scale(0.65) !important; margin-bottom: -18px !important; transform-origin: bottom center; }
-            .profile-box { transform: scale(0.55) !important; transform-origin: top left !important; }
-            .wallet-box { transform: scale(0.55) !important; transform-origin: top right !important; }
-            header { padding: 2px 4px !important; }
-            #spawn-area { transform: scale(0.55) translateY(-35px) !important; opacity: 0.7; }
-            .hud { padding-top: 2px !important; padding-bottom: 2px !important; }
-            #bottom-hud { gap: -5px !important; }
+            .stats-panel { transform: scale(0.6) !important; transform-origin: bottom left !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-bottom: -22px !important; padding: 2px 5px !important; gap: 4px !important; }
+            .action-panel { transform: scale(0.6) !important; transform-origin: bottom right !important; flex-shrink: 0 !important; white-space: nowrap !important; margin-bottom: -22px !important; padding: 2px !important; }
+            .profile-box { transform: scale(0.53) !important; transform-origin: top left !important; }
+            .wallet-box { transform: scale(0.53) !important; transform-origin: top right !important; }
+            header { padding: 0 !important; width: 100% !important; }
+            #spawn-area { display: none !important; } /* ซ่อนคำแนะนำถาวรในจอเล็กเพื่อประหยัดที่ */
+            .hud { padding-top: 0 !important; padding-bottom: 0 !important; }
+            #bottom-hud { gap: 0 !important; padding: 0 4px !important; justify-content: space-between !important; display: flex !important; flex-direction: row !important; min-height: 60px !important; }
+            
+            /* พิเศษสำหรับจอเล็กลงไปอีก (Nano Mode < 300px) */
+            @media (max-width: 300px) {
+                .profile-box, .wallet-box { transform: scale(0.4) !important; }
+                .stats-panel, .action-panel {
+                    position: absolute !important;
+                    bottom: 0 !important;
+                    margin: 0 !important;
+                    gap: 2px !important;
+                    width: 48% !important;
+                    max-width: 120px !important;
+                    overflow: hidden !important;
+                    z-index: 10;
+                }
+                .stats-panel { left: 1% !important; transform-origin: bottom left !important; transform: scale(0.45) !important; padding: 4px 5px !important; }
+                .action-panel { right: 1% !important; transform-origin: bottom right !important; transform: scale(0.45) !important; padding: 4px 5px !important; }
+
+                /* ปรับขนาดต่อเนื่องเมื่อจอ <250px */
+                @media (max-width: 250px) {
+                    .stats-panel, .action-panel {
+                        width: 45% !important;
+                        max-width: 100px !important;
+                    }
+                    .stats-panel { transform: scale(0.4) !important; }
+                    .action-panel { transform: scale(0.4) !important; }
+                }
+                
+                /* ซ่อนตัวหนังสือทั้งหมดด้วยคลาสใหม่ */
+                .label-text { display: none !important; }
+                .stats-panel h1, .action-panel h1 { display: none !important; }
+.action-panel button[onclick="toggleRanking()"] { display:none !important; }
+                
+                #bottom-hud { position: relative !important; width: 100% !important; height: 35px !important; display: block !important; }
+            }
         }
 
         @media (max-height: 650px) and (orientation: portrait) {
@@ -132,22 +167,22 @@
                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
                                 <span class="text-base sm:text-lg">🍖</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-hunger" class="h-full bg-gradient-to-r from-orange-500 to-amber-300 transition-all" style="width:85%"></div></div>
-                                <span id="val-hunger" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">85%</span>
+                                <span id="val-hunger" class="label-text text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">85%</span>
                             </div>
                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
                                 <span class="text-base sm:text-lg">💖</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-happy" class="h-full bg-gradient-to-r from-pink-500 to-rose-300 transition-all" style="width:92%"></div></div>
-                                <span id="val-happy" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">92%</span>
+                                <span id="val-happy" class="label-text text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">92%</span>
                             </div>
                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
                                 <span class="text-base sm:text-lg">🧼</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-clean" class="h-full bg-gradient-to-r from-cyan-500 to-teal-300 transition-all" style="width:70%"></div></div>
-                                <span id="val-clean" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">70%</span>
+                                <span id="val-clean" class="label-text text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">70%</span>
                             </div>
                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
                                 <span class="text-base sm:text-lg">⚡</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-stamina" class="h-full bg-gradient-to-r from-emerald-500 to-green-300 transition-all" style="width:90%"></div></div>
-                                <span id="val-stamina" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">90%</span>
+                                <span id="val-stamina" class="label-text text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">90%</span>
                             </div>
                         </div>
                     </div>
@@ -156,19 +191,19 @@
                     <div class="action-panel glass glow rounded-[1.5rem] sm:rounded-[2rem] p-0.5 sm:p-1 flex items-center justify-between border border-white/5 max-w-[480px] w-full">
                         <button onclick="doAction('feed')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
                             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-base sm:text-lg">🍗</div>
-                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Feed</span>
+                            <span class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Feed</span>
                         </button>
                         <button onclick="doAction('clean')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
                             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-base sm:text-lg">🧼</div>
-                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Clean</span>
+                            <span class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Clean</span>
                         </button>
                         <button onclick="doAction('repair')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
                             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-base sm:text-lg">💩</div>
-                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Scoop</span>
+                            <span class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Scoop</span>
                         </button>
                         <button onclick="doAction('play')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
                             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-base sm:text-lg">🎾</div>
-                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Play</span>
+                            <span class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Play</span>
                         </button>
                         <div class="w-px h-6 sm:h-8 bg-white/5 mx-0.5"></div>
                         <button onclick="toggleRanking()" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
