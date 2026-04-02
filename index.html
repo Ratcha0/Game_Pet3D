@@ -20,16 +20,25 @@
         .no-scroll::-webkit-scrollbar { display: none; }
         
         /* --- RESPONSIVE CORE --- */
-        @media (max-width: 380px) {
-            .stats-panel, .action-panel { transform: scale(0.92); transform-origin: bottom center; }
-            header { padding-left: 12px; padding-right: 12px; transform: scale(0.9); transform-origin: top center; }
-            #spawn-area { transform: scale(0.85); margin-bottom: -4px; }
+        @media (max-width: 400px) {
+            .stats-panel, .action-panel { transform: scale(0.9); transform-origin: bottom center; }
+            header { transform: scale(0.85); transform-origin: top center; padding-top: 10px !important; }
+            #spawn-area { transform: scale(0.8) translateY(-10px); }
+        }
+
+        /* โหมดจอจิ๋วขีดสุด (Ultra Small / Widget Mode) */
+        @media (max-width: 320px), (max-height: 550px) {
+            .stats-panel, .action-panel { transform: scale(0.72) !important; margin-bottom: -10px !important; }
+            header { transform: scale(0.7) !important; padding: 4px 8px !important; }
+            #spawn-area { transform: scale(0.65) translateY(-25px) !important; opacity: 0.8; }
+            .hud { padding-top: 4px !important; padding-bottom: 4px !important; }
+            #bottom-hud { gap: 0px !important; }
         }
 
         @media (max-height: 650px) and (orientation: portrait) {
-            .hud { padding-top: 8px; padding-bottom: 8px; }
-            #bottom-hud { gap: 4px; }
-            .stats-panel, .action-panel { padding-top: 8px; padding-bottom: 8px; }
+            .hud { padding-top: 6px; padding-bottom: 6px; }
+            #bottom-hud { gap: 2px; }
+            .stats-panel, .action-panel { padding-top: 6px; padding-bottom: 6px; }
         }
 
         /* จริงๆ แนวนอน (Orientation Landscape) */
@@ -39,17 +48,17 @@
                 position: absolute !important; bottom: 0 !important; left: 0 !important; 
                 width: 100% !important; display: flex !important; flex-direction: row !important; 
                 justify-content: space-between !important; align-items: flex-end !important;
-                padding: 0 24px 20px 24px !important;
+                padding: 0 20px 16px 20px !important;
                 transform: none !important;
                 z-index: 100 !important;
             }
             #spawn-area { 
-                position: absolute !important; top: 16px !important; left: 50% !important; 
-                transform: translateX(-50%) scale(0.8) !important;
+                position: absolute !important; top: 12px !important; left: 50% !important; 
+                transform: translateX(-50%) scale(0.7) !important;
             }
             .stats-panel, .action-panel { 
-                max-width: 280px !important; 
-                transform: scale(0.8) !important; 
+                max-width: 250px !important; 
+                transform: scale(0.75) !important; 
                 margin: 0 !important;
             }
             .stats-panel { transform-origin: bottom left !important; }
