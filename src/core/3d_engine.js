@@ -124,12 +124,37 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         if (touch) handleWalkInput(touch.clientX, touch.clientY);
     }, { passive: false });
 
-    window.addEventListener('resize', () => {
-        camera.aspect = container.clientWidth / container.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
-    });
 
+    // ฟังก์ชันคำนวณขนาด (รวมศูนย์ไว้ที่เดียว)
+    const handleResize = () => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const aspect = width / height;
+        
+        camera.aspect = aspect;
+        
+        // กฎการมองเห็นสำหรับ แนวนอน (Landscape)
+        if (aspect > 1.2) {
+            camera.fov = 25; 
+            camera.position.set(0, 3, 14);
+            camera.lookAt(0, 0.8, 0);
+        } else {
+            camera.fov = 45;
+            camera.position.set(0, 5, 8);
+            camera.lookAt(0, 0, 0);
+        }
+        
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height, true);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(handleResize, 150); // รอให้เครื่องหมุน UI เสร็จก่อนค่อยคำนวณ
+    });
+    
+    handleResize(); 
     animate();
 }
 

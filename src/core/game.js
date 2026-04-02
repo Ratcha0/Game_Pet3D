@@ -63,8 +63,8 @@ window.doAction = (type) => {
         case 'clean': STATE.clean=Math.min(100,STATE.clean+20); STATE.xp+=10; spawn('🧼 สะอาด! +10XP'); break;
         case 'repair': 
             if (collectPoopByUI()) {
-                STATE.clean=Math.min(100,STATE.clean+10); STATE.happy=Math.min(100,STATE.happy+5); STATE.xp+=8; 
-                spawn('💩 เก็บแล้ว! +8XP'); 
+                STATE.clean=Math.min(100,STATE.clean+10); STATE.happy=Math.min(100,STATE.happy+5); STATE.xp+=12; 
+                spawn('💩 เก็บแล้ว! +12XP'); 
             } else {
                 spawn('✨ พื้นสะอาดอยู่แล้ว');
             }
@@ -74,7 +74,9 @@ window.doAction = (type) => {
 
 
     if (STATE.xp >= STATE.maxExp) {
-        STATE.level++; STATE.xp=0; STATE.maxExp=Math.floor(STATE.maxExp*1.4);
+        STATE.level++;
+        STATE.xp -= STATE.maxExp; // ทบ XP ไปเลเวลถัดไป ไม่ให้หายฟรี
+        STATE.maxExp = Math.floor(STATE.maxExp * 1.25); // ปรับจาก 1.4 เหลือ 1.25 ให้สมดุลขึ้น
         spawn('🆙 LEVEL UP!');
     }
     updateUI(); save();
@@ -119,9 +121,107 @@ function loadBoard() {
     `).join('');
 }
 
-window.toggleRanking = () => {
-    const m=$('ranking-modal');
-    if(m){m.classList.toggle('translate-y-full');if(!m.classList.contains('translate-y-full'))loadBoard();}
+window.toggleRanking = (forcedState) => {
+    const m = $('ranking-modal');
+    if (!m) return;
+    
+    // ถ้ามีการระบุสถานะ (เช่น true=ปิด) ให้ทำตามนั้น
+    if (forcedState === true) m.classList.add('translate-y-full');
+    else if (forcedState === false) m.classList.remove('translate-y-full');
+    else m.classList.toggle('translate-y-full');
+
+    if (!m.classList.contains('translate-y-full')) {
+        loadBoard();
+        m.style.transition = 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+        m.style.transform = ''; // รีเซ็ตตำแหน่งจากการลาก
+    }
+};
+
+// --- Full Screen & Minimize ---
+window.toggleMinimize = () => {
+    const container = $('game-container');
+    const reopenBtn = $('reopen-btn');
+    const hud = document.querySelector('.hud');
+    const isMin = container.classList.contains('minimized');
+
+    if (isMin) {
+        container.classList.remove('minimized');
+        container.style.cssText = "";
+        if(reopenBtn) reopenBtn.classList.add('hidden');
+        if(hud) { hud.style.opacity="1"; hud.style.pointerEvents="auto"; }
+        spawn('🏠 กลับสู่หน้าหลัก');
+    } else {
+        container.classList.add('minimized');
+        container.style.cssText = `
+            position: fixed; bottom: 85px; right: 25px;
+            width: 140px; height: 140px; border-radius: 40px;
+            z-index: 250; border: 3px solid #8b5cf6;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            overflow: hidden; pointer-events: none;
+        `;
+        if(reopenBtn) reopenBtn.classList.remove('hidden');
+        if(hud) { hud.style.opacity="0"; hud.style.pointerEvents="none"; }
+        spawn('➖ ย่อหน้าต่างแล้ว');
+    }
+    // แจ้ง 3D Engine ว่าขนาดเปลี่ยน
+    window.dispatchEvent(new Event('resize'));
+};
+
+window.toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            spawn('❌ อุปกรณ์ไม่รองรับ Full Screen');
+        });
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+};
+
+// ระบบลากนิ้ว (Swipe to Close)
+const initSwipeToClose = () => {
+    const modal = $('ranking-modal');
+    const handle = $('ranking-handle');
+    let startY = 0;
+    let currentY = 0;
+    
+    if(!modal || !handle) return;
+
+    const onTouchStart = (e) => {
+        startY = e.touches[0].clientY;
+        modal.style.transition = 'none'; // ปิด transition ตอนลาก
+    };
+
+    const onTouchMove = (e) => {
+        currentY = e.touches[0].clientY;
+        const deltaY = currentY - startY;
+        if (deltaY > 0) {
+            // ลากลงเท่านั้น
+            modal.style.transform = `translateY(${deltaY}px)`;
+        }
+    };
+
+    const onTouchEnd = () => {
+        const deltaY = currentY - startY;
+        modal.style.transition = 'all 0.4s ease';
+        
+        if (deltaY > 150) {
+            // ถ้าลากลงมาลึกเกิน 150px ให้ปิดเลย
+            toggleRanking(true);
+        } else {
+            // ถ้าไม่ถึง ให้เด้งกลับที่เดิม
+            modal.style.transform = 'translateY(0)';
+        }
+        currentY = 0;
+        startY = 0;
+    };
+
+    // ใส่ Event ให้ทั้งก้อนบนสุดและตัวหูดึง
+    handle.addEventListener('touchstart', onTouchStart);
+    handle.addEventListener('touchmove', onTouchMove);
+    handle.addEventListener('touchend', onTouchEnd);
+    
+    // คลิกที่หูก็ปิดได้เหมือนเดิม
+    handle.onclick = () => toggleRanking(true);
 };
 
 // --- BOOT ---
@@ -129,14 +229,15 @@ window.toggleRanking = () => {
     load(); loadAdminConfig();
     init3D('three-canvas', STATE.config.template, { sky:STATE.config.sky, ground:STATE.config.ground });
     updateUI();
+    initSwipeToClose(); // เปิดใช้งานระบบลาก
 
     // ตั้ง Poop Callbacks
     setPoopCallbacks(
         // ผู้เล่นเก็บอึสำเร็จ
         () => {
             STATE.clean = Math.min(100, STATE.clean + 15);
-            STATE.xp += 8;
-            spawn('f4a9 เก็บแล้ว! +8XP');
+            STATE.xp += 12;
+            spawn('f4a9 เก็บแล้ว! +12XP');
             updateUI(); save();
         },
         // อึหมดเวลา — Happy ลด
@@ -170,7 +271,7 @@ window.toggleRanking = () => {
         STATE.hunger=Math.max(0,STATE.hunger-0.12);
         STATE.happy=Math.max(0,STATE.happy-0.08);
         STATE.clean=Math.max(0,STATE.clean-0.06);
-        STATE.stamina=Math.min(STATE.maxStamina,STATE.stamina+0.2);
+        STATE.stamina=Math.min(STATE.maxStamina,STATE.stamina+0.5); // ปรับจาก 0.2 เป็น 0.5 ให้ฟื้นฟูไวขึ้น
         updateUI();
     },5000);
 })();
