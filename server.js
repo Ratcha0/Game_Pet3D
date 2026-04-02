@@ -14,10 +14,11 @@ app.use((req, res, next) => {
     res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://likepoint2-0.web.app https://minipoint.likepoint.io http://localhost:8080 http://localhost:5173;");
     
     // 2. ยกเลิกการจำกัด SAMEORIGIN ของ Railway (ใช้ Header นี้แทน)
-    res.setHeader("X-Frame-Options", "ALLOWALL");
+    // res.setHeader("X-Frame-Options", "ALLOWALL");
+    res.removeHeader('X-Frame-Options');
     
     // 3. อนุญาตเรื่อง CORS
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Origin", "OPTION", "DELETE");
     next();
 });
 
@@ -28,9 +29,9 @@ app.use(express.static(__dirname));
 // ส่งหน้าหลักเมื่อเรียกไปที่ URL
 app.get('/', (req, res) => {
     // ลองส่งจาก dist ก่อน ถ้าไม่มีค่อยส่งจาก root
-    res.sendFile(path.join(__dirname, 'dist', 'game.html'), (err) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
         if (err) {
-            res.sendFile(path.join(__dirname, 'game.html'));
+            res.sendFile(path.join(__dirname, 'index.html'));
         }
     });
 });
