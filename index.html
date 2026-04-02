@@ -19,18 +19,42 @@
         .no-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         .no-scroll::-webkit-scrollbar { display: none; }
         
-        /* แนวนอนของจริง (Orientation Landscape) */
+        /* --- RESPONSIVE CORE --- */
+        @media (max-width: 380px) {
+            .stats-panel, .action-panel { transform: scale(0.92); transform-origin: bottom center; }
+            header { padding-left: 12px; padding-right: 12px; transform: scale(0.9); transform-origin: top center; }
+            #spawn-area { transform: scale(0.85); margin-bottom: -4px; }
+        }
+
+        @media (max-height: 650px) and (orientation: portrait) {
+            .hud { padding-top: 8px; padding-bottom: 8px; }
+            #bottom-hud { gap: 4px; }
+            .stats-panel, .action-panel { padding-top: 8px; padding-bottom: 8px; }
+        }
+
+        /* จริงๆ แนวนอน (Orientation Landscape) */
         @media screen and (orientation: landscape) {
-            .hud { padding: 8px 16px !important; }
-            .hud-content { justify-content: space-between !important; }
-            header { width: 100% !important; display: flex !important; justify-content: space-between !important; align-items: flex-start !important; padding: 0 20px !important; }
+            .hud { padding: 4px 12px !important; }
             #bottom-hud { 
-                position: absolute !important; bottom: -10px !important; right: -20px !important; 
-                transform: scale(0.65) !important; transform-origin: bottom right !important; 
-                width: 480px !important; 
+                position: absolute !important; bottom: 0 !important; left: 0 !important; 
+                width: 100% !important; display: flex !important; flex-direction: row !important; 
+                justify-content: space-between !important; align-items: flex-end !important;
+                padding: 0 24px 20px 24px !important;
+                transform: none !important;
+                z-index: 100 !important;
             }
-            #spawn-area { display: none !important; }
-            .glass { background: rgba(15, 23, 42, 0.45) !important; }
+            #spawn-area { 
+                position: absolute !important; top: 16px !important; left: 50% !important; 
+                transform: translateX(-50%) scale(0.8) !important;
+            }
+            .stats-panel, .action-panel { 
+                max-width: 280px !important; 
+                transform: scale(0.8) !important; 
+                margin: 0 !important;
+            }
+            .stats-panel { transform-origin: bottom left !important; }
+            .action-panel { transform-origin: bottom right !important; }
+            .glass { background: rgba(15, 23, 42, 0.6) !important; }
         }
     </style>
 </head>
@@ -44,15 +68,15 @@
             <div class="hud-content">
                 
                 <!-- TOP DISTRIBUTED -->
-                <header class="flex justify-between items-start px-6 pt-4 pointer-events-auto">
+                <header class="flex justify-between items-start px-4 sm:px-6 pt-3 sm:pt-4 pointer-events-auto transition-all">
                     <!-- Left: Profile & XP -->
-                    <div class="glass glow rounded-2xl px-5 py-3 flex items-center gap-3 border border-white/5">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-xl shadow-lg">🐱</div>
+                    <div class="glass flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 glow">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-lg sm:text-xl shadow-lg">🐱</div>
                         <div class="leading-tight">
-                            <h1 class="font-black text-xs text-white/90 uppercase tracking-tight">PetWorld 3D</h1>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-[9px] font-black text-neon-purple">LV.<span id="hud-level">5</span></span>
-                                <div class="w-12 h-1 bg-black/40 rounded-full overflow-hidden">
+                            <h1 class="font-black text-[10px] sm:text-xs text-white/90 uppercase tracking-tight">PetWorld 3D</h1>
+                            <div class="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                                <span class="text-[8px] sm:text-[9px] font-black text-neon-purple">LV.<span id="hud-level">5</span></span>
+                                <div class="w-10 sm:w-12 h-1 bg-black/40 rounded-full overflow-hidden">
                                     <div id="bar-xp" class="h-full bg-gradient-to-r from-neon-purple to-neon-pink" style="width:35%"></div>
                                 </div>
                             </div>
@@ -61,70 +85,74 @@
 
                     <!-- Right: Wallet -->
                     <div class="flex flex-col items-end gap-3">
-                        <div class="glass glow rounded-2xl px-5 py-3 flex items-center gap-2.5 border border-white/5">
-                            <span class="text-base text-neon-gold">🪙</span>
-                            <span id="hud-tokens" class="font-black text-sm text-neon-gold tracking-tight">2,500</span>
+                        <div class="glass flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 glow">
+                            <span class="text-sm sm:text-base text-neon-gold">🪙</span>
+                            <span id="hud-tokens" class="font-black text-xs sm:text-sm text-neon-gold tracking-tight">2,500</span>
                         </div>
                     </div>
                 </header>
 
-                <!-- CENTER / INSTRUCTION -->
-                <div id="spawn-area" class="flex-1 relative overflow-hidden flex items-start justify-center pt-12 pointer-events-none">
-                    <div class="glass rounded-full px-6 py-2 text-[8px] text-white/20 font-black uppercase tracking-[0.4em] border border-white/5 backdrop-blur-xl">
-                        👆 Tap Floor to Walk
+                <div class="flex-1 overflow-hidden pointer-events-none"></div>
+
+                </div>
+                
+                <!-- Instruction Pill (Independent Position) -->
+                <div id="spawn-area" class="pointer-events-none flex justify-center w-full">
+                    <div class="glass rounded-full px-5 py-2 text-[12px] text-white/60 font-black uppercase tracking-[0.4em] border border-white/5">
+                        👆 กดที่พื้นเพื่อเดิน
                     </div>
                 </div>
 
-                <!-- BOTTOM CENTERED HUD -->
-                <div id="bottom-hud" class="space-y-1 px-4 pb-2 pointer-events-auto">
+                <!-- BOTTOM DISTRIBUTED HUD -->
+                <div id="bottom-hud" class="flex flex-col gap-2 px-3 sm:px-4 pb-2 sm:pb-4 pointer-events-auto items-center">
                     <!-- Stats Grid -->
-                    <div class="glass glow rounded-[1.5rem] py-3 px-5 border border-white/5 max-w-[480px] mx-auto w-full">
-                        <div class="grid grid-cols-4 gap-4">
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="text-lg">🍖</span>
+                    <div class="stats-panel glass glow rounded-[1.2rem] sm:rounded-[1.5rem] py-2 sm:py-3 px-3 sm:px-5 border border-white/5 max-w-[480px] w-full">
+                        <div class="grid grid-cols-4 gap-2 sm:gap-4">
+                            <div class="flex flex-col items-center gap-0.5 sm:gap-1">
+                                <span class="text-base sm:text-lg">🍖</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-hunger" class="h-full bg-gradient-to-r from-orange-500 to-amber-300 transition-all" style="width:85%"></div></div>
-                                <span id="val-hunger" class="text-[7px] font-black text-white/20 tracking-tighter uppercase">85%</span>
+                                <span id="val-hunger" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">85%</span>
                             </div>
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="text-lg">💖</span>
+                            <div class="flex flex-col items-center gap-0.5 sm:gap-1">
+                                <span class="text-base sm:text-lg">💖</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-happy" class="h-full bg-gradient-to-r from-pink-500 to-rose-300 transition-all" style="width:92%"></div></div>
-                                <span id="val-happy" class="text-[7px] font-black text-white/20 tracking-tighter uppercase">92%</span>
+                                <span id="val-happy" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">92%</span>
                             </div>
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="text-lg">🧼</span>
+                            <div class="flex flex-col items-center gap-0.5 sm:gap-1">
+                                <span class="text-base sm:text-lg">🧼</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-clean" class="h-full bg-gradient-to-r from-cyan-500 to-teal-300 transition-all" style="width:70%"></div></div>
-                                <span id="val-clean" class="text-[7px] font-black text-white/20 tracking-tighter uppercase">70%</span>
+                                <span id="val-clean" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">70%</span>
                             </div>
-                            <div class="flex flex-col items-center gap-1">
-                                <span class="text-lg">⚡</span>
+                            <div class="flex flex-col items-center gap-0.5 sm:gap-1">
+                                <span class="text-base sm:text-lg">⚡</span>
                                 <div class="w-full h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-stamina" class="h-full bg-gradient-to-r from-emerald-500 to-green-300 transition-all" style="width:90%"></div></div>
-                                <span id="val-stamina" class="text-[7px] font-black text-white/30 tracking-tighter uppercase leading-none">90%</span>
+                                <span id="val-stamina" class="text-[6px] sm:text-[7px] font-black text-white/40 tracking-tighter uppercase leading-none">90%</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Actions Shelf -->
-                    <div class="glass glow rounded-[2rem] p-1 flex items-center justify-between border border-white/5 max-w-[480px] mx-auto w-full">
-                        <button onclick="doAction('feed')" class="act-btn flex-1 flex flex-col items-center gap-1.5 py-2">
-                            <div class="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-lg">🍗</div>
-                            <span class="text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Feed</span>
+                    <div class="action-panel glass glow rounded-[1.5rem] sm:rounded-[2rem] p-0.5 sm:p-1 flex items-center justify-between border border-white/5 max-w-[480px] w-full">
+                        <button onclick="doAction('feed')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
+                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-base sm:text-lg">🍗</div>
+                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Feed</span>
                         </button>
-                        <button onclick="doAction('clean')" class="act-btn flex-1 flex flex-col items-center gap-1.5 py-2">
-                            <div class="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-lg">🧼</div>
-                            <span class="text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Clean</span>
+                        <button onclick="doAction('clean')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
+                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-base sm:text-lg">🧼</div>
+                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Clean</span>
                         </button>
-                        <button onclick="doAction('repair')" class="act-btn flex-1 flex flex-col items-center gap-1.5 py-2">
-                            <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">💩</div>
-                            <span class="text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Scoop</span>
+                        <button onclick="doAction('repair')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
+                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-base sm:text-lg">💩</div>
+                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Scoop</span>
                         </button>
-                        <button onclick="doAction('play')" class="act-btn flex-1 flex flex-col items-center gap-1.5 py-2">
-                            <div class="w-9 h-9 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-lg">🎾</div>
-                            <span class="text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Play</span>
+                        <button onclick="doAction('play')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
+                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-base sm:text-lg">🎾</div>
+                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Play</span>
                         </button>
-                        <div class="w-px h-8 bg-white/5 mx-0.5"></div>
-                        <button onclick="toggleRanking()" class="act-btn flex-1 flex flex-col items-center gap-1.5 py-2">
-                            <div class="w-9 h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-lg">🏆</div>
-                            <span class="text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Rank</span>
+                        <div class="w-px h-6 sm:h-8 bg-white/5 mx-0.5"></div>
+                        <button onclick="toggleRanking()" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
+                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-base sm:text-lg">🏆</div>
+                            <span class="text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">Rank</span>
                         </button>
                     </div>
                 </div>

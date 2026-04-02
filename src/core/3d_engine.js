@@ -64,7 +64,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = preset.exposure;
     container.appendChild(renderer.domElement);
@@ -118,8 +118,13 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         }
     }
     renderer.domElement.addEventListener('click', (e) => handleWalkInput(e.clientX, e.clientY));
+    renderer.domElement.addEventListener('touchstart', (e) => {
+        if (e.cancelable) e.preventDefault();
+        const touch = e.changedTouches[0];
+        if (touch) handleWalkInput(touch.clientX, touch.clientY);
+    }, { passive: false });
     renderer.domElement.addEventListener('touchend', (e) => {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         const touch = e.changedTouches[0];
         if (touch) handleWalkInput(touch.clientX, touch.clientY);
     }, { passive: false });
@@ -262,11 +267,10 @@ function createPetObject() {
                     }
                 });
                 
-                // ปรับขนาดและตำแหน่งให้พอดี
+                // คืนค่าตำแหน่งและสเกลเดิม (ให้เท้าติดดิน -1.15)
                 object.scale.set(0.015, 0.015, 0.015); 
-                object.rotation.x = -Math.PI / 2; // ลองติดลบดูครับเพื่อให้หัวยกขึ้น
-                object.rotation.y = 0;
-                object.position.y = -1.15; // ปรับความสูงเล็กน้อย
+                object.rotation.x = -Math.PI / 2;
+                object.position.y = -1.15; 
                 
                 petModel.add(object);
             });
@@ -343,21 +347,39 @@ function animate() {
             const dir = new THREE.Vector3().subVectors(targetPos, petModel.position);
             dir.y = 0;
             const dist = dir.length();
-            if (dist > 0.1) {
-                dir.normalize().multiplyScalar(0.035);
+            if (dist > 0.05) {
+                const speed = 0.04;
+                dir.normalize().multiplyScalar(speed);
                 petModel.position.add(dir);
-                petModel.rotation.y = Math.atan2(dir.x, dir.z);
-                petModel.position.y = Math.abs(Math.sin(t * 8)) * 0.08;
+
+                const targetRot = Math.atan2(dir.x, dir.z);
+                let diff = targetRot - petModel.rotation.y;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                petModel.rotation.y += diff * 0.05;
+
+                // --- RESTORE PROCEDURAL WALK (The Waddle) ---
+                const walkCycle = t * 7; 
+                petModel.rotation.z = Math.sin(walkCycle) * 0.035; // Side tilt
+                petModel.rotation.x = Math.cos(walkCycle * 2) * 0.02; // Forward pitch
+                petModel.position.y = Math.abs(Math.cos(walkCycle * 2)) * 0.025; // Weight bob
             } else {
                 isWalking = false;
-                petModel.position.y = 0;
             }
         } else {
-            // Idle breathing
-            petModel.position.y = Math.sin(t * 1.5) * 0.1;
+            // --- RESTORE IDLE STATE (Organic) ---
+            petModel.position.y = Math.sin(t * 1.5) * 0.005;
+            petModel.rotation.z = Math.sin(t * 0.8) * 0.01;
+            petModel.rotation.x = Math.sin(t * 1.2) * 0.005;
+            petModel.rotation.y += Math.sin(t * 0.5) * 0.001; 
+            
+            petModel.rotation.x *= 0.98;
+            petModel.rotation.z *= 0.98;
         }
-        const s = 1 + Math.sin(t * 3) * 0.02;
-        petModel.scale.set(s, s, s);
+
+        // Natural soft breathing pulse
+        const pulse = 1 + Math.sin(t * 1.8) * 0.01;
+        petModel.scale.set(pulse, pulse, pulse);
 
         // Camera Follow (Smooth)
         if (camera) {
@@ -407,6 +429,18 @@ function animate() {
     updateIndicators();
 
     renderer.render(scene, camera);
+}
+
+// Fade between animations smoothly
+function fadeTo(newAction, duration = 0.3) {
+    if (activeAction && activeAction !== newAction) {
+        activeAction.fadeOut(duration);
+        newAction.reset().fadeIn(duration).play();
+        activeAction = newAction;
+    } else if (!activeAction) {
+        newAction.play();
+        activeAction = newAction;
+    }
 }
 
 // Indicator state
