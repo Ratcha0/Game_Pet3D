@@ -22,12 +22,17 @@ app.use((req, res, next) => {
 });
 
 // ให้บริการไฟล์ Static (HTML, JS, CSS)
-app.use(express.static(path.join(__dirname, 'dist')));
-app.use(express.static(__dirname)); // รองรับการรันแบบไม่ได้ build ด้วย
+app.use(express.static(path.join(__dirname, 'dist'))); // ต้องมีไฟล์นี้หลัง build
+app.use(express.static(__dirname)); 
 
 // ส่งหน้าหลักเมื่อเรียกไปที่ URL
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'game.html'));
+app.get('/', (req, res) => {
+    // ลองส่งจาก dist ก่อน ถ้าไม่มีค่อยส่งจาก root
+    res.sendFile(path.join(__dirname, 'dist', 'game.html'), (err) => {
+        if (err) {
+            res.sendFile(path.join(__dirname, 'game.html'));
+        }
+    });
 });
 
 app.listen(port, () => {
