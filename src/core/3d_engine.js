@@ -239,9 +239,9 @@ function createPetObject() {
                 
                 // ปรับขนาดและตำแหน่งให้พอดี
                 object.scale.set(0.015, 0.015, 0.015); 
-                object.rotation.x = Math.PI / 2; // ปรับให้ขนานพื้น
+                object.rotation.x = -Math.PI / 2; // ลองติดลบดูครับเพื่อให้หัวยกขึ้น
                 object.rotation.y = 0;
-                object.position.y = -1.1; // ให้ยืนบนพื้นพอดี
+                object.position.y = -1.15; // ปรับความสูงเล็กน้อย
                 
                 petModel.add(object);
             });
