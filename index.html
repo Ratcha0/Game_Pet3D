@@ -11,7 +11,7 @@
         body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',sans-serif; }
         .phone-frame { width:100%; height:100vh; height:100dvh; position:relative; overflow:hidden; background:#080c18; }
         .hud { position:absolute; inset:0; z-index:10; pointer-events:none; display:flex; flex-direction:column; width: 100%; height: 100%; overflow: hidden; padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 16px) 0; }
-        .hud-content { width: 100%; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; height: 100%; position: relative; }
+        .hud-content { width: 100%; display: flex; flex-direction: column; height: 100%; position: relative; }
         .glass { background:rgba(15, 23, 42, 0.8); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.08); }
         .glow { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         #three-canvas { position:absolute; inset:0; z-index:0; }
@@ -22,23 +22,35 @@
         /* --- RESPONSIVE CORE --- */
         @media (max-width: 400px) {
             .stats-panel, .action-panel { transform: scale(0.9); transform-origin: bottom center; }
-            header { transform: scale(0.85); transform-origin: top center; padding-top: 10px !important; }
+            .profile-box { transform: scale(0.85); transform-origin: top left; }
+            .wallet-box { transform: scale(0.85); transform-origin: top right; }
             #spawn-area { transform: scale(0.8) translateY(-10px); }
         }
 
         /* โหมดจอจิ๋วขีดสุด (Ultra Small / Widget Mode) */
-        @media (max-width: 320px), (max-height: 550px) {
-            .stats-panel, .action-panel { transform: scale(0.72) !important; margin-bottom: -10px !important; }
-            header { transform: scale(0.7) !important; padding: 4px 8px !important; }
-            #spawn-area { transform: scale(0.65) translateY(-25px) !important; opacity: 0.8; }
-            .hud { padding-top: 4px !important; padding-bottom: 4px !important; }
-            #bottom-hud { gap: 0px !important; }
+        @media (max-width: 400px), (max-height: 550px) {
+            .stats-panel, .action-panel { transform: scale(0.65) !important; margin-bottom: -18px !important; transform-origin: bottom center; }
+            .profile-box { transform: scale(0.55) !important; transform-origin: top left !important; }
+            .wallet-box { transform: scale(0.55) !important; transform-origin: top right !important; }
+            header { padding: 2px 4px !important; }
+            #spawn-area { transform: scale(0.55) translateY(-35px) !important; opacity: 0.7; }
+            .hud { padding-top: 2px !important; padding-bottom: 2px !important; }
+            #bottom-hud { gap: -5px !important; }
         }
 
         @media (max-height: 650px) and (orientation: portrait) {
             .hud { padding-top: 6px; padding-bottom: 6px; }
             #bottom-hud { gap: 2px; }
             .stats-panel, .action-panel { padding-top: 6px; padding-bottom: 6px; }
+        }
+
+        /* --- SPECIFIC FOR 830x658 SCENARIO (Medium-Narrow) --- */
+        @media screen and (max-width: 850px) {
+            .profile-box { transform: scale(0.8); transform-origin: top left; }
+            .wallet-box { transform: scale(0.8); transform-origin: top right; }
+            .stats-panel, .action-panel { max-width: 380px !important; transform: scale(0.85); }
+            #spawn-area { transform: scale(0.7) translateY(-20px); opacity: 0.9; }
+            header { padding-left: 8px !important; padding-right: 8px !important; }
         }
 
         /* จริงๆ แนวนอน (Orientation Landscape) */
@@ -77,9 +89,9 @@
             <div class="hud-content">
                 
                 <!-- TOP DISTRIBUTED -->
-                <header class="flex justify-between items-start px-4 sm:px-6 pt-3 sm:pt-4 pointer-events-auto transition-all">
+                <header class="flex justify-between items-start px-3 sm:px-5 pt-3 sm:pt-4 pointer-events-auto transition-all w-full">
                     <!-- Left: Profile & XP -->
-                    <div class="glass flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 glow">
+                    <div class="profile-box glass flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 glow">
                         <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-lg sm:text-xl shadow-lg">🐱</div>
                         <div class="leading-tight">
                             <h1 class="font-black text-[10px] sm:text-xs text-white/90 uppercase tracking-tight">PetWorld 3D</h1>
@@ -93,7 +105,7 @@
                     </div>
 
                     <!-- Right: Wallet -->
-                    <div class="flex flex-col items-end gap-3">
+                    <div class="wallet-box flex flex-col items-end gap-3">
                         <div class="glass flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 glow">
                             <span class="text-sm sm:text-base text-neon-gold">🪙</span>
                             <span id="hud-tokens" class="font-black text-xs sm:text-sm text-neon-gold tracking-tight">2,500</span>
@@ -106,8 +118,8 @@
                 </div>
                 
                 <!-- Instruction Pill (Independent Position) -->
-                <div id="spawn-area" class="pointer-events-none flex justify-center w-full">
-                    <div class="glass rounded-full px-5 py-2 text-[12px] text-white/60 font-black uppercase tracking-[0.4em] border border-white/5">
+                <div id="spawn-area" class="pointer-events-none flex justify-center w-full z-[100] mt-2">
+                    <div class="glass rounded-full px-5 py-2 text-[11px] sm:text-[12px] text-white/70 font-black uppercase tracking-[0.3em] border border-white/10 shadow-lg">
                         👆 กดที่พื้นเพื่อเดิน
                     </div>
                 </div>
