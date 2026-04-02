@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>PetWorld 3D - Ultimate Virtual Pet</title>
+    <script>
+        // ปิดการแจ้งเตือนที่น่ารำคาญ (Tailwind CDN / THREE.Clock) เพื่อความสบายตา
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            if (typeof args[0] === 'string' && (args[0].includes('cdn.tailwindcss.com') || args[0].includes('THREE.Clock'))) return;
+            originalWarn.apply(console, args);
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -38,7 +46,7 @@
             .profile-box { transform: scale(0.85) !important; transform-origin: top left !important; }
             .wallet-box { transform: scale(0.85) !important; transform-origin: top right !important; }
             header { padding: 1 !important; width: 100% !important; }
-            #spawn-area { position: absolute !important; top: 30px !important; left: 52% !important; transform: translateX(-50%) scale(0.7) !important; transform-origin: top center !important; }
+            #spawn-area { position: absolute !important; top: 70px !important; left: 52% !important; transform: translateX(-50%) scale(0.7) !important; transform-origin: top center !important; }
             .hud { padding-top: 0 !important; padding-bottom: 0 !important; }
             
             .stats-panel, .action-panel {
@@ -117,7 +125,7 @@
                 z-index: 100 !important;
             }
             #spawn-area { 
-                position: absolute !important; top: 4px !important; left: 50% !important; 
+                position: absolute !important; top: 10px !important; left: 50% !important; 
                 transform: translateX(-50%) scale(0.55) !important; transform-origin: top center !important;
             }
             .stats-panel, .action-panel { 
