@@ -60,6 +60,29 @@
         <p class="text-white/25 text-xs mb-8">จัดการระบบสำหรับผู้เล่นทุกคน</p>
 
         <div class="space-y-6 max-w-2xl">
+            <!-- DIFFICULTY PRESETS -->
+            <section class="glass glow-card rounded-2xl p-6 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-purple-500/10 opacity-30"></div>
+                <div class="relative z-10 text-[9px] font-bold text-neon-gold uppercase tracking-[0.3em] mb-4">ระดับความท้าทาย (Game Difficulty)</div>
+                <div class="relative z-10 grid grid-cols-3 gap-3">
+                    <button id="diff-easy" onclick="loadPreset('easy')" class="tpl-card glass rounded-xl p-3 text-center border-2 border-transparent hover:bg-emerald-500/20 active:scale-95 transition-all outline-none">
+                        <div class="text-xl mb-1 text-emerald-400">🌿</div>
+                        <div class="text-[11px] font-bold text-emerald-400">โหมดง่าย</div>
+                        <div class="text-[8px] text-white/50 mt-1">ไม่ต้องเข้ามาบ่อยๆ เหมาะกับสายชิล พลังงานรอล้นๆ</div>
+                    </button>
+                    <button id="diff-normal" onclick="loadPreset('normal')" class="tpl-card glass rounded-xl p-3 text-center border-2 border-transparent hover:bg-cyan-500/20 active:scale-95 transition-all outline-none">
+                        <div class="text-xl mb-1 text-cyan-400">⚖️</div>
+                        <div class="text-[11px] font-bold text-cyan-400">โหมดปกติ</div>
+                        <div class="text-[8px] text-white/50 mt-1">ตั้งค่าสมดุลมาตรฐาน เข้ามาเช็ควันละไม่กี่ครั้ง</div>
+                    </button>
+                    <button id="diff-hard" onclick="loadPreset('hard')" class="tpl-card glass rounded-xl p-3 text-center border-2 border-transparent hover:bg-rose-500/20 active:scale-95 transition-all outline-none">
+                        <div class="text-xl mb-1 text-rose-400">🔥</div>
+                        <div class="text-[11px] font-bold text-rose-400">โหมดยาก</div>
+                        <div class="text-[8px] text-white/50 mt-1">ลดลดฮวบฮาบ พลังงานน้อย ต้องเข้ามาไถแทบทั้งวัน</div>
+                    </button>
+                </div>
+            </section>
+
             <!-- TEMPLATE 3D -->
             <section class="glass glow-card rounded-2xl p-6">
                 <div class="text-[9px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-1">Template 3D</div>
@@ -125,99 +148,120 @@
 
             <!-- STAMINA COSTS -->
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">Stamina ต้นทุน</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">⚡ การกด 1 ครั้ง เสียสายฟ้า (Stamina) กี่หน่วย</div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label>ป้อนอาหาร</label><input type="number" id="cfg-feed" value="10"></div>
-                    <div><label>อาบน้ำ</label><input type="number" id="cfg-clean" value="8"></div>
-                    <div><label>เก็บอึ</label><input type="number" id="cfg-repair" value="5"></div>
-                    <div><label>เล่น</label><input type="number" id="cfg-play" value="12"></div>
+                    <div><label class="text-orange-400">ป้อนอาหาร (-)</label><input type="number" id="cfg-feed" value="10"></div>
+                    <div><label class="text-cyan-400">อาบ/ล้าง (-)</label><input type="number" id="cfg-clean" value="8"></div>
+                    <div><label class="text-amber-400">เก็บกวาด (-)</label><input type="number" id="cfg-repair" value="5"></div>
+                    <div><label class="text-green-400">เล่นด้วย (-)</label><input type="number" id="cfg-play" value="12"></div>
                 </div>
             </section>
 
             <!-- ADVANCED STATS -->
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">ระบบหลอดพลังงาน (Max)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">🔋 ระบบตั้งค่าหลอดสายฟ้า (Stamina)</div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label>Stamina สูงสุด</label><input type="number" id="cfg-max-stamina" value="100"></div>
-                    <div><label>Stamina ฟื้นฟู (ต่อ 5วิ)</label><input type="number" step="0.1" id="cfg-reg-stamina" value="0.5"></div>
+                    <div><label class="text-blue-400">ความจุกระเป๋าสายฟ้าเต็มที่</label><input type="number" id="cfg-max-stamina" value="100"></div>
+                    <div><label class="text-blue-400">สายฟ้าฟรีที่จะเด้งให้ (ทุก 5 วินาที)</label><input type="number" step="0.1" id="cfg-reg-stamina" value="0.5"></div>
                 </div>
             </section>
             
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">Shop Packages (Stamina)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">🛒 ตั้งราคาสินค้าในร้านค้า (แจกสายฟ้า)</div>
                 <div class="space-y-4">
                     <!-- Small -->
                     <div class="grid grid-cols-2 gap-2 p-3 bg-white/5 rounded-xl">
-                        <div><label class="text-xs">Small (Price)</label><input type="number" id="cfg-shop-s-cost" value="500"></div>
-                        <div><label class="text-xs">Small (Gain)</label><input type="number" id="cfg-shop-s-amt" value="50"></div>
+                        <div><label class="text-xs text-sky-400">กล่อง เล็ก (ราคาขาย)</label><input type="number" id="cfg-shop-s-cost" value="500"></div>
+                        <div><label class="text-xs text-sky-400">กล่อง เล็ก (สายฟ้าที่ได้)</label><input type="number" id="cfg-shop-s-amt" value="50"></div>
                     </div>
                     <!-- Medium -->
                     <div class="grid grid-cols-2 gap-2 p-3 bg-white/5 rounded-xl">
-                        <div><label class="text-xs">Medium (Price)</label><input type="number" id="cfg-shop-m-cost" value="900"></div>
-                        <div><label class="text-xs">Medium (Gain)</label><input type="number" id="cfg-shop-m-amt" value="100"></div>
+                        <div><label class="text-xs text-violet-400">กล่อง กลาง (ราคาขาย)</label><input type="number" id="cfg-shop-m-cost" value="900"></div>
+                        <div><label class="text-xs text-violet-400">กล่อง กลาง (สายฟ้าที่ได้)</label><input type="number" id="cfg-shop-m-amt" value="100"></div>
                     </div>
                     <!-- Large -->
                     <div class="grid grid-cols-2 gap-2 p-3 bg-white/5 rounded-xl">
-                        <div><label class="text-xs">Large (Price)</label><input type="number" id="cfg-shop-l-cost" value="2000"></div>
-                        <div><label class="text-xs">Large (Gain)</label><input type="number" id="cfg-shop-l-amt" value="250"></div>
+                        <div><label class="text-xs text-fuchsia-400">กล่อง ใหญ่ (ราคาขาย)</label><input type="number" id="cfg-shop-l-cost" value="2000"></div>
+                        <div><label class="text-xs text-fuchsia-400">กล่อง ใหญ่ (สายฟ้าที่ได้)</label><input type="number" id="cfg-shop-l-amt" value="250"></div>
                     </div>
                 </div>
             </section>
             
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">Happy Bonus (เสกเหรียญ)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">🎯 ระบบสร้างความเชื่อมโยงให้คนติดหนึบ (Mechanics)</div>
                 <div class="space-y-4">
-                    <div>
-                        <label>โอกาสเกิดเหรียญ (0=เสมอ, 1=ยากมาก)</label>
-                        <input type="range" min="0" max="1" step="0.01" id="cfg-happy-drop-rate" value="0.7">
+                    <div class="p-3 bg-white/5 rounded-xl space-y-3">
+                        <div class="text-xs font-bold text-emerald-400">✨ แจ็คพอตเวลาผู้เล่นเก็บกวาดบนหน้าจอ</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="text-[10px] text-emerald-400">โอกาสสุ่มเจอแจ็คพอต (%)</label><input type="number" id="cfg-rare-rate" value="10"></div>
+                            <div><label class="text-[10px] text-emerald-400">ถ้าเจอ จะได้ประสบการณ์ทวีคูณ (x เท่า)</label><input type="number" id="cfg-rare-xp-mult" value="3"></div>
+                            <div><label class="text-[10px] text-emerald-400">แจกเงินฟรี ขั้นต่ำสุด (Token)</label><input type="number" id="cfg-rare-token-min" value="20"></div>
+                            <div><label class="text-[10px] text-emerald-400">แจกเงินฟรี มากที่สุด (Token)</label><input type="number" id="cfg-rare-token-max" value="50"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-3 bg-white/5 rounded-xl space-y-3">
+                        <div class="text-xs font-bold text-rose-400">🌟 โบนัสคนขยันดูแล (เข้าโซนสุขภาพดี)</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="text-[10px] text-rose-400">ต้องรักษาสเตตัสให้เกินกี่ %</label><input type="number" id="cfg-fever-threshold" value="80"></div>
+                            <div><label class="text-[10px] text-rose-400">ช่วงอยู่ในโซน ให้คูณสายฟ้าเพิ่มกี่เท่า</label><input type="number" step="0.1" id="cfg-fever-mult" value="1.5"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-white/5 rounded-xl space-y-3">
+                        <div class="text-xs font-bold text-amber-400">🎁 ระบบปาเงินอัดหน้า (ถ้าน้องอารมณ์ดี)</div>
+                        <div>
+                            <label class="text-[10px] text-amber-400">ความหวงเงิน (0.0=แจกแหลก, 0.9=งกสุดๆ)</label>
+                            <input type="range" min="0" max="1" step="0.01" id="cfg-happy-drop-rate" value="0.7">
+                        </div>
                     </div>
                 </div>
             </section>
             
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">อัตราการลดลง (ทุก 5 วิ)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">📉 อัตราความตกต่ำของสัตว์/รถ (ลดลงทุก 5 วินาที)</div>
                 <div class="grid grid-cols-3 gap-2">
-                    <div><label>ความหิว</label><input type="number" step="0.01" id="cfg-dec-hunger" value="0.12"></div>
-                    <div><label>ความสกปรก</label><input type="number" step="0.01" id="cfg-dec-clean" value="0.06"></div>
-                    <div><label>ความเหงา</label><input type="number" step="0.01" id="cfg-dec-happy" value="0.08"></div>
+                    <div><label class="text-orange-400">หลอดความอิ่ม</label><input type="number" step="0.01" id="cfg-dec-hunger" value="0.12"></div>
+                    <div><label class="text-cyan-400">สกปรกมากขึ้น</label><input type="number" step="0.01" id="cfg-dec-clean" value="0.06"></div>
+                    <div><label class="text-green-400">หลอดความสุข</label><input type="number" step="0.01" id="cfg-dec-happy" value="0.08"></div>
                 </div>
             </section>
 
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">ผลตอบแทนการกดปุ่ม (Stat เพิ่ม / XP ที่ได้)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">💖 เมื่อปุ่มโดนกด จะได้ประโยชน์อะไรบ้าง?</div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-4 border-r border-white/10 pr-4">
-                        <div><label class="text-orange-400">ป้อนอาหาร (Stat +)</label><input type="number" id="cfg-rst-feed" value="15"></div>
-                        <div><label class="text-orange-400">ป้อนอาหาร (XP +)</label><input type="number" id="cfg-rxp-feed" value="15"></div>
+                        <div><label class="text-orange-400">กินแล้วความอิ่มเพิ่มขึ้น (+)</label><input type="number" id="cfg-rst-feed" value="15"></div>
+                        <div><label class="text-orange-400">กินแล้วได้ค่าประสบการณ์ (XP)</label><input type="number" id="cfg-rxp-feed" value="15"></div>
                     </div>
                     <div class="space-y-4">
-                        <div><label class="text-green-400">เล่นด้วย (Stat +)</label><input type="number" id="cfg-rst-play" value="20"></div>
-                        <div><label class="text-green-400">เล่นด้วย (XP +)</label><input type="number" id="cfg-rxp-play" value="25"></div>
+                        <div><label class="text-green-400">เล่นแล้วความสุขเพิ่มขึ้น (+)</label><input type="number" id="cfg-rst-play" value="20"></div>
+                        <div><label class="text-green-400">เล่นแล้วได้ค่าประสบการณ์ (XP)</label><input type="number" id="cfg-rxp-play" value="25"></div>
                     </div>
                     <div class="space-y-4 border-r border-white/10 pr-4">
-                        <div><label class="text-cyan-400">อาบน้ำ (Stat +)</label><input type="number" id="cfg-rst-clean" value="20"></div>
-                        <div><label class="text-cyan-400">อาบน้ำ (XP +)</label><input type="number" id="cfg-rxp-clean" value="10"></div>
+                        <div><label class="text-cyan-400">ล้างแล้วความสะอาดเพิ่มขึ้น (+)</label><input type="number" id="cfg-rst-clean" value="20"></div>
+                        <div><label class="text-cyan-400">ล้างแล้วได้ค่าประสบการณ์ (XP)</label><input type="number" id="cfg-rxp-clean" value="10"></div>
                     </div>
                     <div class="space-y-4">
-                        <div><label class="text-amber-400">เก็บกวาด (Stat +)</label><input type="number" id="cfg-rst-repair" value="10"></div>
-                        <div><label class="text-amber-400">เก็บกวาด (XP +)</label><input type="number" id="cfg-rxp-repair" value="12"></div>
+                        <div><label class="text-amber-400">กวาดแล้วความสะอาดเพิ่มขึ้น (+)</label><input type="number" id="cfg-rst-repair" value="10"></div>
+                        <div><label class="text-amber-400">กวาดแล้วได้ค่าประสบการณ์ (XP)</label><input type="number" id="cfg-rxp-repair" value="12"></div>
                     </div>
                 </div>
             </section>
 
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">รางวัลคะแนน (Score Rewards)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">🏆 โบนัสคะแนนบอร์ดมหาชน (Ranking)</div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="text-amber-300">คะแนนเก็บกวาดอึ (+)</label><input type="number" id="cfg-rscore-scoop" value="20"></div>
-                    <div><label class="text-neon-pink">คะแนน Level Up (+)</label><input type="number" id="cfg-rscore-level" value="1000"></div>
+                    <div><label class="text-amber-300">คะแนนที่จะได้เมื่อกวาดขยะ</label><input type="number" id="cfg-rscore-scoop" value="20"></div>
+                    <div><label class="text-neon-pink">คะแนนที่จะได้เมื่อเลเวลอัพ!</label><input type="number" id="cfg-rscore-level" value="1000"></div>
                 </div>
             </section>
 
             <section class="glass glow-card rounded-2xl p-6">
-                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">ระบบสุ่มเสกของ (Spawner)</div>
+                <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em] mb-4">🗑️ ระบบแกล้งสุ่มเสกขยะ/อึ ลงบนหน้าจอ</div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label>เกิดขั้นต่ำ (วินาที)</label><input type="number" id="cfg-sp-min" value="60"></div>
-                    <div><label>เกิดช้าสุด (วินาที)</label><input type="number" id="cfg-sp-max" value="150"></div>
+                    <div><label class="text-slate-300">ความถี่ โผล่มาเร็วที่สุดกี่วินาที</label><input type="number" id="cfg-sp-min" value="60"></div>
+                    <div><label class="text-slate-300">ความถี่ โผล่มาช้าที่สุดกี่วินาที</label><input type="number" id="cfg-sp-max" value="150"></div>
                 </div>
             </section>
 

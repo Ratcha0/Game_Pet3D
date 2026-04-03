@@ -40,6 +40,13 @@ function loadConfig() {
     if($('cfg-sp-max')) $('cfg-sp-max').value = STATE.sp_max || 150;
 
     if($('cfg-happy-drop-rate')) $('cfg-happy-drop-rate').value = STATE.happy_drop_rate || 0.7;
+    
+    if($('cfg-rare-rate')) $('cfg-rare-rate').value = STATE.rare_rate || 10;
+    if($('cfg-rare-xp-mult')) $('cfg-rare-xp-mult').value = STATE.rare_xp_mult || 3;
+    if($('cfg-rare-token-min')) $('cfg-rare-token-min').value = STATE.rare_token_min || 20;
+    if($('cfg-rare-token-max')) $('cfg-rare-token-max').value = STATE.rare_token_max || 50;
+    if($('cfg-fever-threshold')) $('cfg-fever-threshold').value = STATE.fever_threshold || 80;
+    if($('cfg-fever-mult')) $('cfg-fever-mult').value = STATE.fever_mult || 1.5;
 
     if($('cfg-shop-s-cost')) $('cfg-shop-s-cost').value = STATE.shop_s_cost || 500;
     if($('cfg-shop-s-amt')) $('cfg-shop-s-amt').value = STATE.shop_s_amt || 50;
@@ -51,6 +58,12 @@ function loadConfig() {
     if($('cfg-rscore-level')) $('cfg-rscore-level').value = STATE.rscore_level || 1000;
 
     highlightTpl();
+    if(STATE.difficulty_mode) {
+        ['easy','normal','hard'].forEach(k=>{
+            const el = $(`diff-${k}`);
+            if(el) el.classList.toggle('active', k===STATE.difficulty_mode);
+        });
+    }
     
     // Attach live preview events so changes reflect immediately in the iframe
     const allInputs = [
@@ -58,6 +71,7 @@ function loadConfig() {
         'cfg-max-stamina', 'cfg-reg-stamina', 'cfg-dec-hunger', 'cfg-dec-clean', 'cfg-dec-happy',
         'cfg-rst-feed', 'cfg-rxp-feed', 'cfg-rst-play', 'cfg-rxp-play', 'cfg-rst-clean', 'cfg-rxp-clean', 'cfg-rst-repair', 'cfg-rxp-repair',
         'cfg-sp-min', 'cfg-sp-max', 'cfg-happy-drop-rate',
+        'cfg-rare-rate', 'cfg-rare-xp-mult', 'cfg-rare-token-min', 'cfg-rare-token-max', 'cfg-fever-threshold', 'cfg-fever-mult',
         'cfg-shop-s-cost', 'cfg-shop-s-amt', 'cfg-shop-m-cost', 'cfg-shop-m-amt', 'cfg-shop-l-cost', 'cfg-shop-l-amt',
         'cfg-rscore-scoop', 'cfg-rscore-level'
     ];
@@ -69,6 +83,7 @@ function loadConfig() {
 
 function sendPreview() {
     const config = {
+        difficulty_mode: STATE.difficulty_mode || 'easy',
         template_type: STATE.template,
         sky: $('cfg-sky')?.value || 'day',
         ground: $('cfg-ground')?.value || 'grass',
@@ -84,6 +99,12 @@ function sendPreview() {
         dec_clean: parseFloat($('cfg-dec-clean')?.value) || 0.06,
         dec_happy: parseFloat($('cfg-dec-happy')?.value) || 0.08,
         happy_drop_rate: parseFloat($('cfg-happy-drop-rate')?.value) || 0.7,
+        rare_rate: parseFloat($('cfg-rare-rate')?.value) || 10,
+        rare_xp_mult: parseFloat($('cfg-rare-xp-mult')?.value) || 3,
+        rare_token_min: parseInt($('cfg-rare-token-min')?.value) || 20,
+        rare_token_max: parseInt($('cfg-rare-token-max')?.value) || 50,
+        fever_threshold: parseInt($('cfg-fever-threshold')?.value) || 80,
+        fever_mult: parseFloat($('cfg-fever-mult')?.value) || 1.5,
         shop_s_cost: parseInt($('cfg-shop-s-cost')?.value) || 500,
         shop_s_amt: parseInt($('cfg-shop-s-amt')?.value) || 50,
         shop_m_cost: parseInt($('cfg-shop-m-cost')?.value) || 900,
@@ -109,6 +130,78 @@ function sendPreview() {
     }
 }
 
+window.loadPreset = (mode) => {
+    const presets = {
+        easy: {
+            dec_hunger: 0.05, dec_clean: 0.03, dec_happy: 0.04,
+            reg_stamina: 1.5, max_stamina: 150, 
+            cost_feed: 8, cost_clean: 5, cost_repair: 3, cost_play: 10,
+            shop_s_cost: 500, shop_s_amt: 100, shop_m_cost: 1000, shop_m_amt: 250, shop_l_cost: 2500, shop_l_amt: 700,
+            rare_rate: 10, rare_xp_mult: 3, rare_token_min: 20, rare_token_max: 50, fever_threshold: 80, fever_mult: 1.5,
+            sp_min: 60, sp_max: 150
+        },
+        normal: {
+            dec_hunger: 0.12, dec_clean: 0.06, dec_happy: 0.08,
+            reg_stamina: 1.0, max_stamina: 100,
+            cost_feed: 10, cost_clean: 8, cost_repair: 5, cost_play: 12,
+            shop_s_cost: 400, shop_s_amt: 50, shop_m_cost: 750, shop_m_amt: 100, shop_l_cost: 1800, shop_l_amt: 250,
+            rare_rate: 15, rare_xp_mult: 4, rare_token_min: 30, rare_token_max: 80, fever_threshold: 80, fever_mult: 1.5,
+            sp_min: 45, sp_max: 100
+        },
+        hard: {
+            dec_hunger: 0.25, dec_clean: 0.15, dec_happy: 0.20,
+            reg_stamina: 0.6, max_stamina: 50,
+            cost_feed: 15, cost_clean: 12, cost_repair: 8, cost_play: 15,
+            shop_s_cost: 150, shop_s_amt: 30, shop_m_cost: 300, shop_m_amt: 70, shop_l_cost: 600, shop_l_amt: 150,
+            rare_rate: 30, rare_xp_mult: 7, rare_token_min: 100, rare_token_max: 250, fever_threshold: 85, fever_mult: 2.0,
+            sp_min: 30, sp_max: 60
+        }
+    };
+
+    const p = presets[mode];
+    if(!p) return;
+
+    STATE.difficulty_mode = mode;
+    ['easy','normal','hard'].forEach(k=>{
+        const el = $(`diff-${k}`);
+        if(el) el.classList.toggle('active', k===mode);
+    });
+
+    if($('cfg-dec-hunger')) $('cfg-dec-hunger').value = p.dec_hunger;
+    if($('cfg-dec-clean')) $('cfg-dec-clean').value = p.dec_clean;
+    if($('cfg-dec-happy')) $('cfg-dec-happy').value = p.dec_happy;
+    if($('cfg-reg-stamina')) $('cfg-reg-stamina').value = p.reg_stamina;
+    if($('cfg-max-stamina')) $('cfg-max-stamina').value = p.max_stamina;
+    if($('cfg-feed')) $('cfg-feed').value = p.cost_feed;
+    if($('cfg-clean')) $('cfg-clean').value = p.cost_clean;
+    if($('cfg-repair')) $('cfg-repair').value = p.cost_repair;
+    if($('cfg-play')) $('cfg-play').value = p.cost_play;
+    if($('cfg-shop-s-cost')) $('cfg-shop-s-cost').value = p.shop_s_cost;
+    if($('cfg-shop-s-amt')) $('cfg-shop-s-amt').value = p.shop_s_amt;
+    if($('cfg-shop-m-cost')) $('cfg-shop-m-cost').value = p.shop_m_cost;
+    if($('cfg-shop-m-amt')) $('cfg-shop-m-amt').value = p.shop_m_amt;
+    if($('cfg-shop-l-cost')) $('cfg-shop-l-cost').value = p.shop_l_cost;
+    if($('cfg-shop-l-amt')) $('cfg-shop-l-amt').value = p.shop_l_amt;
+
+    if($('cfg-rare-rate')) $('cfg-rare-rate').value = p.rare_rate;
+    if($('cfg-rare-xp-mult')) $('cfg-rare-xp-mult').value = p.rare_xp_mult;
+    if($('cfg-rare-token-min')) $('cfg-rare-token-min').value = p.rare_token_min;
+    if($('cfg-rare-token-max')) $('cfg-rare-token-max').value = p.rare_token_max;
+    if($('cfg-fever-threshold')) $('cfg-fever-threshold').value = p.fever_threshold;
+    if($('cfg-fever-mult')) $('cfg-fever-mult').value = p.fever_mult;
+
+    if($('cfg-sp-min')) $('cfg-sp-min').value = p.sp_min;
+    if($('cfg-sp-max')) $('cfg-sp-max').value = p.sp_max;
+
+    const s=$('save-status');
+    if(s) {
+        s.innerText=`✨ โหลด Preset: ${mode.toUpperCase()} สำเร็จ!`;
+        setTimeout(()=> { if(s.innerText.includes('Preset')) s.innerText='พร้อมบันทึก'; }, 2000);
+    }
+
+    sendPreview(); // ส่งค่าไปอัปเดตเกมแบบเรียลไทม์
+}
+
 window.setTemplate = (type) => { STATE.template=type; highlightTpl(); sendPreview(); };
 
 window.saveAll = () => {
@@ -116,6 +209,7 @@ window.saveAll = () => {
     if(s) s.innerText='⏳ กำลังบันทึก...';
 
     const config = {
+        difficulty_mode: STATE.difficulty_mode || 'normal',
         template_type: STATE.template,
         sky: $('cfg-sky')?.value || 'day',
         ground: $('cfg-ground')?.value || 'grass',
@@ -131,6 +225,12 @@ window.saveAll = () => {
         dec_clean: parseFloat($('cfg-dec-clean')?.value) || 0.06,
         dec_happy: parseFloat($('cfg-dec-happy')?.value) || 0.08,
         happy_drop_rate: parseFloat($('cfg-happy-drop-rate')?.value) || 0.7,
+        rare_rate: parseFloat($('cfg-rare-rate')?.value) || 10,
+        rare_xp_mult: parseFloat($('cfg-rare-xp-mult')?.value) || 3,
+        rare_token_min: parseInt($('cfg-rare-token-min')?.value) || 20,
+        rare_token_max: parseInt($('cfg-rare-token-max')?.value) || 50,
+        fever_threshold: parseInt($('cfg-fever-threshold')?.value) || 80,
+        fever_mult: parseFloat($('cfg-fever-mult')?.value) || 1.5,
         shop_s_cost: parseInt($('cfg-shop-s-cost')?.value) || 500,
         shop_s_amt: parseInt($('cfg-shop-s-amt')?.value) || 50,
         shop_m_cost: parseInt($('cfg-shop-m-cost')?.value) || 900,

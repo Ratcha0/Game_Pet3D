@@ -106,31 +106,54 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     createPetObject();
 
     // --- CLICK / TAP TO WALK ---
-    function handleWalkInput(clientX, clientY) {
+    const handleGlobalInput = (clientX, clientY) => {
         const rect = renderer.domElement.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((clientX - rect.left) / rect.width) * 2 - 1,
             -((clientY - rect.top) / rect.height) * 2 + 1
         );
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(mouse, camera);
-        const hits = raycaster.intersectObject(groundMesh);
-        if (hits.length > 0) {
-            targetPos.copy(hits[0].point);
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(mouse, camera);
+
+        // 1. ตรวจสอบ "อึ" (ลำดับความสำคัญสูงสุด)
+        for (let i = 0; i < poopObjects.length; i++) {
+            const p = poopObjects[i];
+            const hits = ray.intersectObject(p.mesh, true);
+            if (hits.length > 0) {
+                scene.remove(p.mesh);
+                poopObjects.splice(i, 1);
+                if (onPoopCollected) onPoopCollected();
+                return; // จบการทำงาน ไม่ต้องเดิน
+            }
+        }
+
+        // 2. ตรวจสอบ "เหรียญ/รางวัล"
+        for (let i = 0; i < rewardObjects.length; i++) {
+            const r = rewardObjects[i];
+            const hits = ray.intersectObject(r.mesh, true);
+            if (hits.length > 0) {
+                scene.remove(r.mesh);
+                const val = r.value;
+                rewardObjects.splice(i, 1);
+                if (onRewardCollected) onRewardCollected(r.type, val);
+                return; // จบ
+            }
+        }
+
+        // 3. ถ้าไม่โดนอะไรเลย ให้สัตว์เลี้ยง "เดิน" ไปที่ตรงนั้น
+        const groundHits = ray.intersectObject(groundMesh);
+        if (groundHits.length > 0) {
+            targetPos.copy(groundHits[0].point);
             targetPos.y = 0;
             isWalking = true;
         }
-    }
-    renderer.domElement.addEventListener('click', (e) => handleWalkInput(e.clientX, e.clientY));
-    renderer.domElement.addEventListener('touchstart', (e) => {
-        if (e.cancelable) e.preventDefault();
-        const touch = e.changedTouches[0];
-        if (touch) handleWalkInput(touch.clientX, touch.clientY);
-    }, { passive: false });
+    };
+
+    renderer.domElement.addEventListener('click', (e) => handleGlobalInput(e.clientX, e.clientY));
     renderer.domElement.addEventListener('touchend', (e) => {
         if (e.cancelable) e.preventDefault();
-        const touch = e.changedTouches[0];
-        if (touch) handleWalkInput(touch.clientX, touch.clientY);
+        const t = e.changedTouches[0];
+        if (t) handleGlobalInput(t.clientX, t.clientY);
     }, { passive: false });
 
 
@@ -199,12 +222,19 @@ function createDecorations() {
 
     const treePositions = [[-4, -3], [5, -4], [-3, 4], [6, 2], [-5, 0], [3, -6]];
     treePositions.forEach(([x, z]) => {
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.6, 6), trunkMat);
-        trunk.position.set(x, -0.9, z);
+        // สุ่มขนาดให้ใหญ่ขึ้นตั้งแต่ 1.5 เท่า ถึง 3.5 เท่า แบบไม่ซ้ำกัน
+        const scale = 1.5 + Math.random() * 2.0; 
+        const trunkHeight = 0.6 * scale;
+
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * scale, 0.12 * scale, trunkHeight, 6), trunkMat);
+        // พื้นฉากอยู่ที่ระดับ -1.2 คำนวณให้ฐานต้นไม้วางติดพื้นพอดีเป๊ะ
+        trunk.position.set(x, -1.2 + (trunkHeight / 2), z);
         trunk.castShadow = true;
 
-        const crown = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), treeMat);
-        crown.position.set(x, -0.3, z);
+        const crownRadius = 0.4 * scale;
+        const crown = new THREE.Mesh(new THREE.SphereGeometry(crownRadius, 8, 8), treeMat);
+        // วางพุ่มไม้ไว้เกยกับยอดลำต้นเล็กน้อย (จมลง 10% ของสเกล) เพื่อความสมจริง
+        crown.position.set(x, trunk.position.y + (trunkHeight / 2) - (0.1 * scale), z);
         crown.castShadow = true;
 
         scene.add(trunk, crown);
@@ -324,14 +354,14 @@ function autoWalk(t) {
     if (!petModel) return;
     if (t < nextAutoWalkTime) return;
 
-    // สุ่มตำแหน่งใหม่ในแผนที่ (ขอบ -6 ถึง 6)
-    const rx = (Math.random() - 0.5) * 10;
-    const rz = (Math.random() - 0.5) * 10;
+    // ขยายระยะการสุ่มให้ทั่วแผนที่มากขึ้น (เดิม -5 ถึง 5 -> ใหม่ -8.5 ถึง 8.5)
+    const rx = (Math.random() - 0.5) * 17;
+    const rz = (Math.random() - 0.5) * 17;
     targetPos.set(rx, 0, rz);
     isWalking = true;
 
-    // เดินอีกรอบใน 5-12 วินาที
-    nextAutoWalkTime = t + 5 + Math.random() * 7;
+    // เดินอีกรอบใน 3-8 วินาที
+    nextAutoWalkTime = t + 3 + Math.random() * 5;
 }
 
 function animate() {
@@ -348,7 +378,7 @@ function animate() {
             dir.y = 0;
             const dist = dir.length();
             if (dist > 0.05) {
-                const speed = 0.04;
+                const speed = 0.07; // ปรับความเร็วเดินจาก 0.04 -> 0.07 ให้ดูรวดเร็วขึ้น
                 dir.normalize().multiplyScalar(speed);
                 petModel.position.add(dir);
 
@@ -358,11 +388,11 @@ function animate() {
                 while (diff > Math.PI) diff -= Math.PI * 2;
                 petModel.rotation.y += diff * 0.05;
 
-                // --- RESTORE PROCEDURAL WALK (The Waddle) ---
-                const walkCycle = t * 7; 
-                petModel.rotation.z = Math.sin(walkCycle) * 0.035; // Side tilt
-                petModel.rotation.x = Math.cos(walkCycle * 2) * 0.02; // Forward pitch
-                petModel.position.y = Math.abs(Math.cos(walkCycle * 2)) * 0.025; // Weight bob
+                // --- PROCEDURAL WALK (The Waddle) ---
+                const walkCycle = t * 9; // เร่งแอนิเมชั่นการเดินตามความเร็วใหม่
+                petModel.rotation.z = Math.sin(walkCycle) * 0.045; // บิดตัวซ้ายขวาแรงขึ้นนิดนึง
+                petModel.rotation.x = Math.cos(walkCycle * 2) * 0.03; 
+                petModel.position.y = Math.abs(Math.cos(walkCycle * 2)) * 0.035; 
             } else {
                 isWalking = false;
             }
@@ -479,10 +509,13 @@ function updateIndicators() {
             el = document.createElement('div');
             el.className = 'absolute top-1/2 left-1/2 -mt-6 -ml-6 w-12 h-12 flex items-center justify-center transition-all duration-300';
             el.innerHTML = `
-                <div class="relative w-full h-full flex items-center justify-center">
-                    <div class="absolute inset-0 rounded-full blur-[8px]" style="background-color: ${obj.color}20"></div>
-                    <div class="text-[14px] z-10 filter brightness-110 drop-shadow-[0_0_5px_${obj.color}]">${obj.icon}</div>
-                    <div class="indicator-arrow absolute -top-4 w-1.5 h-3 rounded-t-full rounded-b-sm" style="background-color: ${obj.color}; box-shadow: 0 0 10px ${obj.color}"></div>
+                <div class="relative w-12 h-12 flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full blur-[10px] scale-125" style="background-color: ${obj.color}30"></div>
+                    <div class="text-[18px] z-10 filter drop-shadow-[0_0_8px_${obj.color}]">${obj.icon}</div>
+                    <!-- ลูกศรที่จะหมุนโคจรรอบไอคอน (Orbiting Arrow) -->
+                    <div class="indicator-arrow absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-1.5 h-3.5 rounded-full -translate-y-5" style="background-color: ${obj.color}; box-shadow: 0 0 15px ${obj.color}"></div>
+                    </div>
                 </div>
             `;
             container.appendChild(el);
@@ -507,11 +540,11 @@ function updateIndicators() {
         const x = normX * radarRadius;
         const y = -normY * radarRadius; // Flip Y for screen space
 
-        // Indicator rotation (pointing outward on the ring)
-        const angle = Math.atan2(dx, dy);
+        // คำนวณมุมหมุนสำหรับตัวลูกศร (ให้หมุนรอบไอคอน 360 องศา)
         const arrowEl = el.querySelector('.indicator-arrow');
         if (arrowEl) {
-            arrowEl.style.transform = `rotate(${angle}rad)`;
+            const arrowAngle = Math.atan2(dx, dy); // ให้ทิศทางสอดคล้องกับพิกัดแมพ
+            arrowEl.style.transform = `rotate(${arrowAngle}rad)`;
         }
 
         el.style.transform = `translate(${x}px, ${y}px)`;
@@ -587,41 +620,16 @@ function createPoopMesh(x, z) {
 export function spawnPoop() {
     if (!scene || !petModel) return;
     if (poopObjects.length >= MAX_POOPS) return; // ไม่ให้อึเกินขีดจำกัด
-    const px = petModel.position.x + (Math.random() - 0.5) * 0.5;
-    const pz = petModel.position.z + (Math.random() - 0.5) * 0.5;
-    const mesh = createPoopMesh(px, pz);
+    // กระจายรอบตัวสัตว์เลี้ยงให้กว้างขึ้น เพื่อไม่ให้อึเกาะกลุ่มอยู่ที่เดียว
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 0.5 + Math.random() * 0.6;
+    const rx = Math.max(-9.5, Math.min(9.5, petModel.position.x + Math.cos(angle) * dist));
+    const rz = Math.max(-9.5, Math.min(9.5, petModel.position.z + Math.sin(angle) * dist));
+    const mesh = createPoopMesh(rx, rz);
     scene.add(mesh);
 
-    const poopEntry = { mesh, elapsed: 0, x: px, z: pz };
+    const poopEntry = { mesh, elapsed: 0, x: rx, z: rz };
     poopObjects.push(poopEntry);
-
-    // ตรวจจับการแตะ/คลิกที่ก้อนอึ
-    function handlePoopClick(clientX, clientY) {
-        const rect = renderer.domElement.getBoundingClientRect();
-        const mouse = new THREE.Vector2(
-            ((clientX - rect.left) / rect.width) * 2 - 1,
-            -((clientY - rect.top) / rect.height) * 2 + 1
-        );
-        const ray = new THREE.Raycaster();
-        ray.setFromCamera(mouse, camera);
-        const hits = ray.intersectObject(mesh, true);
-        if (hits.length > 0) {
-            scene.remove(mesh);
-            const idx = poopObjects.indexOf(poopEntry);
-            if (idx !== -1) poopObjects.splice(idx, 1);
-            renderer.domElement.removeEventListener('click', clickHandler);
-            renderer.domElement.removeEventListener('touchend', touchHandler);
-            if (onPoopCollected) onPoopCollected();
-        }
-    }
-    const clickHandler = (e) => handlePoopClick(e.clientX, e.clientY);
-    const touchHandler = (e) => {
-        e.preventDefault();
-        const t = e.changedTouches[0];
-        if (t) handlePoopClick(t.clientX, t.clientY);
-    };
-    renderer.domElement.addEventListener('click', clickHandler);
-    renderer.domElement.addEventListener('touchend', touchHandler, { passive: false });
 }
 
 // ตั้ง callback จาก game.js
@@ -645,8 +653,8 @@ function createCoinMesh() {
     const group = new THREE.Group();
     // เหรียญทอง
     const goldMat = new THREE.MeshStandardMaterial({ 
-        color: 0xffd700, metalness: 0.8, roughness: 0.2, 
-        emissive: 0xaa8800, emissiveIntensity: 0.2 
+        color: 0xffd700, metalness: 0.8, roughness: 0.1, 
+        emissive: 0xffaa00, emissiveIntensity: 0.4 
     });
     const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 24);
     const coin = new THREE.Mesh(geo, goldMat);
@@ -667,14 +675,18 @@ export function spawnReward(type = 'coin', value = 1) {
     if (!scene || !petModel) return;
     if (rewardObjects.length >= MAX_REWARDS) return;
 
-    // กระจายรอบๆ ตัวสัตว์เลี้ยงเล็กน้อย
+    // สุ่มกระจายแบบเหวี่ยงออกไปกว้างๆ ทั่วแมพ (จากเดิม 0.8 -> เพิ่มเป็น 1-5 หน่วย)
     const angle = Math.random() * Math.PI * 2;
-    const dist = 0.8 + Math.random() * 0.5;
+    const dist = 1.0 + Math.random() * 5.0; 
     const rx = petModel.position.x + Math.cos(angle) * dist;
     const rz = petModel.position.z + Math.sin(angle) * dist;
 
+    // จำกัดไม่ให้ของกระเด็นตกขอบหญ้า (ขอบที่ -9 ถึง 9)
+    const finalX = Math.max(-9, Math.min(9, rx));
+    const finalZ = Math.max(-9, Math.min(9, rz));
+
     const mesh = createCoinMesh();
-    mesh.position.set(rx, -1.0, rz);
+    mesh.position.set(finalX, -1.0, finalZ);
     mesh.scale.set(0.1, 0.1, 0.1);
     scene.add(mesh);
 
