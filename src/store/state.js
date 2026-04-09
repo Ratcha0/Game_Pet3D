@@ -1,0 +1,166 @@
+import { loadPetState, savePetState, loadGameConfig } from '../services/supabase.js';
+
+export const STATE = {
+    username: "ผู้เล่นทั่วไป", // สำหรับแสดงที่ HUD
+    pin_code: "", // ว่างไว้เพื่อให้ผู้ใช้ตั้งค่าเองครั้งแรก
+    tokens: 500,  
+    score: 0,     
+    hunger: 80, clean: 80, stamina: 100, love: 50,
+    maxStamina: 100, xp: 0, level: 1, maxExp: 100,
+    config: {
+        template: 'pet', sky: 'day', ground: 'grass',
+        season_name: 'Season 1', season_weeks: 1,
+        costs: { feed: 10, clean: 8, repair: 5, play: 12 },
+        shop: {
+            small: { cost: 500, amt: 50 },
+            medium: { cost: 900, amt: 100 },
+            large: { cost: 2000, amt: 250 }
+        },
+        mechanics: {},
+        happy_drop_rate: 0.7 
+    },
+    quests: {
+        feed: 0, feed_max: 3,
+        clean: 0, clean_max: 2,
+        play: 0, play_max: 1,
+        special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' },
+        claimed: false
+    },
+    buffs: {
+        regen: 1.0,
+        regen_expiry: 0
+    }
+};
+
+export const SPECIAL_QUEST_POOL = [
+    { type: 'scoop', label: 'นักช้อนมือทอง', icon: '💩', targetIcon: '🏆' },
+    { type: 'fever', label: 'สายลุยฟีเวอร์', icon: '🔥', targetIcon: '🌟' },
+    { type: 'pure_love', label: 'หัวใจเต็มร้อย', icon: '💖', targetIcon: '👑' },
+    { type: 'spend', label: 'ก้าวข้ามขีดจำกัด', icon: '⚡', targetIcon: '🏃' }
+];
+
+// 💡 USER ID (จะรับเข้ามาจากโปรเจกต์หลัก)
+export let currentUserId = "GUEST_USER"; 
+
+export function setUserId(id) {
+    currentUserId = id;
+}
+
+export async function loadState() {
+    // 1. ดึงจาก LocalStorage ก่อน (เผื่อไม่มีเน็ต)
+    const storageKey = 'PW3D_SAVE_' + currentUserId;
+    const s = localStorage.getItem(storageKey);
+    if (s) {
+        mergeSaveData(JSON.parse(s));
+    }
+
+    // 2. โหลด Config จาก Cloud (ค่าที่ Admin ตั้งไว้)
+    await loadGameConfigCloud();
+
+    // 3. ดึงจาก Supabase (ถ้ามีข้อมูลใน Cloud ให้ทับ LocalStorage ทันที)
+    if (currentUserId !== "GUEST_USER") {
+        const { data, error } = await loadPetState(currentUserId);
+        if (data) {
+            mergeSaveData(data);
+        }
+    }
+}
+
+function mergeSaveData(d) {
+    if (d.username) STATE.username = d.username;
+    if (d.pet_name) STATE.username = d.pet_name; // รองรับกรณีโหลดจาก Supabase
+    if (d.pin_code) STATE.pin_code = d.pin_code;
+    STATE.tokens = d.tokens ?? 500;
+    STATE.score = d.score ?? 0;
+    STATE.hunger = d.hunger ?? 80;
+    STATE.clean = d.clean ?? 80;
+    STATE.stamina = d.stamina ?? 100;
+    STATE.love = d.love ?? 50;
+    STATE.xp = d.xp ?? 0;
+    STATE.level = d.level ?? 1;
+    STATE.maxExp = d.maxExp ?? 100;
+
+    if (d.quests_data) STATE.quests = d.quests_data;
+    else if (d.quests) STATE.quests = d.quests;
+
+    if (d.buffs_data) STATE.buffs = d.buffs_data;
+    else if (d.buffs) STATE.buffs = d.buffs;
+}
+
+export function saveState() {
+    // 1. เซฟลง LocalStorage กันเหนียว
+    const today = new Date().toDateString();
+    const data = {
+        username: STATE.username,
+        pin_code: STATE.pin_code,
+        tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
+        hunger: STATE.hunger, clean: STATE.clean, stamina: STATE.stamina,
+        love: STATE.love, xp: STATE.xp, level: STATE.level, maxExp: STATE.maxExp,
+        quests: STATE.quests, quest_date: today, buffs: STATE.buffs
+    };
+    const storageKey = 'PW3D_SAVE_' + currentUserId;
+    localStorage.setItem(storageKey, JSON.stringify(data));
+
+    // 2. โยนขึ้น Supabase (แบบไม่ Block UI)
+    if (currentUserId !== "GUEST_USER") {
+        savePetState(currentUserId, STATE).catch(e => console.error("Supabase Save Fail: ", e));
+    }
+}
+
+export function applyConfigToState(p) {
+    if (!p) return;
+    STATE.config.template = p.template || 'pet';
+    STATE.config.sky = p.sky || 'day';
+    STATE.config.ground = p.ground || 'grass';
+    STATE.config.season_name = p.season_name || 'Season 1';
+    STATE.config.season_weeks = p.season_weeks || 1;
+    STATE.config.difficulty_mode = p.difficulty_mode || 'normal';
+    
+    // ล้าง Path เก่า
+    let cm = p.custom_model || '';
+    if (cm.includes('/models/')) cm = '/' + cm.split('/').pop();
+    STATE.config.custom_model = cm;
+    
+    STATE.maxStamina = Math.floor(p.max_stamina || 100);
+    STATE.config.q_special_mult = p.q_special_mult || 1.5;
+
+    STATE.config.costs = {
+        feed: p.cost_feed ?? 10, clean: p.cost_clean ?? 8,
+        repair: p.cost_repair ?? 5, play: p.cost_play ?? 12
+    };
+    STATE.config.shop = {
+        small: { cost: p.shop_s_cost || 500, amt: p.shop_s_amt || 50 },
+        medium: { cost: p.shop_m_cost || 900, amt: p.shop_m_amt || 100 },
+        large: { cost: p.shop_l_cost || 2000, amt: p.shop_l_amt || 250 }
+    };
+    STATE.config.mechanics = {
+        dec_hunger: p.dec_hunger ?? 0.12, dec_clean: p.dec_clean ?? 0.06, dec_happy: p.dec_happy ?? 0.08,
+        reg_stamina: p.reg_stamina ?? 0.5, sp_min: p.poop_min ?? 20, sp_max: p.poop_max ?? 50,
+        r_min: p.reward_min ?? 30, r_max: p.reward_max ?? 90, rare_rate: p.rare_rate ?? 10,
+        rare_xp_mult: p.rare_xp_mult ?? 3, rare_token_min: p.rare_token_min ?? 20, rare_token_max: p.rare_token_max ?? 50,
+        fever_threshold: p.fever_threshold ?? 80, fever_mult: p.fever_mult ?? 1.5,
+        rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 20, rxp_play: p.rxp_play ?? 25,
+        rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
+        rscore_scoop: p.rscore_scoop ?? 20, poop_lifetime: p.poop_lifetime ?? 30, reward_lifetime: p.reward_lifetime ?? 20,
+        max_poops: p.max_poops ?? 3, max_rewards: p.max_rewards ?? 3
+    };
+    STATE.config.q_feed = p.q_feed || 3;
+    STATE.config.q_clean = p.q_clean || 2;
+    STATE.config.q_play = p.q_play || 1;
+    STATE.config.qt_scoop = p.qt_scoop || 10;
+    STATE.config.qt_fever = p.qt_fever || 2;
+    STATE.config.qt_love = p.qt_love || 10;
+    STATE.config.qt_spend = p.qt_spend || 100;
+}
+
+export async function loadGameConfigCloud() {
+    const { data, error } = await loadGameConfig('production_config');
+    if (data) {
+        applyConfigToState(data);
+    }
+}
+
+export function loadAdminConfigLocal() {
+    const c = localStorage.getItem('pw3d_config');
+    if (c) applyConfigToState(JSON.parse(c));
+}
