@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 let scene, camera, renderer, petModel, clock, particles, groundMesh;
-let ambientLight, sunLight, purpleLight, pinkLight;
+let ambientLight, sunLight, purpleLight, pinkLight, mixer;
 let currentTemplate = 'pet';
 let envConfig = { sky: 'day', ground: 'grass' };
 
@@ -11,13 +12,15 @@ let envConfig = { sky: 'day', ground: 'grass' };
 let targetPos = new THREE.Vector3(0, 0, 0);
 let isWalking = false;
 let nextAutoWalkTime = 0;
+let walkActions = []; // Actions that look like walking
+let idleActions = []; // Actions that look like idling
 
 // Poop system
 const poopObjects = [];       // { mesh, timer, warningMesh }
 let onPoopCollected = null;   // callback to game.js
 let onPoopExpired = null;     // callback to game.js
 let onRewardCollected = null;
-const rewardObjects = []; // { mesh, type, value, startY }
+const rewardObjects = []; // { mesh, type, value, startY, elapsed }
 const POOP_LIFETIME = 45;     // วินาที ก่อนจะส่งผลเสีย
 const REWARD_LIFETIME = 25;   // วินาที ก่อนจะส่งผลเสีย
 const MAX_POOPS = 5;          // จำนวนอึสูงสุดบนพื้น
@@ -47,6 +50,8 @@ const LIGHT_PRESETS = {
 };
 
 export function init3D(containerId, templateType = 'pet', env = {}) {
+    currentTemplate = templateType;
+    const customModel = env.customModel || '';
     currentTemplate = templateType;
     if (env.sky) envConfig.sky = env.sky;
     if (env.ground) envConfig.ground = env.ground;
@@ -103,7 +108,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     createParticles();
 
     // --- PET ---
-    createPetObject();
+    createPetObject(customModel);
 
     // --- CLICK / TAP TO WALK ---
     const handleGlobalInput = (clientX, clientY) => {
@@ -267,9 +272,87 @@ function createParticles() {
     scene.add(particles);
 }
 
-function createPetObject() {
+function createPetObject(customPath = '') {
     if (petModel) scene.remove(petModel);
+    if (mixer) { mixer.stopAllAction(); mixer = null; }
+    
     petModel = new THREE.Group();
+    scene.add(petModel);
+
+    // Fallback if loading fails
+    const fallback = () => {
+        if (customPath) {
+            console.warn("Failed to load custom model, falling back to default:", currentTemplate);
+            createPetObject(''); // Call again without custom path
+        }
+    };
+
+    if (customPath) {
+        const isGLB = customPath.toLowerCase().endsWith('.glb') || customPath.toLowerCase().endsWith('.gltf');
+        if (isGLB) {
+            const gltfLoader = new GLTFLoader();
+            gltfLoader.load(customPath, (gltf) => {
+                const model = gltf.scene;
+                model.traverse(c => { if(c.isMesh) { c.castShadow=true; c.receiveShadow=true; } });
+                
+                // standard centering
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const scale = 0.85 / size.y; // ย่อลงอีกนิดให้เป็นแมวบ้าน (จากเดิม 1.0 -> 0.85)
+                model.scale.set(scale, scale, scale);
+                model.position.y = -1.2; 
+                
+                if (gltf.animations && gltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(model);
+                    walkActions = []; idleActions = [];
+
+                    // ตรวจสอบจำนวนท่า
+                    if (gltf.animations.length === 1) {
+                        // กรณีมีท่าเดียว (เช่นตัว Bicolor Cat) 
+                        const action = mixer.clipAction(gltf.animations[0]);
+                        action.play();
+                        walkActions = [action];
+                        idleActions = [action]; // ใช้ท่าเดียวกันแต่จะคุมด้วย speed
+                    } else {
+                        // กรณีมีหลายท่า (แยกตาม Keyword)
+                        gltf.animations.forEach((clip, index) => {
+                            const name = clip.name.toLowerCase();
+                            const action = mixer.clipAction(clip);
+                            if (name.includes('walk') || name.includes('run') || name.includes('move') || name.includes('crawl')) {
+                                walkActions.push(action);
+                            } else if (name.includes('idle') || name.includes('wait') || name.includes('head')) {
+                                idleActions.push(action);
+                            }
+                        });
+                        
+                        if (walkActions.length === 0 && gltf.animations.length > 1) walkActions.push(mixer.clipAction(gltf.animations[1]));
+                        if (idleActions.length === 0) idleActions.push(mixer.clipAction(gltf.animations[0]));
+                    }
+                    
+                    // เริ่มต้นสถานะนิ่ง (สโลว์)
+                    const isSingle = gltf.animations.length === 1;
+                    idleActions.forEach(a => { 
+                        a.play(); 
+                        a.timeScale = isSingle ? 0.15 : 1.0; 
+                    });
+                    walkActions.forEach(a => { a.timeScale = 1.6; });
+                }
+                petModel.add(model);
+            }, undefined, fallback);
+            return;
+        } else if (customPath.toLowerCase().endsWith('.obj')) {
+             const objLoader = new OBJLoader();
+             objLoader.load(customPath, (object) => {
+                object.traverse(c => { if(c.isMesh) { c.castShadow=true; c.receiveShadow=true; } });
+                object.scale.set(1.5, 1.5, 1.5);
+                object.position.y = -1.2;
+                petModel.add(object);
+             }, undefined, fallback);
+             return;
+        }
+    }
+
+    // Default Templates
 
     // 🐱 Realistic Orange Tabby Cat Colors
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe8822a, metalness: 0.0, roughness: 0.7, emissive: 0x3a1800, emissiveIntensity: 0.05 });
@@ -347,7 +430,6 @@ function createPetObject() {
     }
 
     petModel.position.y = 0;
-    scene.add(petModel);
 }
 
 function autoWalk(t) {
@@ -366,8 +448,10 @@ function autoWalk(t) {
 
 function animate() {
     requestAnimationFrame(animate);
+    const delta = clock.getDelta();
     const t = clock.getElapsedTime();
     if (window.TWEEN) TWEEN.update();
+    if (mixer) mixer.update(delta);
 
     if (petModel) {
         // Auto-walk AI
@@ -388,13 +472,34 @@ function animate() {
                 while (diff > Math.PI) diff -= Math.PI * 2;
                 petModel.rotation.y += diff * 0.05;
 
-                // --- PROCEDURAL WALK (The Waddle) ---
-                const walkCycle = t * 9; // เร่งแอนิเมชั่นการเดินตามความเร็วใหม่
-                petModel.rotation.z = Math.sin(walkCycle) * 0.045; // บิดตัวซ้ายขวาแรงขึ้นนิดนึง
-                petModel.rotation.x = Math.cos(walkCycle * 2) * 0.03; 
-                petModel.position.y = Math.abs(Math.cos(walkCycle * 2)) * 0.035; 
+                // --- ANIMATION SWITCH: WALKING ---
+                if (mixer) {
+                    const isSingle = walkActions.length === 1 && walkActions[0] === idleActions[0];
+                    if (isSingle) {
+                        walkActions[0].timeScale = 1.6;
+                    } else {
+                        idleActions.forEach(a => { a.stop(); });
+                        walkActions.forEach(a => { a.play(); a.timeScale = 1.6; });
+                    }
+                } else {
+                    // --- PROCEDURAL WALK (Only for OBJ/Simple models) ---
+                    const walkCycle = t * 9;
+                    petModel.rotation.z = Math.sin(walkCycle) * 0.045;
+                    petModel.rotation.x = Math.cos(walkCycle * 2) * 0.03; 
+                    petModel.position.y = Math.abs(Math.cos(walkCycle * 2)) * 0.035; 
+                }
             } else {
                 isWalking = false;
+                // --- ANIMATION SWITCH: IDLE ---
+                if (mixer) {
+                    const isSingle = walkActions.length === 1 && walkActions[0] === idleActions[0];
+                    if (isSingle) {
+                        walkActions[0].timeScale = 0.15; // หรี่ความเร็วลงให้เหมือนแค่หายใจเบาๆ
+                    } else {
+                        walkActions.forEach(a => { a.stop(); });
+                        idleActions.forEach(a => { a.play(); a.timeScale = 1.0; });
+                    }
+                }
             }
         } else {
             // --- RESTORE IDLE STATE (Organic) ---
@@ -557,10 +662,13 @@ function updateIndicators() {
 }
 
 function updateRewards(t) {
+    const delta = 1 / 60; // Approximate for 60fps
     for (let i = rewardObjects.length - 1; i >= 0; i--) {
         const r = rewardObjects[i];
         if (!r.mesh) continue;
         
+        r.elapsed = (r.elapsed || 0) + delta;
+
         // หมุนเหรียญ
         r.mesh.rotation.y += 0.05;
         // ลอยขึ้นลงเบาๆ
@@ -573,7 +681,23 @@ function updateRewards(t) {
                 scene.remove(r.mesh);
                 rewardObjects.splice(i, 1);
                 if (onRewardCollected) onRewardCollected(r.type, r.value);
+                continue;
             }
+        }
+
+        // Expiry check
+        if (r.elapsed >= REWARD_LIFETIME) {
+            scene.remove(r.mesh);
+            rewardObjects.splice(i, 1);
+            continue;
+        }
+
+        // Visual feedback when close to expiry
+        if (r.elapsed > REWARD_LIFETIME * 0.7) {
+            const flash = Math.sin(r.elapsed * 10) > 0;
+            r.mesh.visible = flash;
+        } else {
+            r.mesh.visible = true;
         }
     }
 }
@@ -699,7 +823,7 @@ export function spawnReward(type = 'coin', value = 1) {
         mesh.position.y = -0.9;
     }
 
-    rewardObjects.push({ mesh, type, value, startY: -0.9 });
+    rewardObjects.push({ mesh, type, value, startY: -0.9, elapsed: 0 });
 }
 
 export function setRewardCallback(callback) {
@@ -708,9 +832,9 @@ export function setRewardCallback(callback) {
 
 
 
-export function updateTemplate(type) {
+export function updateTemplate(type, path = '') {
     currentTemplate = type;
-    createPetObject();
+    createPetObject(path);
 }
 
 export function updateEnvironment(sky, ground) {

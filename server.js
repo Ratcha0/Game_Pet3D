@@ -28,11 +28,20 @@ app.use(express.static(__dirname));
 
 // ส่งหน้าหลักเมื่อเรียกไปที่ URL
 app.get('/', (req, res) => {
-    // ลองส่งจาก dist ก่อน ถ้าไม่มีค่อยส่งจาก root
     res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
-        if (err) {
-            res.sendFile(path.join(__dirname, 'index.html'));
-        }
+        if (err) res.sendFile(path.join(__dirname, 'index.html'));
+    });
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'dashboard.html'), (err) => {
+        if (err) res.sendFile(path.join(__dirname, 'dashboard.html'));
+    });
+});
+
+app.get('/game', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'game.html'), (err) => {
+        if (err) res.sendFile(path.join(__dirname, 'game.html'));
     });
 });
 
