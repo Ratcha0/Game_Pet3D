@@ -55,7 +55,17 @@
         .pin-active { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; border-color: #8b5cf6; }
         .pin-error { animation: shake 0.4s; border-color: #ef4444; background: rgba(239, 68, 68, 0.2); }
         .pin-success { border-color: #10b981; background: #10b981; box-shadow: 0 0 15px #10b981; }
-        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .pulse { animation: pulse 1s infinite; }
+
+        /* Twemoji Styling */
+        img.emoji {
+            height: 1.1em;
+            width: 1.1em;
+            margin: 0 .05em 0 .1em;
+            vertical-align: -0.1em;
+            display: inline-block;
+        }
         
         /* --- RESPONSIVE CORE --- */
         @media (max-width: 400px) {
@@ -713,6 +723,7 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/twemoji@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
     <script type="module" src="/src/controllers/game.js"></script>
     <script>
         // สำคัญ: ปลดล็อคฟังก์ชัน PIN ให้เรียกใช้จากปุ่มกดใน HTML ได้ทันที

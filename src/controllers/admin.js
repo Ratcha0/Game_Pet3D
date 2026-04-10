@@ -60,7 +60,13 @@ const STATE = {
     poop_lifetime: 30,
     reward_lifetime: 20,
     max_poops: 3,
-    max_rewards: 3
+    max_rewards: 3,
+    // Reward Rarity (NEW)
+    rew_rare_rate: 20,
+    rew_legend_rate: 5,
+    rew_common_tokens: 10,
+    rew_rare_tokens: 50,
+    rew_legend_tokens: 250
 };
 
 let miniEngines = []; // Track active mini 3D scenes
@@ -175,7 +181,8 @@ window.saveAll = async () => {
         'season_weeks', 'shop_s_cost', 'shop_s_amt', 'shop_m_cost', 'shop_m_amt', 
         'shop_l_cost', 'shop_l_amt', 'rare_xp_mult', 'fever_mult', 'rscore_scoop', 
         'rare_token_min', 'rare_token_max', 'custom_model', 'poop_lifetime', 
-        'reward_lifetime', 'max_poops', 'max_rewards'
+        'reward_lifetime', 'max_poops', 'max_rewards',
+        'rew_rare_rate', 'rew_legend_rate', 'rew_common_tokens', 'rew_rare_tokens', 'rew_legend_tokens'
     ];
 
     const payload = {};
@@ -197,6 +204,7 @@ window.saveAll = async () => {
     } else {
         btn.innerText = '✅ บันทึกขึ้น Cloud สำเร็จ!';
         btn.style.background = '#10b981';
+        if (window.twemoji) twemoji.parse(btn);
     }
 
     setTimeout(() => {
@@ -239,6 +247,8 @@ function renderGallery() {
             </div>
         </div>
     `).join('');
+
+    if (window.twemoji) twemoji.parse(container);
 
     // Init 3D for each card
     setTimeout(() => {
@@ -338,7 +348,10 @@ window.loadPreset = (mode) => {
             poop_min: 120, poop_max: 300, reward_min: 90, reward_max: 200,
             rare_rate: 10, rare_xp_mult: 1.5, fever_threshold: 70, fever_mult: 1.2,
             rscore_scoop: 10, q_special_mult: 1.2,
-            poop_lifetime: 60, reward_lifetime: 45, max_poops: 2, max_rewards: 5
+            poop_lifetime: 60, reward_lifetime: 45, max_poops: 2, max_rewards: 5,
+            // Balanced Reward Rarity for EASY
+            rew_rare_rate: 15, rew_legend_rate: 3,
+            rew_common_tokens: 20, rew_rare_tokens: 100, rew_legend_tokens: 300
         },
         // ═══════════════════════════════════════════════
         // 🟡 NORMAL MODE — สมดุลที่สุด เข้ามาดูทุก 5-10 นาที
@@ -355,7 +368,10 @@ window.loadPreset = (mode) => {
             poop_min: 45, poop_max: 120, reward_min: 60, reward_max: 150,
             rare_rate: 15, rare_xp_mult: 1.2, fever_threshold: 80, fever_mult: 1.5,
             rscore_scoop: 20, q_special_mult: 1.5,
-            poop_lifetime: 30, reward_lifetime: 20, max_poops: 3, max_rewards: 3
+            poop_lifetime: 30, reward_lifetime: 20, max_poops: 3, max_rewards: 3,
+            // Balanced Reward Rarity for NORMAL
+            rew_rare_rate: 20, rew_legend_rate: 5,
+            rew_common_tokens: 10, rew_rare_tokens: 50, rew_legend_tokens: 250
         },
         // ═══════════════════════════════════════════════
         // 🔴 HARD MODE — ท้าทาย ต้องบริหารทรัพยากรอย่างระมัดระวัง
@@ -374,7 +390,10 @@ window.loadPreset = (mode) => {
             rare_rate: 30, rare_xp_mult: 1.0, fever_threshold: 90, fever_mult: 2.0,
             rare_token_min: 80, rare_token_max: 150,
             rscore_scoop: 50, q_special_mult: 3.0,
-            poop_lifetime: 20, reward_lifetime: 15, max_poops: 5, max_rewards: 2
+            poop_lifetime: 20, reward_lifetime: 15, max_poops: 5, max_rewards: 2,
+            // Balanced Reward Rarity for HARD (High Risk, High Reward Jackpot)
+            rew_rare_rate: 25, rew_legend_rate: 10,
+            rew_common_tokens: 5, rew_rare_tokens: 150, rew_legend_tokens: 1000
         }
     };
 
@@ -397,5 +416,9 @@ window.toggleSection = (id) => {
     const sec = $(id);
     if(sec) sec.classList.toggle('section-collapsed');
 };
-loadConfig();
-renderGallery();
+const renderAll = () => {
+    loadConfig();
+    renderGallery();
+    if(window.twemoji) twemoji.parse(document.body);
+};
+renderAll();

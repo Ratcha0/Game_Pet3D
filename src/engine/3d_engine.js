@@ -170,7 +170,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
                 scene.remove(p.mesh);
                 disposeObject(p.mesh); // Cleanup
                 poopObjects.splice(i, 1);
-                if (onPoopCollected) onPoopCollected();
+                if (onPoopCollected) onPoopCollected(p.type || 'normal');
                 return; 
             }
         }
@@ -613,7 +613,7 @@ function animate() {
                 disposeObject(p.mesh); // Cleanup
                 poopObjects.splice(i, 1);
                 targetItemToCollect = null; // เคลียร์เป้าหมาย
-                if (onPoopCollected) onPoopCollected();
+                if (onPoopCollected) onPoopCollected(p.type || 'normal');
                 continue;
             }
         }
@@ -668,7 +668,8 @@ function updateIndicators() {
 
     // Process poops
     for (let i = 0; i < poopObjects.length; i++) {
-        renderIndicator(poopObjects[i].mesh, '💩', '#ec4899', container);
+        const isGold = poopObjects[i].type === 'gold';
+        renderIndicator(poopObjects[i].mesh, isGold ? '✨' : '💩', isGold ? '#fbbf24' : '#ec4899', container);
     }
     // Process rewards
     for (let i = 0; i < rewardObjects.length; i++) {
@@ -714,6 +715,7 @@ function renderIndicator(mesh, icon, color, container) {
         });
 
         container.appendChild(el);
+        if (window.twemoji) twemoji.parse(el);
         indicatorElements.set(mesh, el);
     }
 
@@ -800,26 +802,28 @@ function updateRewards(t, delta) {
 }
 
 // สร้างก้อนอึ 3D บนพื้น
-function createPoopMesh(x, z) {
+function createPoopMesh(x, z, type) {
     const group = new THREE.Group();
+    const isGold = type === 'gold';
     const mat = new THREE.MeshStandardMaterial({
-        color: 0x6b3a1f, roughness: 0.9, metalness: 0.0,
-        emissive: 0x3a1500, emissiveIntensity: 0.1
+        color: isGold ? 0xffd700 : 0x6b3a1f, 
+        roughness: isGold ? 0.2 : 0.9, 
+        metalness: isGold ? 1.0 : 0.0,
+        emissive: isGold ? 0xffaa00 : 0x3a1500, 
+        emissiveIntensity: isGold ? 0.5 : 0.1
     });
 
     // ชั้นล่าง (ใหญ่)
     const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), mat);
     b1.position.y = 0.0; b1.scale.set(1, 0.7, 1);
-
     // ชั้นกลาง
     const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), mat);
     b2.position.y = 0.16; b2.scale.set(1, 0.8, 1);
-
     // ชั้นบน (ยอด)
     const b3 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), mat);
     b3.position.y = 0.28; b3.scale.set(1, 1.1, 1);
 
-    // ดวงตาน่ารัก (ทำให้ฮา)
+    // ดวงตา
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
     const eL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
@@ -832,24 +836,43 @@ function createPoopMesh(x, z) {
     pR.position.set(0.06, 0.26, 0.115);
 
     group.add(b1, b2, b3, eL, eR, pL, pR);
+
+    // เพิ่ม Aura แสงสว่างสำหรับอึทองคำ
+    if (isGold) {
+        const light = new THREE.PointLight(0xffaa00, 1.5, 2);
+        light.position.y = 0.5;
+        group.add(light);
+        
+        // เพิ่ม Sprite Aura (Halo)
+        const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(32,32,0,32,32,32);
+        grad.addColorStop(0, 'rgba(255,200,0,0.4)'); grad.addColorStop(1, 'rgba(255,200,0,0)');
+        ctx.fillStyle=grad; ctx.fillRect(0,0,64,64);
+        const tex = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, blending:THREE.AdditiveBlending }));
+        sprite.scale.set(1.2, 1.2, 1);
+        sprite.position.y = 0.1;
+        group.add(sprite);
+    }
+
     group.position.set(x, -1.1, z);
     group.castShadow = true;
     return group;
 }
 
 // เรียกจาก game.js เพื่อสุ่มอึ
-export function spawnPoop() {
+export function spawnPoop(type = 'normal') {
     if (!scene || !petModel) return false;
-    if (poopObjects.length >= (engineConfig.max_poops || 3)) return false; // ไม่ให้อึเกินขีดจำกัด
-    // กระจายรอบตัวสัตว์เลี้ยงให้กว้างขึ้น เพื่อไม่ให้อึเกาะกลุ่มอยู่ที่เดียว
+    if (poopObjects.length >= (engineConfig.max_poops || 3)) return false; 
     const angle = Math.random() * Math.PI * 2;
     const dist = 0.5 + Math.random() * 0.6;
     const rx = Math.max(-9.5, Math.min(9.5, petModel.position.x + Math.cos(angle) * dist));
     const rz = Math.max(-9.5, Math.min(9.5, petModel.position.z + Math.sin(angle) * dist));
-    const mesh = createPoopMesh(rx, rz);
+    const mesh = createPoopMesh(rx, rz, type);
     scene.add(mesh);
 
-    const poopEntry = { mesh, elapsed: 0, x: rx, z: rz };
+    const poopEntry = { mesh, elapsed: 0, x: rx, z: rz, type };
     poopObjects.push(poopEntry);
     return true;
 }
@@ -864,33 +887,63 @@ export function setPoopCallbacks(onCollect, onExpire) {
 export function collectPoopByUI() {
     if (poopObjects.length === 0) return false;
     const p = poopObjects[0];
+    const type = p.type || 'normal';
     scene.remove(p.mesh);
     disposeObject(p.mesh); // Cleanup
     poopObjects.shift();
-    return true;
+    return type;
 }
 
 // --- REWARDS SYSTEM ---
 
-function createCoinMesh() {
+function createRewardMesh(type = 'common') {
     const group = new THREE.Group();
-    // เหรียญทอง
-    const goldMat = new THREE.MeshStandardMaterial({ 
-        color: 0xffd700, metalness: 0.8, roughness: 0.1, 
-        emissive: 0xffaa00, emissiveIntensity: 0.4 
-    });
-    const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 24);
-    const coin = new THREE.Mesh(geo, goldMat);
-    coin.rotation.x = Math.PI / 2;
-    coin.castShadow = true;
-    group.add(coin);
+    let mesh;
 
-    // สัญลักษณ์ $ (ใช้ PlaneTexture ง่ายๆ หรือ Cylinder ผอมๆ)
-    const symbolGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.2, 8);
-    const symbol = new THREE.Mesh(symbolGeo, new THREE.MeshBasicMaterial({ color: 0x442200 }));
-    symbol.position.z = 0.03;
-    group.add(symbol);
+    if (type === 'legend') {
+        // ทรงเพชร (Legendary Diamond)
+        const geo = new THREE.OctahedronGeometry(0.25);
+        const mat = new THREE.MeshStandardMaterial({ 
+            color: 0x00ffff, emissive: 0x0099ff, emissiveIntensity: 1.5,
+            metalness: 0.9, roughness: 0.1, transparent: true, opacity: 0.9
+        });
+        mesh = new THREE.Mesh(geo, mat);
+        
+        // Aura Light
+        const light = new THREE.PointLight(0x00ccff, 2, 3);
+        group.add(light);
 
+        // Halo
+        const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createRadialGradient(32,32,0,32,32,32);
+        grad.addColorStop(0, 'rgba(0,255,255,0.4)'); grad.addColorStop(1, 'rgba(0,200,255,0)');
+        ctx.fillStyle=grad; ctx.fillRect(0,0,64,64);
+        const tex = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, blending:THREE.AdditiveBlending }));
+        sprite.scale.set(1.5, 1.5, 1);
+        group.add(sprite);
+
+    } else {
+        // เหรียญ (Common/Rare)
+        const isRare = type === 'rare';
+        const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 16);
+        const mat = new THREE.MeshStandardMaterial({ 
+            color: isRare ? 0xffd700 : 0xcccccc, 
+            metalness: 0.8, roughness: 0.2,
+            emissive: isRare ? 0xffaa00 : 0x444444,
+            emissiveIntensity: isRare ? 0.8 : 0.1
+        });
+        mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = Math.PI / 2;
+
+        if (isRare) {
+            const light = new THREE.PointLight(0xffaa00, 1, 2);
+            group.add(light);
+        }
+    }
+
+    group.add(mesh);
     return group;
 }
 
@@ -908,7 +961,7 @@ export function spawnReward(type = 'coin', value = 1) {
     const finalX = Math.max(-9, Math.min(9, rx));
     const finalZ = Math.max(-9, Math.min(9, rz));
 
-    const mesh = createCoinMesh();
+    const mesh = createRewardMesh(type);
     mesh.position.set(finalX, -1.0, finalZ);
     mesh.scale.set(0.1, 0.1, 0.1);
     scene.add(mesh);

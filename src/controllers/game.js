@@ -157,6 +157,7 @@ function updateQuestUI() {
             }
         }
     }
+    if (window.twemoji) twemoji.parse(document.body);
 }
 
 function incrementSpecialQuest(type, amt = 1) {
@@ -168,14 +169,15 @@ function incrementSpecialQuest(type, amt = 1) {
     }
 }
 
-function spawn(text) {
+function spawn(text, colorClass = "text-white") {
     const a=$('spawn-area'); if(!a) return;
     const e=document.createElement('div');
-    e.className='absolute text-2xl font-black float-up pointer-events-none z-[60] text-white drop-shadow-[0_0_15px_rgba(139,92,246,0.6)]';
+    e.className=`absolute text-2xl font-black float-up pointer-events-none z-[60] drop-shadow-[0_0_15px_rgba(139,92,246,0.6)] ${colorClass}`;
     e.style.left=`${Math.random()*50+25}%`;
     e.style.top=`${Math.random()*40+20}%`;
     e.innerText=text;
     a.appendChild(e);
+    if (window.twemoji) twemoji.parse(e); 
     setTimeout(()=>e.remove(),2000);
 }
 
@@ -225,6 +227,7 @@ window.savePetNameUI = () => {
 // PIN LOCK SCREEN LOGIC
 // ==========================================
 let currentPin = '';
+let isGameActive = false; // จะเป็น true เมื่อปลดล็อคหน้าจอแล้วเท่านั้น
 
 function updatePinUI() {
     const dots = document.querySelectorAll('.pin-dot');
@@ -355,7 +358,10 @@ function unlockScreen() {
         screen.classList.add('scale-110');
         screen.style.pointerEvents = 'none';
         setTimeout(() => screen.remove(), 500); 
-        spawn('🔓 ปลดล็อคระบบสำเร็จ!');
+        spawn('🔓 ปลดล็อคระบบสำเร็จ!', 'text-emerald-400');
+        
+        // เริ่มต้นชีวิตสัตว์เลี้ยง (Start Lifecycles)
+        isGameActive = true;
     }
 }
 
@@ -404,7 +410,8 @@ window.doAction = (type) => {
     if (STATE.stamina < cost) { spawn('⚡ พลังงานไม่พอ!'); return; }
     
     // Validate if action is possible (especially for repair)
-    if (type === 'repair' && !collectPoopByUI()) {
+    const collectedType = (type === 'repair') ? collectPoopByUI() : null;
+    if (type === 'repair' && !collectedType) {
         spawn('✨ พื้นสะอาดอยู่แล้ว');
         return;
     }
@@ -454,7 +461,7 @@ window.doAction = (type) => {
             break;
 
         case 'repair': 
-            onPoopCollectedManual(); 
+            onPoopCollectedManual(collectedType); 
             if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
             break;
 
@@ -480,7 +487,7 @@ window.doAction = (type) => {
 };
 
 // --- ฟังก์ชันรวมศูนย์สำหรับคำนวณรางวัลเมื่อเก็บกวาดอึ (เรียกจากทั้งคลิก 3D และปุ่ม UI) ---
-window.onPoopCollectedManual = () => {
+window.onPoopCollectedManual = (type = 'normal') => {
     const mech = STATE.config.mechanics || { rst_repair:10, rxp_repair:12, rscore_scoop: 20 };
     STATE.clean = Math.min(100, STATE.clean + mech.rst_repair);
     STATE.love = Math.min(100, STATE.love + 5); // เก็บอึให้ก็เพิ่มความผูกพัน (💖)
@@ -490,7 +497,7 @@ window.onPoopCollectedManual = () => {
 
     // --- GACHA: RARE DROP ---
     const rareRate = (mech.rare_rate ?? 10) / 100;
-    const isRare = Math.random() < rareRate;
+    const isRare = (type === 'gold') || (Math.random() < rareRate);
     const rareMult = mech.rare_xp_mult ?? 3;
     const gainedXP = isRare ? mech.rxp_repair * rareMult : mech.rxp_repair;
     STATE.xp += gainedXP;
@@ -507,7 +514,8 @@ window.onPoopCollectedManual = () => {
         // บันทึก Log กรณีได้ Rare Drop
         logScoreAction(currentUserId, 'SCOOP_RARE', actionScore, jackpotTokens, 'เจอของแรร์ในกองอึ!');
         
-        spawn(`✨ ทาดา! ซ่อนของแรร์ไว้ (+${jackpotTokens} Token)`);
+        const msg = (type === 'gold') ? `✨ สุดยอด! เก็บอึทองคำสำเร็จ! (+${jackpotTokens}🪙)` : `🎁 ทาดา! ซ่อนของแรร์ไว้ (+${jackpotTokens} Token)`;
+        spawn(msg, 'text-neon-gold pulse');
     } else {
         // บันทึก Log ปกติ
         logScoreAction(currentUserId, 'SCOOP_POOP', actionScore, 0);
@@ -598,6 +606,7 @@ function loadBoard() {
             <div class="font-black text-neon-gold text-sm">${(p.score).toLocaleString()} 🏆</div>
         </div>
     `).join('');
+    if (window.twemoji) twemoji.parse(list);
 }
 
 window.toggleQuest = (close) => {
@@ -806,18 +815,30 @@ window.toggleFullScreen = () => {
     );
 
     setRewardCallback((type, val) => {
-        const mech = STATE.config.mechanics || {};
-        if (type === 'coin') {
-            const min = mech.rare_token_min || 20;
-            const max = mech.rare_token_max || 50;
-            const tokenGain = Math.floor(min + Math.random() * (max - min));
-            
-            STATE.tokens += tokenGain;
-            STATE.xp += (mech.rxp_repair || 12) * (mech.rare_xp_mult || 1);
-            
-            spawn(`🪙 เก็บเหรียญได้ +${tokenGain} Token! (+Bonus XP)`);
-            updateUI(); saveState();
+        const c = STATE.config || {};
+        let tokens = 10;
+        let xp = 10;
+        let msg = '';
+        
+        if (type === 'legend') {
+            tokens = c.rew_legend_tokens || 250;
+            xp = 100;
+            msg = `💎 สมบัติในตำนาน! +${tokens}🪙 (+${xp}XP)`;
+        } else if (type === 'rare') {
+            tokens = c.rew_rare_tokens || 50;
+            xp = 30;
+            msg = `🟡 ของหายาก! +${tokens}🪙 (+${xp}XP)`;
+        } else {
+            tokens = c.rew_common_tokens || 10;
+            xp = 10;
+            msg = `⚪ เก็บเหรียญสำเร็จ! +${tokens}🪙 (+${xp}XP)`;
         }
+        
+        STATE.tokens += tokens;
+        STATE.xp += xp;
+        spawn(msg, 'text-neon-gold pulse');
+        updateUI();
+        saveState();
     });
 
     function scheduleNextPoop() {
@@ -825,8 +846,12 @@ window.toggleFullScreen = () => {
         const baseDelay = (mech.sp_min + Math.random() * (mech.sp_max - mech.sp_min)) * 1000;
         
         setTimeout(() => {
-            if (spawnPoop()) {
-                spawn('💩 น้องปวดท้องอึ / ของร่วงลงแหมะ!');
+            const rareRate = (mech.rare_rate ?? 10) / 100;
+            const type = Math.random() < rareRate ? 'gold' : 'normal';
+
+            if (spawnPoop(type)) {
+                if (type === 'gold') spawn('✨ อุ๊ย! น้องทำทองร่วงแวววาวเลย!', 'text-neon-gold pulse');
+                else spawn('💩 น้องปวดท้องอึ / ของร่วงลงแหมะ!');
             }
             scheduleNextPoop();
         }, baseDelay);
@@ -834,16 +859,22 @@ window.toggleFullScreen = () => {
     scheduleNextPoop();
 
     function scheduleNextReward() {
-        const mech = STATE.config.mechanics || { r_min:90, r_max:240, rare_rate: 10, fever_threshold: 80 };
-        const delay = (mech.r_min + Math.random() * (mech.r_max - (mech.r_min || 0))) * 1000;
+        const c = STATE.config || {};
+        const r_min = c.reward_min || 90;
+        const r_max = c.reward_max || 240;
+        const delay = (r_min + Math.random() * (r_max - r_min)) * 1000;
         
         setTimeout(() => {
-            const dropRate = (mech.rare_rate || 10) / 100;
-            const threshold = mech.fever_threshold || 80;
-            if (STATE.love > threshold && Math.random() < dropRate) {
-                if (spawnReward('coin')) {
-                    spawn('🎁 น้องอารมณ์ดีมากจนอยากให้รางวัล!');
-                }
+            const rRare = (c.rew_rare_rate || 20) / 100;
+            const rLegend = (c.rew_legend_rate || 5) / 100;
+            const roll = Math.random();
+            let rType = 'common';
+            if (roll < rLegend) rType = 'legend';
+            else if (roll < rLegend + rRare) rType = 'rare';
+
+            if (spawnReward(rType)) {
+                if (rType === 'legend') spawn('💎 ว้าว! สมบัติระดับตำนานร่วงลงมา!', 'text-cyan-400 pulse');
+                else spawn('🎁 มีบางอย่างร่วงลงมาจากฟ้า!');
             }
             scheduleNextReward();
         }, delay);
@@ -851,6 +882,7 @@ window.toggleFullScreen = () => {
     scheduleNextReward();
 
     setInterval(()=>{
+        if (!isGameActive) return; 
         const mech = STATE.config.mechanics || { dec_hunger: 0.12, dec_happy: 0.08, dec_clean: 0.06, reg_stamina: 0.5 };
         STATE.maxStamina = STATE.maxStamina || 100;
         
@@ -885,11 +917,19 @@ window.toggleFullScreen = () => {
             multiplier *= STATE.buffs.regen;
         }
 
-        // --- REGEN LOGIC: Allow exceeding Max but don't regen if over ---
+        const prevStamina = STATE.stamina;
         if (STATE.stamina < STATE.maxStamina) {
             STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (currentRegen * multiplier));
         }
 
+        // แสดง Feedback เมื่อ Stamina เพิ่ม
+        if (Math.floor(STATE.stamina) > Math.floor(prevStamina)) {
+            if (Math.random() < 0.3) spawn('+1⚡', 'text-emerald-400 text-sm');
+        }
+        
         updateUI();
+        if (Math.random() < 0.1) saveState(); 
     }, 5000);
+
+    if (window.twemoji) twemoji.parse(document.body);
 })();
