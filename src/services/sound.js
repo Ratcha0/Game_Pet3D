@@ -10,7 +10,7 @@ class SoundManager {
         
         // --- ส่วนที่ปรับความดังได้ง่ายๆ ตรงนี้ครับ ---
         this.masterVolume = 0.5; // ความดังเสียงเอฟเฟกต์ทั่วไป (0.0 - 1.0)
-        this.bgmVolume = 0.3;   // ความดังเพลงพื้นหลัง (0.0 - 1.0)
+        this.bgmVolume = 0.05;   // ความดังเพลงพื้นหลัง (0.0 - 1.0)
         
         this.assets = {};
         this.sounds = {
@@ -159,7 +159,6 @@ class SoundManager {
         if (!this.enabled || this.bgm) return;
         
         const bgmUrl = '/Music/Sugar_Coated_Combo.mp3';
-        console.log("🎵 SoundManager: Playing Local BGM Asset...");
         
         this.bgm = new Audio(bgmUrl);
         this.bgm.loop = true;
@@ -180,7 +179,6 @@ class SoundManager {
         if (this.bgm) {
             this.bgm.pause();
             this.bgm = null;
-            console.log("🎵 SoundManager: BGM Stopped.");
         }
     }
 
