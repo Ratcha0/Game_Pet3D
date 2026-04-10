@@ -208,8 +208,11 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
 
     // ฟังก์ชันคำนวณขนาด (รวมศูนย์ไว้ที่เดียว)
     const handleResize = () => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        const container = renderer.domElement.parentElement;
+        if (!container) return;
+        
+        const width = container.clientWidth;
+        const height = container.clientHeight;
         const aspect = width / height;
         
         camera.aspect = aspect;
@@ -226,7 +229,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         }
         
         camera.updateProjectionMatrix();
-        renderer.setSize(width, height, true);
+        renderer.setSize(width, height, false);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     };
 
