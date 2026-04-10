@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 // ค่าเหล่านี้ดึงมาจากไฟล์ .env
-// ถ้าคุณเปิดรันในเซิร์ฟเวอร์หรือโฮสติ้ง ต้องเอาค่าไปใส่ใน Environment Variables
+// ถ้าใช้งานบน Vercel โดยไม่ได้เซ็ตหลังบ้าน จะวิ่งมาใช้ค่าสำรองตรงนี้แทน (เพื่อกันบัค HTTP Headers)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://bueyeufcfdsdgqbrtpau.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'ใส่_API_KEY_ที่นี่';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZXlldWZjZmRzZGdxYnJ0cGF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MTAyNTIsImV4cCI6MjA5MTI4NjI1Mn0.RGjyIoZnS3WL1RSyYGPqAzzTVfK0tYrdkxPnE1iA-ho';
 
 // สร้างตัวเชื่อมต่อ (Client)
 export const supabase = createClient(supabaseUrl, supabaseKey);
