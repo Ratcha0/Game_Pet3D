@@ -402,6 +402,13 @@ window.buyPackage = (tier) => {
 window.doAction = (type) => {
     const cost = STATE.config.costs[type];
     if (STATE.stamina < cost) { spawn('⚡ พลังงานไม่พอ!'); return; }
+    
+    // Validate if action is possible (especially for repair)
+    if (type === 'repair' && !collectPoopByUI()) {
+        spawn('✨ พื้นสะอาดอยู่แล้ว');
+        return;
+    }
+
     STATE.stamina -= cost;
     incrementSpecialQuest('spend', cost);
 
@@ -447,12 +454,8 @@ window.doAction = (type) => {
             break;
 
         case 'repair': 
-            if (collectPoopByUI()) {
-                onPoopCollectedManual(); 
-                if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
-            } else {
-                spawn('✨ พื้นสะอาดอยู่แล้ว');
-            }
+            onPoopCollectedManual(); 
+            if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
             break;
 
         case 'play': 
@@ -575,6 +578,12 @@ window.addEventListener('message', (e) => {
             max_poops: STATE.config.max_poops,
             max_rewards: STATE.config.max_rewards
         });
+        
+        // Bypass PIN Lock in Preview Mode
+        if ($('pin-lock-screen')) {
+            unlockScreen();
+        }
+        
         updateUI();
     }
 });
