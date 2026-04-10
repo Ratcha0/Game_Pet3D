@@ -46,7 +46,32 @@ export function setUserId(id) {
     currentUserId = id;
 }
 
+export function resetStateToDefaults() {
+    STATE.username = "ผู้เล่นทั่วไป";
+    STATE.pin_code = "";
+    STATE.tokens = 500;
+    STATE.score = 0;
+    STATE.hunger = 80;
+    STATE.clean = 80;
+    STATE.stamina = 100;
+    STATE.love = 50;
+    STATE.xp = 0;
+    STATE.level = 1;
+    STATE.maxExp = 100;
+    STATE.quests = {
+        feed: 0, feed_max: 3,
+        clean: 0, clean_max: 2,
+        play: 0, play_max: 1,
+        special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' },
+        claimed: false
+    };
+    STATE.buffs = { regen: 1.0, regen_expiry: 0 };
+}
+
 export async function loadState() {
+    // 0. Reset ค่าปัจจุบันทิ้งก่อน เพื่อป้องกันข้อมูลคนเก่าค้าง
+    resetStateToDefaults();
+
     // 1. ดึงจาก LocalStorage ก่อน (เผื่อไม่มีเน็ต)
     const storageKey = 'PW3D_SAVE_' + currentUserId;
     const s = localStorage.getItem(storageKey);
@@ -78,7 +103,7 @@ function mergeSaveData(d) {
     STATE.love = d.love ?? 50;
     STATE.xp = d.xp ?? 0;
     STATE.level = d.level ?? 1;
-    STATE.maxExp = d.maxExp ?? 100;
+    STATE.maxExp = d.maxExp ?? d.max_exp ?? 100;
 
     if (d.quests_data) STATE.quests = d.quests_data;
     else if (d.quests) STATE.quests = d.quests;
@@ -139,7 +164,7 @@ export function applyConfigToState(p) {
         r_min: p.reward_min ?? 30, r_max: p.reward_max ?? 90, rare_rate: p.rare_rate ?? 10,
         rare_xp_mult: p.rare_xp_mult ?? 3, rare_token_min: p.rare_token_min ?? 20, rare_token_max: p.rare_token_max ?? 50,
         fever_threshold: p.fever_threshold ?? 80, fever_mult: p.fever_mult ?? 1.5,
-        rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 20, rxp_play: p.rxp_play ?? 25,
+        rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 10, rxp_play: p.rxp_play ?? 25,
         rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
         rscore_scoop: p.rscore_scoop ?? 20, poop_lifetime: p.poop_lifetime ?? 30, reward_lifetime: p.reward_lifetime ?? 20,
         max_poops: p.max_poops ?? 3, max_rewards: p.max_rewards ?? 3

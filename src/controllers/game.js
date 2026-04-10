@@ -240,10 +240,77 @@ function updatePinUI() {
 
     const isNew = !STATE.pin_code || STATE.pin_code === "";
     const msg = $('pin-msg');
-    if (msg && msg.innerText.indexOf('SUCCESS') === -1 && msg.innerText.indexOf('INCORRECT') === -1) {
-        msg.innerText = isNew ? "ตั้งรหัสผ่าน 4 หลักใหม่สำหรับการเข้าเกม" : "ใส่รหัสผ่านของคุณเพื่อปลดล็อค";
+    const pinTitle = $('pin-title');
+    const pinIcon = $('pin-icon');
+
+    if (msg) {
+        if (msg.innerText.indexOf('SUCCESS') === -1 && msg.innerText.indexOf('INCORRECT') === -1) {
+            if (isNew) {
+                if (pinTitle) pinTitle.innerText = "Set New PIN";
+                if (pinIcon) pinIcon.innerText = "✨";
+                msg.innerHTML = `ยินดีต้อนรับคุณ <span class="text-neon-purple">${STATE.username}</span><br>กรุณาตั้งรหัสผ่าน 4 หลักสำหรับไอดีนี้`;
+            } else {
+                if (pinTitle) pinTitle.innerText = "Security Lock";
+                if (pinIcon) pinIcon.innerText = "🔒";
+                msg.innerHTML = `ยินดีต้อนรับกลับคุณ <span class="text-neon-pink">${STATE.username}</span><br>กรุณาใส่รหัสผ่านเพื่อเข้าสู่ระบบ`;
+            }
+        }
     }
 }
+
+// --- NEW LOGIN FLOW FUNCTIONS ---
+window.confirmUsername = async () => {
+    const input = $('login-username-input');
+    if (!input || !input.value.trim()) {
+        spawn('⚠️ กรุณาใส่ชื่อผู้ใช้ก่อนครับ');
+        return;
+    }
+
+    const name = input.value.trim().substring(0, 15);
+    STATE.username = name;
+    setUserId(name); // ใช้ชื่อเป็น ID
+
+    // บันทึกลง Session Storage (แคชชั่วคราว)
+    sessionStorage.setItem('pw3d_session_user', name);
+
+    // โหลดข้อมูลจาก Cloud/Local
+    await loadState();
+    
+    // บังคับให้ใช้ชื่อที่กรอกมาเป็นชื่อในเกมด้วย (ป้องกันค่าเริ่มต้นมาทับ)
+    STATE.username = name;
+    
+    // อัปเดต UI PIN และหน้าจอหลัก
+    updatePinUI();
+    updateUI();
+    
+    const step1 = $('login-step-1');
+    const step2 = $('login-step-2');
+    
+    if (step1 && step2) {
+        step1.classList.add('opacity-0', '-translate-y-8');
+        setTimeout(() => {
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            void step2.offsetWidth; // force reflow
+            step2.classList.remove('opacity-0', 'translate-y-8');
+        }, 300);
+    }
+};
+
+window.backToStep1 = () => {
+    const step1 = $('login-step-1');
+    const step2 = $('login-step-2');
+    if (step1 && step2) {
+        step2.classList.add('opacity-0', 'translate-y-8');
+        setTimeout(() => {
+            step2.classList.add('hidden');
+            step1.classList.remove('hidden');
+            void step1.offsetWidth;
+            step1.classList.remove('opacity-0', '-translate-y-8');
+        }, 300);
+    }
+};
+// --------------------------------
 
 function verifyPin() {
     const dots = document.querySelectorAll('.pin-dot');
@@ -256,7 +323,8 @@ function verifyPin() {
         
         dots.forEach(d => d.classList.add('pin-success'));
         $('pin-msg').innerText = "PIN CREATED! UNLOCKING...";
-        $('pin-msg').classList.replace('text-white/50', 'text-green-400');
+        $('pin-msg').classList.remove('text-white/50', 'text-red-400');
+        $('pin-msg').classList.add('text-green-400');
         
         setTimeout(unlockScreen, 600);
     } else {
@@ -264,12 +332,14 @@ function verifyPin() {
         if (currentPin === STATE.pin_code) {
             dots.forEach(d => d.classList.add('pin-success'));
             $('pin-msg').innerText = "SUCCESS! UNLOCKING...";
-            $('pin-msg').classList.replace('text-white/50', 'text-green-400');
+            $('pin-msg').classList.remove('text-white/50', 'text-red-400');
+            $('pin-msg').classList.add('text-green-400');
             setTimeout(unlockScreen, 600);
         } else {
             dots.forEach(d => d.classList.add('pin-error'));
             $('pin-msg').innerText = "INCORRECT PIN. TRY AGAIN.";
-            $('pin-msg').classList.replace('text-white/50', 'text-red-400');
+            $('pin-msg').classList.remove('text-white/50', 'text-green-400');
+            $('pin-msg').classList.add('text-red-400');
             setTimeout(() => {
                 currentPin = '';
                 updatePinUI();
@@ -337,7 +407,7 @@ window.doAction = (type) => {
 
     const mech = STATE.config.mechanics || {
         rst_feed:15, rxp_feed:15, rst_clean:20, rxp_clean:10, 
-        rst_play:20, rxp_play:25, rst_repair:10, rxp_repair:12,
+        rst_play:10, rxp_play:25, rst_repair:10, rxp_repair:12,
         rscore_scoop: 20
     };
 
@@ -450,7 +520,7 @@ function checkLevelUp() {
     if (STATE.xp >= STATE.maxExp) {
         STATE.level++;
         STATE.xp -= STATE.maxExp;
-        STATE.maxExp = Math.floor(STATE.maxExp * 1.2); 
+        STATE.maxExp = Math.floor(STATE.maxExp * 1.25); // ปรับจาก 1.2 เป็น 1.25 เพื่อให้ยากขึ้นทวีคูณ
         
         const bonusScore = 5000 + (STATE.level * 1000); 
         const bonusTokens = 500 + (STATE.level * 50); 
@@ -458,10 +528,11 @@ function checkLevelUp() {
         STATE.score += bonusScore;
         STATE.tokens += bonusTokens;
         
-        STATE.hunger = 100;
-        STATE.love = 100;
-        STATE.clean = 100;
-        STATE.stamina = Math.max(STATE.stamina, STATE.maxStamina);
+        // เมื่อเลเวลเพิ่ม จะได้โบนัสค่าสถานะเล็กน้อย (ไม่รีเซ็ตเต็ม 100 เพื่อความท้าทาย)
+        STATE.hunger = Math.min(100, STATE.hunger + 30);
+        STATE.love = Math.min(100, STATE.love + 20);
+        STATE.clean = Math.min(100, STATE.clean + 30);
+        STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + 50); // โบนัสพลังงานแต่ไม่เกิน max
 
         // 🐈 ปรับขนาดสัตว์เลี้ยงตาม Level ใหม่
         updatePetScale(STATE.level);
@@ -606,7 +677,7 @@ window.toggleRanking = async (forcedState) => {
         if (data && data.length > 0) {
             listEl.innerHTML = data.map((p, i) => {
                 const isMe = p.player_id === currentUserId;
-                const shortName = p.player_id === 'ADMIN_TEST_MODE' ? 'ADMIN' : `Player #${String(p.player_id).substring(0, 4)}`;
+                const shortName = p.player_id === 'ADMIN_TEST_MODE' ? 'ADMIN' : p.player_id;
                 
                 return `
                     <div class="${isMe ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-white/5 border-white/5'} flex items-center justify-between p-4 rounded-2xl border transition-all">
@@ -671,21 +742,47 @@ window.toggleFullScreen = () => {
 
 
 (async () => {
-    // 💡 สามารถส่งค่า userId และ username ผ่าน URL Parameter ได้ (เช่น ?userId=usr1&username=Somchai)
+    // 1. ตรวจสอบชื่อจาก Session Storage หรือ URL
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('userId') || "GUEST_USER";
-    const userName = urlParams.get('username');
-    setUserId(userId);
-    if(userName) STATE.username = userName;
+    const sessionUser = sessionStorage.getItem('pw3d_session_user');
+    const urlUserId = urlParams.get('userId'); // เผื่อยังอยากเข้าผ่านลิงก์ได้อยู่
     
-    await loadState(); 
-    updatePinUI(); // โหลดเสร็จเช็คว่าต้องตั้งรหัสใหม่มั้ย
+    const userId = sessionUser || urlUserId;
+    const userNameParam = urlParams.get('username');
+
+    const step1 = $('login-step-1');
+    const step2 = $('login-step-2');
+
+    if (userId) {
+        // --- กรณีมีชื่อจำไว้แล้ว ---
+        setUserId(userId);
+        await loadState();
+        
+        // ใช้ชื่อจาก ID หรือ URL มาเป็นชื่อแสดงผล
+        STATE.username = userNameParam || userId;
+        
+        updatePinUI();
+        
+        if (step1 && step2) {
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            step2.classList.remove('opacity-0', 'translate-y-8');
+        }
+    } else {
+        // --- กรณีไม่มีชื่อ (เริ่มใหม่) ---
+        if (step1) {
+            step1.classList.remove('hidden');
+            // focus input
+            setTimeout(() => $('login-username-input')?.focus(), 500);
+        }
+    }
+    
     loadAdminConfigLocal();
     init3D('three-canvas', STATE.config.template, { 
         sky:STATE.config.sky, ground:STATE.config.ground, 
         customModel: STATE.config.custom_model 
     });
-    updatePetScale(STATE.level); // 🐈 ตั้งค่าขนาดสัตว์เลี้ยงตาม Level ปัจจุบัน
+    updatePetScale(STATE.level); 
     resetDailyQuests(); 
     updateUI();
     

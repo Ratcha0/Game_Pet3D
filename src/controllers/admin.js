@@ -21,13 +21,13 @@ const STATE = {
     cost_repair: 5,
     cost_play: 12,
     rst_feed: 15,
-    rxp_feed: 15,
+    rxp_feed: 5,    // ลดจาก 15
     rst_clean: 20,
-    rxp_clean: 10,
-    rst_play: 20,
-    rxp_play: 25,
+    rxp_clean: 5,   // ลดจาก 10
+    rst_play: 10,
+    rxp_play: 10,   // ลดจาก 25
     rst_repair: 10,
-    rxp_repair: 12,
+    rxp_repair: 6,  // ลดจาก 12
     fever_threshold: 80,
     rare_rate: 10,
     q_special_mult: 1.5,
@@ -323,39 +323,58 @@ function initMiniPreview(v) {
 
 window.loadPreset = (mode) => {
     const presets = {
+        // ═══════════════════════════════════════════════
+        // 🟢 EASY MODE — สบายๆ ดูแลง่าย เหมาะกับเด็กหรือเล่นผ่อนคลาย
+        // พลังงาน/ชม: 720 | ต้องใช้/ชม: ~80 (11% utilization)
+        // "รอ 25 วิ ก็กดได้อีกรอบ"
+        // ═══════════════════════════════════════════════
         easy: {
             difficulty_mode: 'easy',
-            dec_hunger: 0.04, dec_clean: 0.02, dec_happy: 0.02,
+            dec_hunger: 0.05, dec_clean: 0.03, dec_happy: 0.03,
             reg_stamina: 1.0, max_stamina: 150, 
             cost_feed: 5, cost_clean: 5, cost_repair: 2, cost_play: 8,
-            rst_feed: 25, rst_clean: 30, rst_play: 30, rst_repair: 20,
+            rst_feed: 25, rst_clean: 30, rst_play: 15, rst_repair: 20,
+            rxp_feed: 8, rxp_clean: 6, rxp_play: 15, rxp_repair: 8,
             poop_min: 120, poop_max: 300, reward_min: 90, reward_max: 200,
-            rare_rate: 10, rare_xp_mult: 2, fever_threshold: 70, fever_mult: 1.2,
+            rare_rate: 10, rare_xp_mult: 1.5, fever_threshold: 70, fever_mult: 1.2,
             rscore_scoop: 10, q_special_mult: 1.2,
             poop_lifetime: 60, reward_lifetime: 45, max_poops: 2, max_rewards: 5
         },
+        // ═══════════════════════════════════════════════
+        // 🟡 NORMAL MODE — สมดุลที่สุด เข้ามาดูทุก 5-10 นาที
+        // พลังงาน/ชม: 360 | ต้องใช้/ชม: ~156 (43% utilization)
+        // "รอ ~2 นาที ก็กดได้อีกรอบ"
+        // ═══════════════════════════════════════════════
         normal: {
             difficulty_mode: 'normal',
             dec_hunger: 0.12, dec_clean: 0.06, dec_happy: 0.08,
             reg_stamina: 0.5, max_stamina: 100,
             cost_feed: 10, cost_clean: 8, cost_repair: 5, cost_play: 12,
-            rst_feed: 15, rst_clean: 20, rst_play: 20, rst_repair: 10,
+            rst_feed: 15, rst_clean: 20, rst_play: 10, rst_repair: 10,
+            rxp_feed: 5, rxp_clean: 5, rxp_play: 10, rxp_repair: 6,
             poop_min: 45, poop_max: 120, reward_min: 60, reward_max: 150,
-            rare_rate: 15, rare_xp_mult: 3, fever_threshold: 80, fever_mult: 1.5,
+            rare_rate: 15, rare_xp_mult: 1.2, fever_threshold: 80, fever_mult: 1.5,
             rscore_scoop: 20, q_special_mult: 1.5,
             poop_lifetime: 30, reward_lifetime: 20, max_poops: 3, max_rewards: 3
         },
+        // ═══════════════════════════════════════════════
+        // 🔴 HARD MODE — ท้าทาย ต้องบริหารทรัพยากรอย่างระมัดระวัง
+        // พลังงาน/ชม: 252 | ต้องใช้ขั้นต่ำ/ชม: ~190 (75% utilization)
+        // "รอ ~3-4 นาที ต่อ 1 แอคชั่น" + ปริมาณถูกจำกัด
+        // ชดเชย: รางวัลแรร์มากกว่า 2 เท่า + เหรียญเยอะกว่า
+        // ═══════════════════════════════════════════════
         hard: {
             difficulty_mode: 'hard',
-            dec_hunger: 0.25, dec_clean: 0.15, dec_happy: 0.20,
-            reg_stamina: 0.2, max_stamina: 60,
-            cost_feed: 20, cost_clean: 15, cost_repair: 10, cost_play: 25,
-            rst_feed: 10, rst_clean: 15, rst_play: 15, rst_repair: 8,
-            poop_min: 25, poop_max: 45, reward_min: 30, reward_max: 90,
-            rare_rate: 40, rare_xp_mult: 5, fever_threshold: 90, fever_mult: 2.0,
+            dec_hunger: 0.18, dec_clean: 0.09, dec_happy: 0.12,
+            reg_stamina: 0.35, max_stamina: 80,
+            cost_feed: 15, cost_clean: 12, cost_repair: 8, cost_play: 18,
+            rst_feed: 12, rst_clean: 18, rst_play: 8, rst_repair: 10,
+            rxp_feed: 3, rxp_clean: 3, rxp_play: 5, rxp_repair: 4,
+            poop_min: 30, poop_max: 60, reward_min: 30, reward_max: 90,
+            rare_rate: 30, rare_xp_mult: 1.0, fever_threshold: 90, fever_mult: 2.0,
             rare_token_min: 80, rare_token_max: 150,
             rscore_scoop: 50, q_special_mult: 3.0,
-            poop_lifetime: 15, reward_lifetime: 15, max_poops: 5, max_rewards: 2
+            poop_lifetime: 20, reward_lifetime: 15, max_poops: 5, max_rewards: 2
         }
     };
 

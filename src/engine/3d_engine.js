@@ -35,6 +35,7 @@ let engineConfig = {
     max_poops: 3,
     max_rewards: 3
 };
+let targetItemToCollect = null; // เก็บเป้าหมายที่ผู้เล่นคลิกให้เดินไปเก็บ
 
 // Helper สำหรับคืนหน่วยความจำ
 function disposeObject(obj) {
@@ -105,11 +106,13 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     camera.lookAt(0, 0, 0);
 
     renderer = new THREE.WebGLRenderer({ 
-        antialias: true, 
-        powerPreference: "high-performance" 
+        antialias: !isMobile(), 
+        powerPreference: "high-performance",
+        precision: isMobile() ? 'mediump' : 'highp' // ลดความละเอียดการคำนวณบนมือถือเพื่อลดความร้อน
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // ลดจาก 2 เหลือ 1.5 เพื่อ Performance
+    // มือถือรุ่นเก่าจำกัดที่ 1.0 เพื่อความลื่นไหล, รุ่นใหม่จำกัดที่ 1.5
+    renderer.setPixelRatio(isMobile() ? 1.0 : Math.min(window.devicePixelRatio, 1.5)); 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -125,7 +128,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     sunLight = new THREE.DirectionalLight(preset.sunColor, preset.sunI);
     sunLight.position.set(5, 10, 5);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(512, 512); // ลดจาก 1024 เพื่อความลื่นไหล
+    sunLight.shadow.mapSize.set(isMobile() ? 256 : 512, isMobile() ? 256 : 512); // ลดขนาดเงาบนมือถือลงอีก
     sunLight.shadow.bias = -0.005;
     scene.add(sunLight);
 
@@ -298,7 +301,8 @@ function createDecorations() {
 }
 
 function createParticles() {
-    const count = 80;
+    const isMob = isMobile();
+    const count = isMob ? 40 : 80; // ลดจำนวนฝุ่นลงครึ่งนึงบนมือถือ
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count * 3; i += 3) {
@@ -371,7 +375,9 @@ function createPetObject(inputPath = '') {
                 const size = box.getSize(new THREE.Vector3());
                 const scale = 0.85 / size.y;
                 model.scale.set(scale, scale, scale);
-                model.position.y = -1.2;
+                // ทำให้แกน Y ท้องแมวมาแตะ 0 ใน Local
+                const boxScaled = new THREE.Box3().setFromObject(model);
+                model.position.y = -boxScaled.min.y; 
                 modelBaseScale = scale; // เก็บ scale เดิมไว้
                 
                 if (gltf.animations && gltf.animations.length > 0) {
@@ -467,25 +473,33 @@ function createPetObject(inputPath = '') {
         petModel.add(chassis, cabin, hood, h1, h2);
     }
 
-    petModel.position.y = 0;
+    // เอาจุดกำเนิด (พื้น) ไปแตะ ground -1.2 
+    petModel.position.y = -1.2;
 }
 
 function autoWalk(t) {
     if (!petModel) return;
     if (t < nextAutoWalkTime) return;
+    
+    // ถ้ารับคำสั่งให้ไปเก็บของอยู่ ห้ามสุ่มเลิกเดินกลางทางเด็ดขาด!
+    if (targetItemToCollect && isWalking) return;
 
     if (isWalking) {
-        // ถ้ากำลังเดินอยู่ → ให้หยุดพัก (idle) 2-5 วินาที
+        // ถ้ากำลังเดินเล่นสุ่มๆ อยู่ → ให้หยุดพัก (idle) 2-5 วินาที
         isWalking = false;
         nextAutoWalkTime = t + 2 + Math.random() * 3;
     } else {
-        // ถ้ากำลังพักอยู่ → เริ่มเดินไปที่ใหม่
+        // ถ้ากำลังพักอยู่ → เริ่มสุ่มสถานที่พักผ่อนแนวใหม่
         const rx = (Math.random() - 0.5) * 14;
         const rz = (Math.random() - 0.5) * 14;
         targetPos.set(rx, 0, rz);
         isWalking = true;
-        // เดินอีก 4-10 วินาที แล้วค่อยหยุด
+        
+        // เวลาเดินเล่น 4-10 วินาที
         nextAutoWalkTime = t + 4 + Math.random() * 6;
+        
+        // สำคัญมาก: ล้างเป้าหมายที่ค้างอยู่ทิ้งให้หมด เพื่อไม่ให้เดินทับแล้วเผลอเก็บ
+        targetItemToCollect = null; 
     }
 }
 
@@ -528,7 +542,7 @@ function animate() {
                 if (!mixer) {
                     const walkCycle = t * 6;
                     petModel.rotation.z = Math.sin(walkCycle) * 0.03;
-                    petModel.position.y = Math.abs(Math.cos(walkCycle)) * 0.02;
+                    petModel.position.y = -1.2 + Math.abs(Math.cos(walkCycle)) * 0.02;
                 }
             } else {
                 isWalking = false;
@@ -545,8 +559,8 @@ function animate() {
                     walkActions.forEach(a => { a.play(); a.timeScale = 0.15; });
                 }
             }
-            // หายใจเบาๆ ตอน idle
-            petModel.position.y = Math.sin(t * 1.5) * 0.003;
+            // หายใจเบาๆ ตอน idle บนพื้นฐาน -1.2
+            petModel.position.y = -1.2 + Math.sin(t * 1.5) * 0.003;
             petModel.rotation.z *= 0.95;
             petModel.rotation.x *= 0.95;
         }
@@ -558,15 +572,15 @@ function animate() {
         const newScale = s + (goal - s) * 0.03;
         petModel.scale.set(newScale, newScale, newScale);
 
-        // Camera Follow (ใช้ cached vector ลด GC)
+        // Camera Follow (ชดเชยระดับความสูงเนื่องจากจุดกำเนิดลงไปอยู่พื้น -1.2)
         if (camera) {
             _camTarget.set(
                 petModel.position.x,
-                petModel.position.y + 3.5,
+                petModel.position.y + 4.7, // 3.5 + 1.2
                 petModel.position.z + 8.0
             );
             camera.position.lerp(_camTarget, 0.03);
-            camera.lookAt(petModel.position.x, petModel.position.y - 0.5, petModel.position.z);
+            camera.lookAt(petModel.position.x, petModel.position.y + 0.7, petModel.position.z); // -0.5 + 1.2
         }
     }
 
@@ -588,13 +602,17 @@ function animate() {
             });
         }
 
-        // เช็คระยะห่างจากสัตว์เลี้ยง (เดินทับเก็บอึอัตโนมัติ)
-        if (petModel) {
-            const dist = p.mesh.position.distanceTo(petModel.position);
-            if (dist < 1.0) { // ระยะเก็บ 1.0 (กว้างพอให้เก็บง่ายๆ)
+        // เช็คระยะห่างจากสัตว์เลี้ยง (เดินทับเก็บโดยตั้งใจ)
+        if (petModel && targetItemToCollect === p.mesh) {
+            // คำนวณระยะห่างแนวราบ 2D (ไม่เอาแกน Y มาคิดเพราะอึอยู่ติดพื้น/มุดดินนิดหน่อย)
+            const dx = p.mesh.position.x - petModel.position.x;
+            const dz = p.mesh.position.z - petModel.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+            if (dist < 1.5) { // รัศมีเก็บกว้างขึ้นนิดนึงเพื่อให้เดินทับง่ายๆ
                 scene.remove(p.mesh);
                 disposeObject(p.mesh); // Cleanup
                 poopObjects.splice(i, 1);
+                targetItemToCollect = null; // เคลียร์เป้าหมาย
                 if (onPoopCollected) onPoopCollected();
                 continue;
             }
@@ -659,9 +677,9 @@ function updateIndicators() {
 }
 
 function renderIndicator(mesh, icon, color, container) {
-    const radarRadius = container.clientWidth * 0.45;
+    const radarRadius = container.clientWidth * 0.42;
 
-    // Project to NDC [-1, 1]
+    // Project ตำแหน่ง 3D → 2D screen
     const pos = mesh.position.clone();
     pos.y += 0.4;
     pos.project(camera);
@@ -669,27 +687,28 @@ function renderIndicator(mesh, icon, color, container) {
     let el = indicatorElements.get(mesh);
     if (!el) {
         el = document.createElement('div');
-        el.className = 'absolute top-1/2 left-1/2 -mt-6 -ml-6 w-12 h-12 flex items-center justify-center transition-all duration-300 pointer-events-auto cursor-pointer hover:scale-110 active:scale-95';
+        el.className = 'absolute top-1/2 left-1/2 -mt-6 -ml-6 w-12 h-12 flex items-center justify-center transition-all duration-200 pointer-events-auto cursor-pointer hover:scale-125 active:scale-90';
         el.innerHTML = `
             <div class="relative w-12 h-12 flex items-center justify-center">
-                <div class="absolute inset-0 rounded-full blur-[10px] scale-125" style="background-color: ${color}30"></div>
-                <div class="text-[18px] z-10 filter drop-shadow-[0_0_8px_${color}]">${icon}</div>
+                <div class="absolute inset-0 rounded-full scale-150 animate-ping" style="background-color: ${color}15"></div>
+                <div class="absolute inset-0 rounded-full blur-[8px] scale-125" style="background-color: ${color}40"></div>
+                <div class="text-[20px] z-10 filter drop-shadow-[0_0_10px_${color}]">${icon}</div>
                 <div class="indicator-arrow absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div class="w-1.5 h-3.5 rounded-full -translate-y-5" style="background-color: ${color}; box-shadow: 0 0 15px ${color}"></div>
+                    <div class="w-2 h-4 rounded-full -translate-y-6" style="background-color: ${color}; box-shadow: 0 0 12px ${color}"></div>
                 </div>
             </div>
         `;
         
         // --- ระบบกดที่สัญลักษณ์เพื่อสั่งให้เดินไปเก็บ ---
         el.addEventListener('pointerdown', (e) => {
-            e.stopPropagation(); // ไม่ให้สะเทือนไปโดนการแตะพื้นหลัง
+            e.stopPropagation();
             if (petModel) {
                 targetPos.copy(mesh.position);
-                targetPos.y = 0;
+                targetPos.y = -1.2;
                 isWalking = true;
-                nextAutoWalkTime = performance.now() + 5000; // หยุดชั่วคราวหลังกดเอง
+                nextAutoWalkTime = clock.getElapsedTime() + 15; // เผื่อเวลากอบโกยให้ 15 วินาทีเลย
+                targetItemToCollect = mesh; // ล็อคเป้าไว้ กันการเดินสุ่มไปทับ
                 
-                // เอฟเฟกต์คลิก
                 el.style.transform += ' scale(0.8)';
             }
         });
@@ -698,13 +717,17 @@ function renderIndicator(mesh, icon, color, container) {
         indicatorElements.set(mesh, el);
     }
 
-    // Calculate direction on a circle
-    let dx = pos.x;
-    let dy = pos.y;
-    
-    if (pos.z > 1) { // Behind camera
-        dx = -dx; dy = -dy;
-        if (Math.abs(dx) < 0.1) dx = 1;
+    // คำนวณทิศทางจาก "แมว" ไปยัง "อึ/เหรียญ" บนแผนที่จริง
+    // กล้องอยู่ด้านหลัง (Z+8) มองลงมา ดังนั้น:
+    //   World X → Screen ซ้าย/ขวา (ตรง)
+    //   World Z → Screen ขึ้น/ลง (Z ลบ = ด้านบนจอ, Z บวก = ด้านล่างจอ)
+    let dx = 0, dy = 0;
+    if (petModel) {
+        dx = mesh.position.x - petModel.position.x;   // ซ้าย-ขวา ตรงๆ
+        dy = mesh.position.z - petModel.position.z;    // Z บวก = ใกล้กล้อง = ล่างจอ
+    } else {
+        dx = pos.x;
+        dy = -pos.y;
     }
 
     const mag = Math.sqrt(dx * dx + dy * dy);
@@ -712,19 +735,23 @@ function renderIndicator(mesh, icon, color, container) {
     const normY = dy / (mag || 1);
 
     const x = normX * radarRadius;
-    const y = -normY * radarRadius;
+    const y = normY * radarRadius;
 
+    // หมุนลูกศรชี้ไปทิศที่ถูกต้อง
     const arrowEl = el.querySelector('.indicator-arrow');
     if (arrowEl) {
-        arrowEl.style.transform = `rotate(${Math.atan2(dx, dy)}rad)`;
+        const angle = Math.atan2(dx, -dy); // ลูกศรชี้จากแมวไปอึ
+        arrowEl.style.transform = `rotate(${angle}rad)`;
     }
 
     el.style.transform = `translate(${x}px, ${y}px)`;
     
-    const isOnScreen = pos.x > -0.95 && pos.x < 0.95 && pos.y > -0.95 && pos.y < 0.95 && pos.z < 1;
-    el.style.opacity = isOnScreen ? '0.4' : '1';
-    el.style.scale = isOnScreen ? '0.8' : '1.1';
+    // แสดงชัดตลอดเวลา
+    el.style.opacity = '1';
+    el.style.scale = '1';
 }
+
+
 
 function updateRewards(t, delta) {
     for (let i = rewardObjects.length - 1; i >= 0; i--) {
@@ -738,13 +765,17 @@ function updateRewards(t, delta) {
         // ลอยขึ้นลงเบาๆ
         r.mesh.position.y = r.startY + Math.sin(t * 4) * 0.05;
         
-        // เช็คระยะห่างจากสัตว์เลี้ยง (เดินทับเก็บเหรียญ)
-        if (petModel) {
-            const dist = r.mesh.position.distanceTo(petModel.position);
-            if (dist < 0.6) {
+        // เช็คระยะห่างจากสัตว์เลี้ยง (เดินทับเก็บเหรียญตามที่กด)
+        if (petModel && targetItemToCollect === r.mesh) {
+            // คำนวณระยะห่างแนวราบ 2D (ไม่เอาแกน Y เพราะเหรียญลอยอยู่)
+            const dx = r.mesh.position.x - petModel.position.x;
+            const dz = r.mesh.position.z - petModel.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+            if (dist < 1.2) { // รัศมีเก็บเหรียญกว้างๆ
                 scene.remove(r.mesh);
                 disposeObject(r.mesh); // Cleanup
                 rewardObjects.splice(i, 1);
+                targetItemToCollect = null;
                 if (onRewardCollected) onRewardCollected(r.type, r.value);
                 continue;
             }
@@ -946,12 +977,17 @@ export function updateEngineConfig(config) {
     if (config.max_rewards) engineConfig.max_rewards = config.max_rewards;
 }
 
-// ปรับขนาดสัตว์เลี้ยงตาม Level (Level 1 = ตัวเล็ก, Level สูง = ตัวใหญ่)
+// ปรับขนาดสัตว์เลี้ยงตาม Level 
 let targetPetScale = 1;
 export function updatePetScale(level) {
-    // Level 1 = 0.6x (ตัวเล็ก), Level 5 = 0.8x, Level 10 = 1.0x, Level 15 = 1.15x, Level 20+ = 1.3x (ตัวใหญ่สุด)
+    // ให้โตแบบช้าๆ เพื่อไปโตเต็มที่ระดับตำนานตอน Level 100 (Max 2.2 ก็ถือว่ามหึมาแล้วครับ)
     const minScale = 0.6;
-    const maxScale = 1.3;
-    const growthRate = 0.035; // โตขึ้นทีละ 3.5% ต่อ Level
+    const maxScale = 2.2; 
+    // โตขึ้นทีละ 1.6% เพื่อให้ Level 30 กลายเป็นไซส์ 1.0 (แมวโตเต็มวัยปกติ)
+    const growthRate = 0.016; 
     targetPetScale = Math.min(maxScale, minScale + (level - 1) * growthRate);
+}
+// Helper ตรวจสอบว่าเป็นอุปกรณ์พกพาหรือไม่
+function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
