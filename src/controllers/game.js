@@ -6,6 +6,7 @@ import {
     loadState, saveState, applyConfigToState, loadAdminConfigLocal, setUserId,
     currentUserId, loadGameConfigCloud
 } from '../store/state.js';
+import { SFX } from '../services/sound.js';
 
 const $ = id => document.getElementById(id);
 
@@ -263,6 +264,8 @@ function updatePinUI() {
 
 // --- NEW LOGIN FLOW FUNCTIONS ---
 window.confirmUsername = async () => {
+    SFX.init(); // ปลุกระบบเสียง
+    SFX.playClick();
     const input = $('login-username-input');
     if (!input || !input.value.trim()) {
         spawn('⚠️ กรุณาใส่ชื่อผู้ใช้ก่อนครับ');
@@ -366,8 +369,10 @@ function unlockScreen() {
 }
 
 window._pressPin = (num) => {
+    SFX.init(); // ปลุกระบบเสียงและเริ่มเพลงทันทีที่สัมผัสปุ่ม
     if (currentPin.length < 4) {
         currentPin += num;
+        SFX.playClick();
         updatePinUI();
         if (currentPin.length === 4) {
             verifyPin();
@@ -401,13 +406,19 @@ window.buyPackage = (tier) => {
     logScoreAction(currentUserId, 'SHOP_PURCHASE', 0, -pkg.cost, `ซื้อแพ็คเกจ ${tier.toUpperCase()}`);
 
     spawn(`📦 ซื้อแพ็ค ${tier.toUpperCase()} สำเร็จ! (+${pkg.amt})`);
+    SFX.playAsset('bell');
     updateUI(); saveState();
     setTimeout(() => toggleShop(true), 500); 
 };
 
 window.doAction = (type) => {
+    SFX.init(); // ประกันว่า AudioContext จะทำงานเมื่อมีการคลิกครั้งแรก
     const cost = STATE.config.costs[type];
-    if (STATE.stamina < cost) { spawn('⚡ พลังงานไม่พอ!'); return; }
+    if (STATE.stamina < cost) { 
+        SFX.playError();
+        spawn('⚡ พลังงานไม่พอ!'); 
+        return; 
+    }
     
     // Validate if action is possible (especially for repair)
     const collectedType = (type === 'repair') ? collectPoopByUI() : null;
@@ -474,6 +485,7 @@ window.doAction = (type) => {
             const playXP = Math.floor(mech.rxp_play * xpMult);
             STATE.xp += playXP; 
             if(STATE.quests.play < STATE.quests.play_max) STATE.quests.play++;
+            SFX.playAsset('meow');
             spawn(`🎾 สนุกจัง! +${playXP}XP (x${xpMult.toFixed(1)})`); 
             break;
     }
@@ -483,6 +495,7 @@ window.doAction = (type) => {
 
 
     checkLevelUp();
+    SFX.playClick();
     updateUI(); saveState();
 };
 
@@ -506,6 +519,9 @@ window.onPoopCollectedManual = (type = 'normal') => {
     STATE.score += actionScore;
 
     if (isRare) {
+        if (type === 'gold') SFX.playJingle();
+        else SFX.playCoin(); // หรือใช้ jingle ก็ได้
+
         const tMin = mech.rare_token_min ?? 20;
         const tMax = mech.rare_token_max ?? 50;
         const jackpotTokens = Math.floor(tMin + Math.random() * (tMax - tMin));
@@ -529,6 +545,7 @@ window.onPoopCollectedManual = (type = 'normal') => {
 
 function checkLevelUp() {
     if (STATE.xp >= STATE.maxExp) {
+        SFX.playAsset('level');
         STATE.level++;
         STATE.xp -= STATE.maxExp;
         STATE.maxExp = Math.floor(STATE.maxExp * 1.25); // ปรับจาก 1.2 เป็น 1.25 เพื่อให้ยากขึ้นทวีคูณ
@@ -836,6 +853,9 @@ window.toggleFullScreen = () => {
         
         STATE.tokens += tokens;
         STATE.xp += xp;
+        if (type === 'legend' || type === 'rare') SFX.playJingle();
+        else SFX.playCoin();
+        
         spawn(msg, 'text-neon-gold pulse');
         updateUI();
         saveState();
@@ -850,6 +870,7 @@ window.toggleFullScreen = () => {
             const type = Math.random() < rareRate ? 'gold' : 'normal';
 
             if (spawnPoop(type)) {
+                SFX.playSpawn();
                 if (type === 'gold') spawn('✨ อุ๊ย! น้องทำทองร่วงแวววาวเลย!', 'text-neon-gold pulse');
                 else spawn('💩 น้องปวดท้องอึ / ของร่วงลงแหมะ!');
             }
@@ -873,6 +894,7 @@ window.toggleFullScreen = () => {
             else if (roll < rLegend + rRare) rType = 'rare';
 
             if (spawnReward(rType)) {
+                SFX.playSpawn();
                 if (rType === 'legend') spawn('💎 ว้าว! สมบัติระดับตำนานร่วงลงมา!', 'text-cyan-400 pulse');
                 else spawn('🎁 มีบางอย่างร่วงลงมาจากฟ้า!');
             }
