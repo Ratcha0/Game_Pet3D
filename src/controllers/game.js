@@ -11,6 +11,13 @@ import { SFX } from '../services/sound.js';
 const $ = id => document.getElementById(id);
 
 function updateUI() {
+    if (!STATE) return;
+
+    const musicBtn = document.getElementById('music-btn');
+    if (musicBtn) {
+        musicBtn.innerText = SFX.musicEnabled ? '🎵' : '🔇';
+    }
+
     const un=$('hud-username'); if(un) un.innerText=STATE.username;
     const t=$('hud-tokens'); if(t) t.innerText=Math.floor(STATE.tokens).toLocaleString();
     const s=$('hud-score'); if(s) s.innerText=Math.floor(STATE.score).toLocaleString();
@@ -160,6 +167,17 @@ function updateQuestUI() {
     }
     if (window.twemoji) twemoji.parse(document.body);
 }
+
+// --- MUSIC TOGGLE UI ---
+window.toggleMusicUI = () => {
+    const isEnabled = SFX.toggleMusic();
+    const btn = document.getElementById('music-btn');
+    if (btn) {
+        btn.innerText = isEnabled ? '🎵' : '🔇';
+        if (window.twemoji) twemoji.parse(btn);
+    }
+    SFX.playClick();
+};
 
 function incrementSpecialQuest(type, amt = 1) {
     if(!STATE.quests || !STATE.quests.special) return;

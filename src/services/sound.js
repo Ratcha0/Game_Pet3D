@@ -5,11 +5,12 @@
 class SoundManager {
     constructor() {
         this.ctx = null;
-        this.enabled = true;
+        this.enabled = true;      // สำหรับ SFX
+        this.musicEnabled = true; // สำหรับ BGM
         
         // --- ส่วนที่ปรับความดังได้ง่ายๆ ตรงนี้ครับ ---
         this.masterVolume = 0.5; // ความดังเสียงเอฟเฟกต์ทั่วไป (0.0 - 1.0)
-        this.bgmVolume = 0.02;   // ความดังเพลงพื้นหลัง (0.0 - 1.0)
+        this.bgmVolume = 0.3;   // ความดังเพลงพื้นหลัง (0.0 - 1.0)
         
         this.assets = {};
         this.sounds = {
@@ -32,14 +33,19 @@ class SoundManager {
         if (this.ctx.state === 'suspended') {
             await this.ctx.resume();
         }
-        this.startBGM(); // เปิดเพลงทันทีด้วยไฟล์ MP3 ใหม่
+        if (this.musicEnabled) this.startBGM(); 
     }
 
     toggle() {
         this.enabled = !this.enabled;
-        if (!this.enabled) this.stopBGM();
-        else this.startBGM();
         return this.enabled;
+    }
+
+    toggleMusic() {
+        this.musicEnabled = !this.musicEnabled;
+        if (!this.musicEnabled) this.stopBGM();
+        else this.startBGM();
+        return this.musicEnabled;
     }
 
     // เสียงความสำเร็จที่น่าตื่นเต้น (Synthesized Fanfare)

@@ -408,12 +408,17 @@
                          </button>
                         
                         <!-- Floating Quest Button (Right Sidebar) -->
-                        <button onclick="toggleQuest(false)" class="glass w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-sm sm:text-lg shadow-xl border border-white/5 hover:bg-white/20 active:scale-95 transition-all animate-bounce-slow relative pointer-events-auto">
-                            📜
-                            <div id="quest-noti-dot" class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-slate-900 flex items-center justify-center">
-                                <div class="w-1.5 h-1.5 bg-white rounded-full animate-ping"></div>
-                            </div>
-                        </button>
+                        <div class="flex items-center gap-1 sm:gap-2 pointer-events-auto">
+                            <button id="music-btn" onclick="toggleMusicUI()" class="glass w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-sm sm:text-lg shadow-xl border border-white/5 hover:bg-white/20 active:scale-95 transition-all relative pointer-events-auto">
+                                🎵
+                            </button>
+                            <button onclick="toggleQuest(false)" class="glass w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-sm sm:text-lg shadow-xl border border-white/5 hover:bg-white/20 active:scale-95 transition-all animate-bounce-slow relative pointer-events-auto">
+                                📜
+                                <div id="quest-noti-dot" class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-slate-900 flex items-center justify-center">
+                                    <div class="w-1.5 h-1.5 bg-white rounded-full animate-ping"></div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 </header>
 
