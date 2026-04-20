@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 let scene, camera, renderer, petModel, clock, particles, groundMesh;
@@ -9,18 +8,81 @@ let currentTemplate = 'pet';
 let currentAction = null;
 let envConfig = { sky: 'day', ground: 'grass' };
 
-// Walking & Animation state
+// --- 🏃 Walking & Animation state ---
 let targetPos = new THREE.Vector3(0, 0, 0);
 let isWalking = false;
 let nextAutoWalkTime = 0;
-let animState = 'idle'; // 'idle' | 'walk' → ป้องกันการเรียก play/stop ซ้ำทุกเฟรม
 let walkActions = [];
 let idleActions = [];
-let modelBaseScale = 1; // เก็บ scale เดิมเอาไว้ไม่ให้ breathing pulse ทับ
+let animState = 'idle';
+let modelBaseScale = 1;
+let targetPetScale = 1;
 
-// Cache vectors เพื่อลด GC pressure (สำคัญมากสำหรับมือถือ)
+// --- ❄️ Cache vectors & Indicator state ---
 const _dir = new THREE.Vector3();
 const _camTarget = new THREE.Vector3();
+const _tempVec = new THREE.Vector3();
+
+let indicatorElements = new Map();
+let indicatorOverlay = null;
+let indicatorFrameCount = 0;
+
+// --- 🎲 Seeded Random System ---
+let worldSeed = 1;
+function seededRandom() {
+    worldSeed = (worldSeed * 16807) % 2147483647;
+    return (worldSeed - 1) / 2147483646;
+}
+
+export function setWorldSeed(userId) {
+    if (!userId) return;
+    let seed = 0;
+    const str = String(userId);
+    for (let i = 0; i < str.length; i++) {
+        seed = ((seed << 5) - seed) + str.charCodeAt(i);
+        seed |= 0;
+    }
+    worldSeed = Math.abs(seed) || 1;
+    console.log("🎲 World Seed Set:", worldSeed);
+}
+
+// --- 💨 Dynamic Particle System (ควันรถ/เอฟเฟกต์) ---
+const dynamicParticles = [];
+const maxDynamicParticles = 80;
+
+function addParticle(x, y, z, velocity, color, size, lifetime) {
+    if (dynamicParticles.length >= maxDynamicParticles) {
+        const p = dynamicParticles.shift();
+        scene.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        p.mesh.material.dispose();
+    }
+    const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(size, 4, 4),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 })
+    );
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    dynamicParticles.push({ mesh, velocity, lifetime, maxLifetime: lifetime });
+}
+
+function updateDynamicParticles() {
+    for (let i = dynamicParticles.length - 1; i >= 0; i--) {
+        const p = dynamicParticles[i];
+        p.lifetime--;
+        
+        p.mesh.position.add(p.velocity);
+        p.mesh.material.opacity = p.lifetime / p.maxLifetime;
+        p.mesh.scale.multiplyScalar(0.98);
+
+        if (p.lifetime <= 0) {
+            scene.remove(p.mesh);
+            p.mesh.geometry.dispose();
+            p.mesh.material.dispose();
+            dynamicParticles.splice(i, 1);
+        }
+    }
+}
 
 // Poop system
 const poopObjects = [];       // { mesh, timer, warningMesh }
@@ -88,6 +150,7 @@ const LIGHT_PRESETS = {
 export function init3D(containerId, templateType = 'pet', env = {}) {
     currentTemplate = templateType;
     const customModel = env.customModel || '';
+    const customRotationY = env.customRotationY || 0;
     currentTemplate = templateType;
     if (env.sky) envConfig.sky = env.sky;
     if (env.ground) envConfig.ground = env.ground;
@@ -106,15 +169,14 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     camera.lookAt(0, 0, 0);
 
     renderer = new THREE.WebGLRenderer({ 
-        antialias: !isMobile(), 
+        antialias: false, 
         powerPreference: "high-performance",
-        precision: isMobile() ? 'mediump' : 'highp' // ลดความละเอียดการคำนวณบนมือถือเพื่อลดความร้อน
+        precision: 'mediump'
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    // มือถือรุ่นเก่าจำกัดที่ 1.0 เพื่อความลื่นไหล, รุ่นใหม่จำกัดที่ 1.5
-    renderer.setPixelRatio(isMobile() ? 1.0 : Math.min(window.devicePixelRatio, 1.5)); 
+    renderer.setPixelRatio(isMobile() ? 1.0 : Math.min(window.devicePixelRatio, 1.5)); // ลด Cap จาก 2.0 เหลือ 1.5 เพื่อความลื่นไหล
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.BasicShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = preset.exposure;
     container.appendChild(renderer.domElement);
@@ -128,8 +190,8 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     sunLight = new THREE.DirectionalLight(preset.sunColor, preset.sunI);
     sunLight.position.set(5, 10, 5);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(isMobile() ? 256 : 512, isMobile() ? 256 : 512); // ลดขนาดเงาบนมือถือลงอีก
-    sunLight.shadow.bias = -0.005;
+    sunLight.shadow.mapSize.set(128, 128); // ลดขนาดเงาลงเหลือ 128 (ประหยัดมาก)
+    sunLight.shadow.bias = -0.01;
     scene.add(sunLight);
 
     purpleLight = new THREE.PointLight(0x8b5cf6, 8, 20);
@@ -150,7 +212,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     createParticles();
 
     // --- PET ---
-    createPetObject(customModel);
+    createPetObject(customModel, customRotationY);
 
     // --- CLICK / TAP TO WALK ---
     const handleGlobalInput = (clientX, clientY) => {
@@ -189,7 +251,33 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
             }
         }
 
-        // 3. ถ้าไม่โดนอะไรเลย ให้สัตว์เลี้ยง "เดิน" ไปที่ตรงนั้น
+        // 3. ตรวจสอบ "ตัวละคร (Pet/Car/Plant)" (ปรับให้จิ้มง่ายขึ้นมากด้วย Hitbox ขยาย)
+        if (petModel) {
+            const hits = ray.intersectObject(petModel, true);
+            const groundHitForDist = ray.intersectObject(groundMesh);
+            
+            let isHit = hits.length > 0;
+            
+            // ถ้าจิ้มพื้นใกล้ๆ ตัวละคร (รัศมี 1.2 เมตร) ก็ให้ถือว่าจิ้มโดนตัวละครด้วย (ช่วยให้จิ้มง่ายบนมือถือ)
+            if (!isHit && groundHitForDist.length > 0) {
+                const dist = groundHitForDist[0].point.distanceTo(petModel.position);
+                if (dist < 1.3) isHit = true;
+            }
+
+            if (isHit) {
+                if (window.doTouch) window.doTouch(); 
+                petModel.scale.setScalar(targetPetScale * 1.15);
+                petModel.traverse(c => {
+                    if (c.material && c.material.emissive) {
+                        c.material.emissiveIntensity = 0.8;
+                        setTimeout(() => { if(c.material) c.material.emissiveIntensity = 0.1; }, 250);
+                    }
+                });
+                return;
+            }
+        }
+
+        // 4. ถ้าไม่โดนอะไรเลย ให้สัตว์เลี้ยง "เดิน" ไปที่ตรงนั้น
         const groundHits = ray.intersectObject(groundMesh);
         if (groundHits.length > 0) {
             targetPos.copy(groundHits[0].point);
@@ -227,7 +315,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         
         camera.updateProjectionMatrix();
         renderer.setSize(width, height, true);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(isMobile() ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
     };
 
     window.addEventListener('resize', handleResize);
@@ -269,40 +357,48 @@ function createDecorations() {
     const treeMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3f, roughness: 0.8 });
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3520 });
 
-    const treePositions = [[-4, -3], [5, -4], [-3, 4], [6, 2], [-5, 0], [3, -6]];
-    treePositions.forEach(([x, z]) => {
-        // สุ่มขนาดให้ใหญ่ขึ้นตั้งแต่ 1.5 เท่า ถึง 3.5 เท่า แบบไม่ซ้ำกัน
-        const scale = 1.5 + Math.random() * 2.0; 
+    const currentSeed = worldSeed;
+    const treeCount = 6 + Math.floor(seededRandom() * 3);
+    for (let i = 0; i < treeCount; i++) {
+        const angle = seededRandom() * Math.PI * 2;
+        const dist = 3.5 + seededRandom() * 5.5;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        const scale = 1.8 + seededRandom() * 1.5;
         const trunkHeight = 0.6 * scale;
 
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * scale, 0.12 * scale, trunkHeight, 6), trunkMat);
-        // พื้นฉากอยู่ที่ระดับ -1.2 คำนวณให้ฐานต้นไม้วางติดพื้นพอดีเป๊ะ
         trunk.position.set(x, -1.2 + (trunkHeight / 2), z);
         trunk.castShadow = true;
 
         const crownRadius = 0.4 * scale;
         const crown = new THREE.Mesh(new THREE.SphereGeometry(crownRadius, 8, 8), treeMat);
-        // วางพุ่มไม้ไว้เกยกับยอดลำต้นเล็กน้อย (จมลง 10% ของสเกล) เพื่อความสมจริง
         crown.position.set(x, trunk.position.y + (trunkHeight / 2) - (0.1 * scale), z);
         crown.castShadow = true;
-
         scene.add(trunk, crown);
-    });
+    }
 
-    // Rocks
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x555566, roughness: 0.9 });
-    [[-2, -5], [4, 3], [-6, 2]].forEach(([x, z]) => {
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3, 0), rockMat);
-        rock.position.set(x, -1.05, z);
-        rock.rotation.set(Math.random(), Math.random(), 0);
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.9 });
+    const rockCount = 4 + Math.floor(seededRandom() * 2);
+    for (let i = 0; i < rockCount; i++) {
+        const angle = seededRandom() * Math.PI * 2;
+        const dist = 3.5 + seededRandom() * 6;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), rockMat);
+        const rockScale = 0.8 + seededRandom() * 0.8;
+        rock.scale.set(rockScale, rockScale * 0.7, rockScale);
+        rock.position.set(x, -1.1, z);
+        rock.rotation.set(seededRandom(), seededRandom(), seededRandom());
         rock.castShadow = true;
         scene.add(rock);
-    });
+    }
+    worldSeed = currentSeed;
 }
 
 function createParticles() {
     const isMob = isMobile();
-    const count = isMob ? 40 : 80; // ลดจำนวนฝุ่นลงครึ่งนึงบนมือถือ
+    const count = isMob ? 20 : 50; // ลดจำนวนฝุ่นลงอีกเหลือ 20 จุดบนมือถือ
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count * 3; i += 3) {
@@ -331,12 +427,14 @@ function sanitizeModelPath(p) {
     return p;
 }
 
-function createPetObject(inputPath = '') {
+function createPetObject(inputPath = '', rotationY = 0) {
     const loadId = ++currentLoadId;
     
     // กำหนด Path เริ่มต้นหากไม่ได้ส่งมา หรือ Path เก่าที่อาจจะพัง
     let path = sanitizeModelPath(inputPath);
     if (!path && currentTemplate === 'pet') path = '/toon_cat_free.glb';
+    if (!path && currentTemplate === 'plant') path = '/stylized_tree.glb';
+    if (!path && currentTemplate === 'car') path = '/car_carton.glb';
 
 
     
@@ -353,11 +451,13 @@ function createPetObject(inputPath = '') {
 
     const fallback = (err) => {
         console.error("FAIL to load:", path, err);
-        // ถ้าโหลดตัวที่ระบุไม่สำเร็จ → ถอยไปใช้ตัวเริ่มต้น (ไม่ recursive loop)
-        if (path && path !== '/toon_cat_free.glb' && currentTemplate === 'pet') {
-            createPetObject('/toon_cat_free.glb');
+        // ถ้าโหลดตัวที่ระบุไม่สำเร็จ → ถอยไปใช้ตัวเริ่มต้นของ template นั้นๆ
+        const defaults = { pet: '/toon_cat_free.glb', plant: '/stylized_tree.glb' };
+        const defaultPath = defaults[currentTemplate];
+        if (defaultPath && path !== defaultPath) {
+            createPetObject(defaultPath);
         }
-        // ถ้าแม้แต่ตัวเริ่มต้นก็โหลดไม่ได้ → สร้าง Procedural แทน (ไม่ถอยอีก)
+        // ถ้าแม้แต่ตัวเริ่มต้นก็โหลดไม่ได้ → จะ fall through ไปใช้ Procedural แทน
     };
 
     if (path) {
@@ -379,6 +479,13 @@ function createPetObject(inputPath = '') {
                 const boxScaled = new THREE.Box3().setFromObject(model);
                 model.position.y = -boxScaled.min.y; 
                 modelBaseScale = scale; // เก็บ scale เดิมไว้
+                
+                // สั่งหันหน้าตามที่กำหนด (แก้ปัญหาโมเดลหันหลังวิ่ง)
+                if (path.includes('car_carton')) {
+                    model.rotation.y = Math.PI; // หันหลัง 180 องศา
+                } else {
+                    model.rotation.y = rotationY;
+                }
                 
                 if (gltf.animations && gltf.animations.length > 0) {
                     mixer = new THREE.AnimationMixer(model);
@@ -433,45 +540,13 @@ function createPetObject(inputPath = '') {
 
     // Default Templates (Procedural)
     if (currentTemplate === 'plant') {
-        const potMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 });
-        const greenMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x0a3a1a, emissiveIntensity: 0.2, roughness: 0.5 });
-        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.35, 0.7, 16), potMat);
-        pot.position.y = -0.5; pot.castShadow = true;
-        const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.08, 16), new THREE.MeshStandardMaterial({ color: 0x3b2507 }));
-        soil.position.y = -0.12;
-        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.2, 8), greenMat);
-        stalk.position.y = 0.5;
-        for (let i = 0; i < 6; i++) {
-            const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), greenMat);
-            leaf.scale.set(1, 0.25, 0.7);
-            leaf.position.set(Math.cos(i * 1.05) * 0.35, 1.0 + i * 0.1, Math.sin(i * 1.05) * 0.35);
-            leaf.rotation.set(Math.random() * 0.5, i, Math.random() * 0.5);
-            petModel.add(leaf);
-        }
-        const flower = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), new THREE.MeshStandardMaterial({ color: 0xff6b9d, emissive: 0x440022 }));
-        flower.position.y = 1.5;
-        petModel.add(pot, soil, stalk, flower);
-
+        // Procedural plant removed as per user request. Using GLB instead.
     } else if (currentTemplate === 'car') {
-        const carMat = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.7, roughness: 0.2, emissive: 0x330000, emissiveIntensity: 0.1 });
-        const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, metalness: 0.9, roughness: 0.1, transparent: true, opacity: 0.5 });
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.5, roughness: 0.8 });
-        const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.9), carMat);
-        chassis.castShadow = true;
-        const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.85), glassMat);
-        cabin.position.set(-0.1, 0.38, 0);
-        const hood = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.88), carMat);
-        hood.position.set(0.65, 0.12, 0);
-        const wGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.12, 16);
-        [[0.55, -0.18, 0.5], [-0.55, -0.18, 0.5], [0.55, -0.18, -0.5], [-0.55, -0.18, -0.5]].forEach(p => {
-            const w = new THREE.Mesh(wGeo, wheelMat); w.position.set(...p); w.rotation.x = Math.PI / 2; petModel.add(w);
-        });
-        const lGeo = new THREE.SphereGeometry(0.06, 8, 8);
-        const lMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
-        const h1 = new THREE.Mesh(lGeo, lMat); h1.position.set(0.9, 0.05, 0.3);
-        const h2 = new THREE.Mesh(lGeo, lMat); h2.position.set(0.9, 0.05, -0.3);
-        petModel.add(chassis, cabin, hood, h1, h2);
+        // Procedural car removed. Using /car_carton.glb as default.
     }
+
+    petModel = modelGroup;
+    scene.add(petModel);
 
     // เอาจุดกำเนิด (พื้น) ไปแตะ ground -1.2 
     petModel.position.y = -1.2;
@@ -504,18 +579,27 @@ function autoWalk(t) {
 }
 
 function animate() {
+    if (document.hidden) {
+        requestAnimationFrame(animate);
+        return;
+    }
     requestAnimationFrame(animate);
-    if (document.hidden) return; // หยุดการ Render และ Logic เมื่อ Tab ถูกซ่อน หรือย่อหน้าต่าง เพื่อประหยัดทรัพยากร
     
     const delta = clock.getDelta();
-    const t = clock.getElapsedTime();
-    if (window.TWEEN) TWEEN.update();
+    const elapsed = clock.getElapsedTime();
+    if (window.TWEEN) window.TWEEN.update();
+    
+    // อัปเดตควันและตัวชี้เป้าเฉพาะเฟรมคู่เพื่อประหยัดแรง
+    if (indicatorFrameCount % 2 === 0) {
+        updateDynamicParticles();
+        updateIndicators();
+    }
+    
     if (mixer) mixer.update(delta);
 
     if (petModel) {
-        // Auto-walk AI
-        autoWalk(t);
-
+        autoWalk(elapsed);
+        
         if (isWalking) {
             _dir.subVectors(targetPos, petModel.position);
             _dir.y = 0;
@@ -540,7 +624,7 @@ function animate() {
                     }
                 }
                 if (!mixer) {
-                    const walkCycle = t * 6;
+                    const walkCycle = elapsed * 6;
                     petModel.rotation.z = Math.sin(walkCycle) * 0.03;
                     petModel.position.y = -1.2 + Math.abs(Math.cos(walkCycle)) * 0.02;
                 }
@@ -559,10 +643,24 @@ function animate() {
                     walkActions.forEach(a => { a.play(); a.timeScale = 0.15; });
                 }
             }
-            // หายใจเบาๆ ตอน idle บนพื้นฐาน -1.2
-            petModel.position.y = -1.2 + Math.sin(t * 1.5) * 0.003;
-            petModel.rotation.z *= 0.95;
-            petModel.rotation.x *= 0.95;
+            // คำนวณการเคลื่อนไหวพิเศษตาม Template (Sway / Idle Vibration)
+            if (currentTemplate === 'plant') {
+                // ต้นไม้ไหวตามลม
+                petModel.rotation.z = Math.sin(elapsed * 0.8) * 0.02;
+                petModel.rotation.x = Math.cos(elapsed * 0.5) * 0.01;
+            } else if (currentTemplate === 'car') {
+                // รถสั่นตอนเดินเครื่อง
+                petModel.position.y = -1.2 + Math.sin(elapsed * 20) * 0.005;
+            } else {
+                // สัตว์เลี้ยงหายใจเบาๆ
+                petModel.position.y = -1.2 + Math.sin(elapsed * 1.5) * 0.003;
+            }
+            
+            // Rotation damping (เฉพาะสัตว์เลี้ยง ไม่ทับค่าของต้นไม้/รถ)
+            if (currentTemplate === 'pet') {
+                petModel.rotation.z *= 0.95;
+                petModel.rotation.x *= 0.95;
+            }
         }
 
         // ปรับขนาดตัวตาม Level (ค่อยๆ โตขึ้นแบบ smooth)
@@ -628,17 +726,24 @@ function animate() {
     }
 
     if (particles) {
-        particles.rotation.y += 0.0001; // ลดความเร็วลง
-        const pos = particles.geometry.attributes.position.array;
-        // อัปเดตแบบข้ามตำแหน่งเพื่อประหยัด CPU (Throttled update)
-        for (let i = 1; i < pos.length; i += 6) {
-            pos[i] += Math.sin(t + i) * 0.0005;
+        particles.rotation.y += 0.0002; // หมุนธรรมดาประหยัดกว่า
+        // อัปเดตตำแหน่งฝุ่นเฉพาะเฟรมที่เป็นเลขคู่เพื่อลดภาระ CPU
+        if (indicatorFrameCount % 4 === 0) {
+            const pos = particles.geometry.attributes.position.array;
+            for (let i = 1; i < pos.length; i += 9) { // ข้ามเยอะขึ้น
+                pos[i] += Math.sin(elapsed + i) * 0.0005;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
         }
-        particles.geometry.attributes.position.needsUpdate = true;
     }
 
     updateIndicators();
-    updateRewards(t, delta); // ส่งค่า delta เข้าไปด้วย
+    updateRewards(elapsed, delta); // ส่งค่า delta เข้าไปด้วย
+
+    if (indicatorFrameCount % 4 === 0) {
+        if (currentTemplate === 'car') spawnExhaustSmoke();
+    }
+    TWEEN.update();
 
     renderer.render(scene, camera);
 }
@@ -655,9 +760,6 @@ function fadeTo(newAction, duration = 0.3) {
     }
 }
 
-// Indicator state
-const indicatorElements = new Map(); // Mesh -> Div Element
-let indicatorFrameCount = 0;
 
 function updateIndicators() {
     indicatorFrameCount++;
@@ -666,10 +768,17 @@ function updateIndicators() {
     const container = document.getElementById('poop-indicators');
     if (!container || !camera) return;
 
-    // Process poops
+    // Process poops (with template specific icons)
+    const icons = {
+        pet:   '💩',
+        car:   '🔧',
+        plant: '🍂'
+    };
+    const poopIcon = icons[currentTemplate] || '💩';
+
     for (let i = 0; i < poopObjects.length; i++) {
         const isGold = poopObjects[i].type === 'gold';
-        renderIndicator(poopObjects[i].mesh, isGold ? '✨' : '💩', isGold ? '#fbbf24' : '#ec4899', container);
+        renderIndicator(poopObjects[i].mesh, isGold ? '✨' : poopIcon, isGold ? '#fbbf24' : '#ec4899', container);
     }
     // Process rewards
     for (let i = 0; i < rewardObjects.length; i++) {
@@ -681,9 +790,9 @@ function renderIndicator(mesh, icon, color, container) {
     const radarRadius = container.clientWidth * 0.42;
 
     // Project ตำแหน่ง 3D → 2D screen
-    const pos = mesh.position.clone();
-    pos.y += 0.4;
-    pos.project(camera);
+    _tempVec.copy(mesh.position);
+    _tempVec.y += 0.4;
+    _tempVec.project(camera);
 
     let el = indicatorElements.get(mesh);
     if (!el) {
@@ -728,8 +837,8 @@ function renderIndicator(mesh, icon, color, container) {
         dx = mesh.position.x - petModel.position.x;   // ซ้าย-ขวา ตรงๆ
         dy = mesh.position.z - petModel.position.z;    // Z บวก = ใกล้กล้อง = ล่างจอ
     } else {
-        dx = pos.x;
-        dy = -pos.y;
+        dx = _tempVec.x;
+        dy = -_tempVec.y;
     }
 
     const mag = Math.sqrt(dx * dx + dy * dy);
@@ -805,37 +914,65 @@ function updateRewards(t, delta) {
 function createPoopMesh(x, z, type) {
     const group = new THREE.Group();
     const isGold = type === 'gold';
-    const mat = new THREE.MeshStandardMaterial({
-        color: isGold ? 0xffd700 : 0x6b3a1f, 
-        roughness: isGold ? 0.2 : 0.9, 
-        metalness: isGold ? 1.0 : 0.0,
-        emissive: isGold ? 0xffaa00 : 0x3a1500, 
-        emissiveIntensity: isGold ? 0.5 : 0.1
-    });
+    if (currentTemplate === 'car') {
+        // --- กรณีเป็นรถ: เปลี่ยนจากอึเป็น "กองน้ำมันดำ" (Oil Spill) ---
+        const oilMat = new THREE.MeshStandardMaterial({ 
+            color: isGold ? 0xffd700 : 0x111111, 
+            roughness: 0.1, metalness: 0.8,
+            emissive: isGold ? 0xffaa00 : 0x000000,
+            emissiveIntensity: isGold ? 0.5 : 0
+        });
+        const puddle = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.02, 16), oilMat);
+        puddle.position.y = 0.01;
+        const splash = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), oilMat);
+        splash.scale.set(1.5, 0.4, 1.2);
+        splash.position.y = 0.02;
+        group.add(puddle, splash);
 
-    // ชั้นล่าง (ใหญ่)
-    const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), mat);
-    b1.position.y = 0.0; b1.scale.set(1, 0.7, 1);
-    // ชั้นกลาง
-    const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), mat);
-    b2.position.y = 0.16; b2.scale.set(1, 0.8, 1);
-    // ชั้นบน (ยอด)
-    const b3 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), mat);
-    b3.position.y = 0.28; b3.scale.set(1, 1.1, 1);
+    } else if (currentTemplate === 'plant') {
+        // --- กรณีเป็นต้นไม้: เปลี่ยนเป็น "ใบไม้แห้ง/วัชพืช" (Dry Leaves) ---
+        const leafMat = new THREE.MeshStandardMaterial({ 
+            color: isGold ? 0xffd700 : 0x7c2d12, // น้ำตาลแดง
+            roughness: 0.9,
+            emissive: isGold ? 0xffaa00 : 0x000000,
+            emissiveIntensity: isGold ? 0.3 : 0
+        });
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 6), leafMat);
+        leaf.scale.set(1.2, 0.1, 0.6);
+        leaf.rotation.set(0.2, Math.random() * Math.PI, 0.1);
+        group.add(leaf);
 
-    // ดวงตา
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-    const eL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
-    eL.position.set(-0.06, 0.26, 0.1);
-    const eR = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
-    eR.position.set(0.06, 0.26, 0.1);
-    const pL = new THREE.Mesh(new THREE.SphereGeometry(0.015, 4, 4), pupilMat);
-    pL.position.set(-0.06, 0.26, 0.115);
-    const pR = new THREE.Mesh(new THREE.SphereGeometry(0.015, 4, 4), pupilMat);
-    pR.position.set(0.06, 0.26, 0.115);
-
-    group.add(b1, b2, b3, eL, eR, pL, pR);
+    } else {
+        // --- กรณีเป็นสัตว์เลี้ยง: ก้อนอึ (แบบเดิม) ---
+        const mat = new THREE.MeshStandardMaterial({
+            color: isGold ? 0xffd700 : 0x6b3a1f, 
+            roughness: isGold ? 0.2 : 0.9, 
+            metalness: isGold ? 1.0 : 0.0,
+            emissive: isGold ? 0xffaa00 : 0x3a1500, 
+            emissiveIntensity: isGold ? 0.5 : 0.1
+        });
+        // ชั้นล่าง (ใหญ่)
+        const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), mat);
+        b1.position.y = 0.0; b1.scale.set(1, 0.7, 1);
+        const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), mat);
+        b2.position.y = 0.16; b2.scale.set(1, 0.8, 1);
+        const b3 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), mat);
+        b3.position.y = 0.28; b3.scale.set(1, 1.1, 1);
+        
+        // ดวงตา
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+        const eL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
+        eL.position.set(-0.06, 0.26, 0.1);
+        const eR = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), eyeMat);
+        eR.position.set(0.06, 0.26, 0.1);
+        const pL = new THREE.Mesh(new THREE.SphereGeometry(0.015, 4, 4), pupilMat);
+        pL.position.set(-0.06, 0.26, 0.115);
+        const pR = new THREE.Mesh(new THREE.SphereGeometry(0.015, 4, 4), pupilMat);
+        pR.position.set(0.06, 0.26, 0.115);
+        
+        group.add(b1, b2, b3, eL, eR, pL, pR);
+    }
 
     // เพิ่ม Aura แสงสว่างสำหรับอึทองคำ
     if (isGold) {
@@ -985,32 +1122,84 @@ export function setRewardCallback(callback) {
 
 
 
-export function updateTemplate(type, path = '') {
+export function updateTemplate(type, path = '', rotationY = 0) {
     currentTemplate = type;
-    createPetObject(path);
+    createPetObject(path, rotationY);
+}
+
+// เอฟเฟกต์พลุฉลองเลเวลอัป
+export function triggerLevelUpEffect() {
+    if (!petModel) return;
+    const pos = petModel.position;
+    for (let i = 0; i < 30; i++) {
+        const vel = new THREE.Vector3((Math.random()-0.5)*0.2, 0.1+Math.random()*0.1, (Math.random()-0.5)*0.2);
+        const color = new THREE.Color().setHSL(Math.random(), 1, 0.5);
+        addParticle(pos.x, pos.y + 0.5, pos.z, vel, color, 0.15, 40);
+    }
+}
+
+// ควันท่อไอเสียจางๆ สำหรับรถ
+function spawnExhaustSmoke() {
+    if (!petModel || currentTemplate !== 'car') return;
+    const pos = petModel.position;
+    // ท่อไอเสียแฝงอยู่ทางด้านซ้ายของรถ (เปลี่ยนจาก -0.3 เป็น 0.35)
+    const offset = new THREE.Vector3(0.35, 0.15, -1.1);
+    offset.applyQuaternion(petModel.quaternion);
+    
+    // ความเร็วพุ่งไปด้านหลัง (แกน -Z)
+    const vel = new THREE.Vector3((Math.random()-0.5)*0.01, 0.03, -0.05).applyQuaternion(petModel.quaternion);
+    const color = new THREE.Color(0xcccccc);
+    addParticle(pos.x + offset.x, pos.y + offset.y, pos.z + offset.z, vel, color, 0.08, 25);
 }
 
 export function updateEnvironment(sky, ground) {
     if (sky && SKY_COLORS[sky]) {
         const preset = LIGHT_PRESETS[sky] || LIGHT_PRESETS.day;
+        const targetColor = new THREE.Color(SKY_COLORS[sky]);
 
-        // Update sky
-        scene.background = new THREE.Color(SKY_COLORS[sky]);
-        scene.fog = new THREE.FogExp2(SKY_COLORS[sky], preset.fog);
+        // Smooth Sky Transition using TWEEN
+        if (scene.background) {
+            new TWEEN.Tween(scene.background)
+                .to({ r: targetColor.r, g: targetColor.g, b: targetColor.b }, 1500)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+        } else {
+            scene.background = targetColor.clone();
+        }
 
-        // Update lighting
+        // Fog Transition
+        if (scene.fog) {
+            new TWEEN.Tween(scene.fog.color)
+                .to({ r: targetColor.r, g: targetColor.g, b: targetColor.b }, 1500)
+                .start();
+            new TWEEN.Tween(scene.fog)
+                .to({ density: preset.fog }, 1500)
+                .start();
+        }
+
+        // Lighting Transition
         if (ambientLight) {
-            ambientLight.color.set(preset.ambient);
-            ambientLight.intensity = preset.ambientI;
+            new TWEEN.Tween(ambientLight.color)
+                .to({ r: preset.ambient.r, g: preset.ambient.g, b: preset.ambient.b }, 1500)
+                .start();
+            new TWEEN.Tween(ambientLight)
+                .to({ intensity: preset.ambientI }, 1500)
+                .start();
         }
+        
         if (sunLight) {
-            sunLight.color.set(preset.sunColor);
-            sunLight.intensity = preset.sunI;
+            new TWEEN.Tween(sunLight.color)
+                .to({ r: preset.sunColor.r, g: preset.sunColor.g, b: preset.sunColor.b }, 1500)
+                .start();
+            new TWEEN.Tween(sunLight)
+                .to({ intensity: preset.sunI }, 1500)
+                .start();
         }
 
-        // Update tone mapping exposure
         if (renderer) {
-            renderer.toneMappingExposure = preset.exposure;
+            new TWEEN.Tween(renderer)
+                .to({ toneMappingExposure: preset.exposure }, 1500)
+                .start();
         }
 
         // Adjust neon lights for dark vs light themes
@@ -1031,7 +1220,7 @@ export function updateEngineConfig(config) {
 }
 
 // ปรับขนาดสัตว์เลี้ยงตาม Level 
-let targetPetScale = 1;
+
 export function updatePetScale(level) {
     // ให้โตแบบช้าๆ เพื่อไปโตเต็มที่ระดับตำนานตอน Level 100 (Max 2.2 ก็ถือว่ามหึมาแล้วครับ)
     const minScale = 0.6;

@@ -73,15 +73,13 @@ let miniEngines = []; // Track active mini 3D scenes
 
 const VARIANTS = {
     pet: [
-        { id: 'cat-toon', name: 'Toon Cat', path: '/toon_cat_free.glb', icon: '🐱', type: 'glb' },
-        { id: 'cat-bicolor', name: 'Bicolor Cat', path: '/bicolor_cat.glb', icon: '🐈', type: 'glb' },
-        { id: 'cat-pet', name: 'Pet Cat', path: '/pet_cat.glb', icon: '🧶', type: 'glb' }
+        { id: 'cat-toon', name: 'Toon Cat', path: '/toon_cat_free.glb', icon: '🐱', type: 'glb' }
     ],
     car: [
-        { id: 'car-sport', name: 'Sport Car', path: '', icon: '🏎️', type: 'procedural' }
+        { id: 'car-carton', name: 'Car Carton', path: '/car_carton.glb', icon: '🏎️', type: 'glb', rotationY: Math.PI }
     ],
     plant: [
-        { id: 'plant-pot', name: 'Small Pot', path: '', icon: '🪴', type: 'procedural' }
+        { id: 'plant-stylized', name: 'Stylized Tree', path: '/stylized_tree.glb', icon: '🌳', type: 'glb' }
     ]
 };
 
@@ -190,7 +188,6 @@ window.saveAll = async () => {
         if (config[col] !== undefined) payload[col] = config[col];
     });
     payload.id = 'production_config';
-    payload.updated_at = new Date().toISOString();
 
     // 3. ส่งขึ้น Cloud (Supabase)
     const { error } = await supabase
@@ -199,6 +196,9 @@ window.saveAll = async () => {
 
     if (error) {
         console.error("Supabase Sync Error:", error);
+        if (error.code === 'PGRST204' || error.message.includes('column')) {
+            alert("🚨 เกิดข้อผิดพลาด: ดูเหมือนคุณยังไม่ได้สร้างคอลัมน์ใหม่ในตาราง 'game_configs' \n\nกรุณาไปที่ Supabase SQL Editor แล้วรันคำสั่งเพิ่มคอลัมน์ (เช่น rew_rare_rate, rew_legend_rate และอื่นๆ) ให้ครบครับ");
+        }
         btn.innerText = '❌ ผิดพลาด (ดูหน้าต่าง Console)';
         btn.style.background = '#ef4444';
     } else {
@@ -235,7 +235,7 @@ function renderGallery() {
 
     const list = VARIANTS[STATE.template] || [];
     container.innerHTML = list.map(v => `
-        <div onclick="selectVariant('${v.path}')" class="group cursor-pointer">
+        <div onclick="selectVariant('${v.path}', ${v.rotationY || 0})" class="group cursor-pointer">
             <div id="card-${v.id}" class="aspect-square rounded-2xl bg-white/5 border ${STATE.custom_model === v.path ? 'border-neon-purple shadow-[0_0_15px_rgba(139,92,246,0.3)] bg-neon-purple/10' : 'border-white/5'} flex flex-col items-center justify-center gap-2 hover:bg-white/10 transition-all p-0 relative overflow-hidden">
                 <!-- 3D Preview Canvas Layer -->
                 <div id="preview-${v.id}" class="absolute inset-0 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity"></div>
@@ -256,8 +256,9 @@ function renderGallery() {
     }, 100);
 }
 
-window.selectVariant = (path) => {
+window.selectVariant = (path, rotationY = 0) => {
     STATE.custom_model = path;
+    STATE.custom_rotation_y = rotationY;
     
     renderGallery();
     sendPreview();
@@ -305,6 +306,8 @@ function initMiniPreview(v) {
         m.scale.set(scale, scale, scale);
         m.position.sub(center.multiplyScalar(scale));
         m.position.y -= 0.5;
+
+        if (v.rotationY) m.rotation.y = v.rotationY;
         
         if (g.animations && g.animations.length > 0) {
             engine.mixer = new THREE.AnimationMixer(m);

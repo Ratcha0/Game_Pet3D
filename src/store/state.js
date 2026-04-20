@@ -16,8 +16,7 @@ export const STATE = {
             medium: { cost: 900, amt: 100 },
             large: { cost: 2000, amt: 250 }
         },
-        mechanics: {},
-        happy_drop_rate: 0.7 
+        mechanics: {}
     },
     quests: {
         feed: 0, feed_max: 3,
@@ -176,6 +175,13 @@ export function applyConfigToState(p) {
     STATE.config.qt_fever = p.qt_fever || 2;
     STATE.config.qt_love = p.qt_love || 10;
     STATE.config.qt_spend = p.qt_spend || 100;
+
+    // Reward Rarity Settings (จาก Admin Dashboard)
+    STATE.config.rew_rare_rate = p.rew_rare_rate ?? 20;
+    STATE.config.rew_legend_rate = p.rew_legend_rate ?? 5;
+    STATE.config.rew_common_tokens = p.rew_common_tokens ?? 10;
+    STATE.config.rew_rare_tokens = p.rew_rare_tokens ?? 50;
+    STATE.config.rew_legend_tokens = p.rew_legend_tokens ?? 250;
 }
 
 export async function loadGameConfigCloud() {

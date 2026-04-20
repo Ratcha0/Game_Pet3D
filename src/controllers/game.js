@@ -1,4 +1,4 @@
-import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI, spawnReward, setRewardCallback, updateEngineConfig, updatePetScale } from '../engine/3d_engine.js';
+import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI, spawnReward, setRewardCallback, updateEngineConfig, updatePetScale, triggerLevelUpEffect, setWorldSeed } from '../engine/3d_engine.js';
 import { logScoreAction, fetchLeaderboard } from '../services/supabase.js';
 
 import { 
@@ -33,20 +33,20 @@ function updateUI() {
 
     const labels = {
         pet:   { h:'ความหิว', l:'ความรัก', c:'ความสะอาด', s:'พลังงาน', af:'ป้อนอาหาร', ac:'อาบน้ำ', ar:'เก็บอึ', ap:'เล่นด้วย' },
-        car:   { h:'เชื้อเพลิง', l:'สภาพรถ', c:'ล้างรถ', s:'แบตเตอรี่', af:'เติมน้ำมัน', ac:'ล้างรถ', ar:'ซ่อมบำรุง', ap:'ลองเครื่อง' },
-        plant: { h:'ค่าระดับน้ำ', l:'ค่าปุ๋ย', c:'ความสะอาด', s:'ความสดชื่น', af:'รดน้ำ', ac:'ให้ปุ๋ย', ar:'กำจัดแมลง', ap:'เปิดเพลง' }
+        car:   { h:'เชื้อเพลิง', l:'สภาพเครื่อง', c:'ความเงา', s:'แบตเตอรี่', af:'เติมน้ำมัน', ac:'ล้างรถ', ar:'เก็บกวาด', ap:'จูนเครื่อง' },
+        plant: { h:'ระดับน้ำ', l:'ความใส่ใจ', c:'ความสด', s:'เติบโต', af:'รดน้ำ', ac:'เล็มใบ', ar:'ถอนวัชพืช', ap:'เปิดเพลง' }
     };
     // ไอคอนแถบสเตตัส (ด้านซ้าย)
     const statIcons = {
         pet:   { hunger:'🍖', happy:'💖', clean:'🧼', stamina:'⚡' },
         car:   { hunger:'⛽', happy:'🔧', clean:'🚿', stamina:'🔋' },
-        plant: { hunger:'💧', happy:'🌱', clean:'🧹', stamina:'☀️' }
+        plant: { hunger:'💧', happy:'❤️', clean:'🌿', stamina:'🍃' }
     };
     // ไอคอนปุ่มกิจกรรม (ด้านล่าง)
     const actIcons = {
         pet:   { feed:'🍗', clean:'🧼', repair:'💩', play:'🎾' },
         car:   { feed:'⛽', clean:'🚿', repair:'🔧', play:'🏎️' },
-        plant: { feed:'💧', clean:'🌿', repair:'🐛', play:'🎵' }
+        plant: { feed:'💧', clean:'🌿', repair:'🍂', play:'🎵' }
     };
     const cur = labels[STATE.config.template] || labels.pet;
     const si = statIcons[STATE.config.template] || statIcons.pet;
@@ -64,6 +64,16 @@ function updateUI() {
         const bar = $(b); if(bar) bar.style.width = `${Math.min(100, (val/maxVal)*100)}%`;
         const txt = $(v); if(txt) {
             txt.innerHTML = `${label} <span class="text-white/30 italic">${Math.round(val)}%</span>`;
+            
+            // แจ้งเตือนสถานะวิกฤต (Critical Warning)
+            const parentBox = bar ? bar.parentElement : null;
+            if (val < 20 && b !== 'bar-stamina') {
+                txt.classList.add('alert-red');
+                if(parentBox) parentBox.classList.add('alert-red');
+            } else {
+                txt.classList.remove('alert-red');
+                if(parentBox) parentBox.classList.remove('alert-red');
+            }
         }
     });
 
@@ -89,6 +99,7 @@ function updateUI() {
         else if(curLove > 50) moodEl.innerText = '😊';
         else if(curLove > 20) moodEl.innerText = '😐';
         else moodEl.innerText = '🥺';
+        if (window.twemoji) twemoji.parse(moodEl);
     }
 
     const btnRepair = $('btn-repair');
@@ -106,6 +117,16 @@ function updateUI() {
     // Quest Check for Pure Love
     if(STATE.love >= 100) incrementSpecialQuest('pure_love');
 
+    // Update User Icon to match current variant
+    const userIcon = $('hud-user-icon');
+    if (userIcon && STATE.config.custom_icon) {
+        userIcon.innerText = STATE.config.custom_icon;
+    } else if (userIcon) {
+        const icons = { pet:'🐱', car:'🏎️', plant:'🌵' };
+        userIcon.innerText = icons[STATE.config.template] || '🐱';
+    }
+    if (userIcon && window.twemoji) twemoji.parse(userIcon);
+
     updateQuestUI();
 }
 
@@ -115,9 +136,22 @@ function updateQuestUI() {
     const tiers = ['feed','clean','play'];
     let allDone = true;
     
+    // Template-aware quest labels
+    const qLabels = {
+        pet:   { f:'ให้อาหารน้อง', c:'ทำความสะอาด', p:'เล่นกับน้อง', fi:'🍖', ci:'🧼', pi:'🎾' },
+        car:   { f:'เติมน้ำมันรถ', c:'ล้างรถให้เงา', p:'ทดสอบเครื่อง', fi:'⛽', ci:'🚿', pi:'🏎️' },
+        plant: { f:'รดน้ำต้นไม้', c:'เล็มใบไม้', p:'เปิดเพลงให้ฟัง', fi:'💧', ci:'🌿', pi:'🎵' }
+    };
+    const ql = qLabels[STATE.config.template] || qLabels.pet;
+
     tiers.forEach(t => {
         const bar = $(`q-bar-${t}`); if(bar) bar.style.width = `${Math.min(100, (q[t]/q[`${t}_max`])*100)}%`;
         const val = $(`q-val-${t}`); if(val) val.innerText = `${q[t]}/${q[`${t}_max`]}`;
+        
+        // Update Label & Icon
+        const labelEl = $(`q-lbl-${t}`); if(labelEl) labelEl.innerText = ql[t.charAt(0)];
+        const iconEl = $(`q-icon-${t}`); if(iconEl) iconEl.innerText = ql[t.charAt(0)+'i'];
+
         if(q[t] < q[`${t}_max`]) allDone = false;
     });
 
@@ -157,7 +191,9 @@ function updateQuestUI() {
                 dot.querySelector('.animate-ping')?.classList.remove('hidden');
             }
         } else {
-            btn.innerText = '🔒 ดูแลน้องให้ครบตามเป้าหมาย';
+            const lockLabels = { pet: '🔒 ดูแลน้องให้ครบตามเป้าหมาย', car: '🔒 ดูแลรถให้ครบตามเป้าหมาย', plant: '🔒 ดูแลต้นไม้ให้ครบตามเป้าหมาย' };
+            const curTpl = STATE.config.template || 'pet';
+            btn.innerText = lockLabels[curTpl] || lockLabels.pet;
             btn.disabled = true;
             btn.className = 'w-full py-4 rounded-2xl bg-white/10 text-white/40 font-black uppercase text-xs cursor-not-allowed';
             if(dot) {
@@ -165,7 +201,11 @@ function updateQuestUI() {
             }
         }
     }
-    if (window.twemoji) twemoji.parse(document.body);
+    // Targeted parsing only if necessary (usually only for quests)
+    const questModal = $('quest-modal');
+    if (questModal && !questModal.classList.contains('translate-y-full') && window.twemoji) {
+        twemoji.parse(questModal);
+    }
 }
 
 // --- MUSIC TOGGLE UI ---
@@ -188,16 +228,18 @@ function incrementSpecialQuest(type, amt = 1) {
     }
 }
 
-function spawn(text, colorClass = "text-white") {
+function spawn(msg, cls = "text-white") {
     const a=$('spawn-area'); if(!a) return;
     const e=document.createElement('div');
-    e.className=`absolute text-2xl font-black float-up pointer-events-none z-[60] drop-shadow-[0_0_15px_rgba(139,92,246,0.6)] ${colorClass}`;
-    e.style.left=`${Math.random()*50+25}%`;
-    e.style.top=`${Math.random()*40+20}%`;
-    e.innerText=text;
+    e.className = `px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-white font-black text-xs shadow-2xl pointer-events-none animate-float-up ${cls}`;
+    e.style.position = 'absolute';
+    // สุ่มตำแหน่งให้กระจายตัวรอบๆ บริเวณกลางจอ
+    e.style.left = `${40 + Math.random() * 20}%`;
+    e.style.top = `${40 + Math.random() * 20}%`;
+    e.innerHTML = msg;
+    if (window.twemoji) twemoji.parse(e);
     a.appendChild(e);
-    if (window.twemoji) twemoji.parse(e); 
-    setTimeout(()=>e.remove(),2000);
+    setTimeout(() => e.remove(), 2500);
 }
 
 window.toggleShop = (close) => {
@@ -461,9 +503,14 @@ window.doAction = (type) => {
     const cleanBefore = STATE.clean;
     const isDirty = STATE.clean < 25; // สภาวะสกปรกจนหงุดหงิด
 
-    // ตัวคูณ XP ตาม Level (Level ยิ่งสูง XP ยิ่งเยอะ)
-    // Level 1 = 1.0x, Level 5 = 1.4x, Level 10 = 1.9x, Level 20 = 2.9x
-    const xpMult = 1.0 + (STATE.level - 1) * 0.1;
+    // ตัวคูณ XP ตาม Level (Level ยิ่งสูง XP ยิ่งเยอะ แต่ Cap ไว้ที่ 3.0)
+    const xpMult = Math.min(3.0, 1.0 + (STATE.level - 1) * 0.1);
+
+    // ข้อความ Feedback ตาม Template
+    const feedMsg = { pet: '🍖 อร่อย!', car: '⛽ เติมน้ำมันเรียบร้อย!', plant: '💧 รดน้ำแล้ว!' };
+    const cleanMsg = { pet: '🧼 สะอาดสบายตัว!', car: '🚿 รถเงาจ้า!', plant: '🌿 เล็มใบสวยเลย!' };
+    const playMsg = { pet: '🎾 สนุกจัง!', car: '🏎️ จูนเครื่องเรียบร้อย!', plant: '🎵 น้องต้นไม้ชอบเพลง!' };
+    const tpl = STATE.config.template || 'pet';
 
     switch(type) {
         case 'feed': 
@@ -475,7 +522,8 @@ window.doAction = (type) => {
             const feedXP = Math.floor(mech.rxp_feed * xpMult);
             STATE.xp += feedXP; 
             if(STATE.quests.feed < STATE.quests.feed_max) STATE.quests.feed++;
-            spawn(`🍖 อร่อย! +${feedXP}XP (x${xpMult.toFixed(1)})`); 
+            spawn(`${feedMsg[tpl] || feedMsg.pet} +${feedXP}XP (x${xpMult.toFixed(1)})`); 
+            vibrate(20);
             break;
 
         case 'clean': 
@@ -486,12 +534,14 @@ window.doAction = (type) => {
             const cleanXP = Math.floor(mech.rxp_clean * xpMult);
             STATE.xp += cleanXP; 
             if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
-            spawn(`🧼 สะอาดสบายตัว! +${cleanXP}XP (x${xpMult.toFixed(1)})`); 
+            spawn(`${cleanMsg[tpl] || cleanMsg.pet} +${cleanXP}XP (x${xpMult.toFixed(1)})`); 
+            vibrate(15);
             break;
 
         case 'repair': 
             onPoopCollectedManual(collectedType); 
             if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
+            vibrate(25);
             break;
 
         case 'play': 
@@ -503,8 +553,16 @@ window.doAction = (type) => {
             const playXP = Math.floor(mech.rxp_play * xpMult);
             STATE.xp += playXP; 
             if(STATE.quests.play < STATE.quests.play_max) STATE.quests.play++;
-            SFX.playAsset('meow');
-            spawn(`🎾 สนุกจัง! +${playXP}XP (x${xpMult.toFixed(1)})`); 
+
+            const playSFX = { pet: 'meow', car: 'honk', plant: 'bell' };
+            const currentSFX = playSFX[tpl] || 'meow';
+            if (currentSFX === 'honk') {
+                SFX.playHonk(); 
+            } else {
+                SFX.playAsset(currentSFX);
+            }
+            vibrate(30);
+            spawn(`${playMsg[tpl] || playMsg.pet} +${playXP}XP (x${xpMult.toFixed(1)})`); 
             break;
     }
 
@@ -515,6 +573,23 @@ window.doAction = (type) => {
     checkLevelUp();
     SFX.playClick();
     updateUI(); saveState();
+};
+
+// --- ฟังก์ชัน Interaction พิเศษ (จิ้มที่ตัวโดยตรง) ---
+// จิ้มเล่นได้ฟรี! (ไม่เสีย Stamina) แต่ได้ XP และ Love เล็กน้อย
+window.doTouch = () => {
+    const tpl = STATE.config.template || 'pet';
+    const touchMsg = { pet: '💖', car: '✨', plant: '🌿' };
+    const playSFX = { pet: 'meow', car: 'honk', plant: 'bell' };
+    const currentSFX = playSFX[tpl] || 'meow';
+    
+    // เอาคะแนนและ XP ออกเพื่อป้องกันการปั๊มคะแนน (Farming) ตามคำแนะนำ
+    // เหลือเพียงเอฟเฟกต์เสียงและการสั่นเพื่อความเพลิดเพลิน
+    if (currentSFX === 'honk') { SFX.playHonk(); } 
+    else { SFX.playAsset(currentSFX); }
+    
+    vibrate(10); // สั่นเบาๆ
+    spawn(touchMsg[tpl] || touchMsg.pet);
 };
 
 // --- ฟังก์ชันรวมศูนย์สำหรับคำนวณรางวัลเมื่อเก็บกวาดอึ (เรียกจากทั้งคลิก 3D และปุ่ม UI) ---
@@ -554,19 +629,54 @@ window.onPoopCollectedManual = (type = 'normal') => {
         // บันทึก Log ปกติ
         logScoreAction(currentUserId, 'SCOOP_POOP', actionScore, 0);
         
-        spawn(`💩 เก็บแล้ว! +${gainedXP}XP +${actionScore}🏆`);
+        const tpl = STATE.config.template || 'pet';
+        const scoopMsg = { pet: `💩 เก็บแล้ว!`, car: `🛢️ เก็บกวาดแล้ว!`, plant: `🍂 ถอนแล้ว!` };
+        spawn(`${scoopMsg[tpl] || scoopMsg.pet} +${gainedXP}XP +${actionScore}🏆`);
     }
     
     checkLevelUp();
     updateUI(); saveState();
 };
 
+// --- ระบบสั่น (Haptic Feedback) ---
+function vibrate(ms = 15) {
+    if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+// --- ระบบตัวเลขวิ่ง (Rolling Numbers) ---
+let displayScore = 0;
+let displayTokens = 0;
+
+function animateNumbers() {
+    if (Math.abs(displayScore - STATE.score) > 0.5) {
+        displayScore += (STATE.score - displayScore) * 0.15;
+        const s = $('hud-score'); if(s) s.innerText = Math.floor(displayScore).toLocaleString();
+    } else {
+        const s = $('hud-score'); if(s) s.innerText = Math.floor(STATE.score).toLocaleString();
+    }
+    
+    if (Math.abs(displayTokens - STATE.tokens) > 0.5) {
+        displayTokens += (STATE.tokens - displayTokens) * 0.15;
+        const t = $('hud-tokens'); if(t) t.innerText = Math.floor(displayTokens).toLocaleString();
+    } else {
+        const t = $('hud-tokens'); if(t) t.innerText = Math.floor(STATE.tokens).toLocaleString();
+    }
+    requestAnimationFrame(animateNumbers);
+}
+
+// เริ่มต้นระบบตัวเลขวิ่ง
+setTimeout(() => {
+    displayScore = STATE.score;
+    displayTokens = STATE.tokens;
+    animateNumbers();
+}, 1000);
+
 function checkLevelUp() {
     if (STATE.xp >= STATE.maxExp) {
         SFX.playAsset('level');
         STATE.level++;
         STATE.xp -= STATE.maxExp;
-        STATE.maxExp = Math.floor(STATE.maxExp * 1.25); // ปรับจาก 1.2 เป็น 1.25 เพื่อให้ยากขึ้นทวีคูณ
+        STATE.maxExp = Math.floor(STATE.maxExp * 1.25);
         
         const bonusScore = 5000 + (STATE.level * 1000); 
         const bonusTokens = 500 + (STATE.level * 50); 
@@ -578,7 +688,7 @@ function checkLevelUp() {
         STATE.hunger = Math.min(100, STATE.hunger + 30);
         STATE.love = Math.min(100, STATE.love + 20);
         STATE.clean = Math.min(100, STATE.clean + 30);
-        STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + 50); // โบนัสพลังงานแต่ไม่เกิน max
+        STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + 50);
 
         // 🐈 ปรับขนาดสัตว์เลี้ยงตาม Level ใหม่
         updatePetScale(STATE.level);
@@ -589,7 +699,9 @@ function checkLevelUp() {
         spawn(`🆙 LEVEL UP! ตอนนี้เลเวล ${STATE.level} แล้ว! 🎉`);
         spawn(`🎁 รับรางวัลเลเวลใหม่ +${bonusScore.toLocaleString()} 🏆 และ +${bonusTokens} 🪙`);
         
-        checkLevelUp();
+        triggerLevelUpEffect(); // 🎉 ระเบิดพลุพาร์ทิเคิลฉลอง!
+        vibrate(40); // สั่นแรงหน่อยตอน Level Up!
+        checkLevelUp(); // เช็คซ้ำเผื่อ XP เกินมากกว่า 1 เลเวล
     }
 }
 
@@ -598,13 +710,13 @@ function checkLevelUp() {
 window.addEventListener('storage', (e) => {
     if(e.key==='pw3d_config') {
         loadAdminConfigLocal();
-        updateTemplate(STATE.config.template, STATE.config.custom_model);
+        updateTemplate(STATE.config.template, STATE.config.custom_model, STATE.config.custom_rotation_y || 0);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateEngineConfig({
-            poop_lifetime: STATE.config.poop_lifetime,
-            reward_lifetime: STATE.config.reward_lifetime,
-            max_poops: STATE.config.max_poops,
-            max_rewards: STATE.config.max_rewards
+            poop_lifetime: STATE.config.mechanics?.poop_lifetime,
+            reward_lifetime: STATE.config.mechanics?.reward_lifetime,
+            max_poops: STATE.config.mechanics?.max_poops,
+            max_rewards: STATE.config.mechanics?.max_rewards
         });
         updateUI();
     }
@@ -613,13 +725,13 @@ window.addEventListener('storage', (e) => {
 window.addEventListener('message', (e) => {
     if(e.data && e.data.type === 'PW3D_PREVIEW') {
         applyConfigToState(e.data.config);
-        updateTemplate(STATE.config.template, STATE.config.custom_model);
+        updateTemplate(STATE.config.template, STATE.config.custom_model, STATE.config.custom_rotation_y || 0);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateEngineConfig({
-            poop_lifetime: STATE.config.poop_lifetime,
-            reward_lifetime: STATE.config.reward_lifetime,
-            max_poops: STATE.config.max_poops,
-            max_rewards: STATE.config.max_rewards
+            poop_lifetime: STATE.config.mechanics?.poop_lifetime,
+            reward_lifetime: STATE.config.mechanics?.reward_lifetime,
+            max_poops: STATE.config.mechanics?.max_poops,
+            max_rewards: STATE.config.mechanics?.max_rewards
         });
         
         // Bypass PIN Lock in Preview Mode
@@ -631,18 +743,7 @@ window.addEventListener('message', (e) => {
     }
 });
 
-function loadBoard() {
-    const list=$('ranking-list'); if(!list) return;
-    const medals=['🥇','🥈','🥉'];
-    list.innerHTML = MOCK_BOARD.map((p,i)=>`
-        <div class="rounded-xl p-3 flex items-center gap-3 ${i<3?'bg-neon-purple/10 border border-neon-purple/20':'bg-white/3 border border-white/5'}">
-            <div class="w-8 h-8 rounded-lg ${i<3?'bg-neon-purple/20':'bg-white/5'} flex items-center justify-center font-black text-sm">${medals[i]||'#'+(i+1)}</div>
-            <div class="flex-1"><div class="font-bold text-sm text-white/80">Player ${p.id.substring(0,6)}</div><div class="text-[8px] text-white/30">Lv.${p.level}</div></div>
-            <div class="font-black text-neon-gold text-sm">${(p.score).toLocaleString()} 🏆</div>
-        </div>
-    `).join('');
-    if (window.twemoji) twemoji.parse(list);
-}
+// loadBoard ถูกแทนที่ด้วย toggleRanking (ดึงข้อมูลจริงจาก Supabase)
 
 window.toggleQuest = (close) => {
     const m = $('quest-modal'); if(!m) return;
@@ -667,7 +768,7 @@ window.claimQuestReward = () => {
     STATE.quests.claimed = true;
     
     STATE.buffs.regen = STATE.config.q_special_mult || 1.5;
-    STATE.buffs.regen_expiry = Date.now() + (24 * 60 * 60 * 1000); 
+    STATE.buffs.regen_expiry = Date.now() + (6 * 60 * 60 * 1000); // 6 ชม. เพื่อให้ Buff มีค่ามากขึ้น
 
     // บันทึก Log การรับรางวัลเควส
     logScoreAction(currentUserId, 'QUEST_CLAIM', 5000, 500, 'สำเร็จภารกิจรายวัน');
@@ -831,9 +932,11 @@ window.toggleFullScreen = () => {
     }
     
     loadAdminConfigLocal();
+    setWorldSeed(userId || 'GUEST_USER');
     init3D('three-canvas', STATE.config.template, { 
         sky:STATE.config.sky, ground:STATE.config.ground, 
-        customModel: STATE.config.custom_model 
+        customModel: STATE.config.custom_model,
+        customRotationY: STATE.config.custom_rotation_y || 0
     });
     updatePetScale(STATE.level); 
     resetDailyQuests(); 
@@ -843,8 +946,11 @@ window.toggleFullScreen = () => {
         window.onPoopCollectedManual,
         () => {
             const mech = STATE.config.mechanics || { dec_happy_poop: 12 };
-            STATE.love = Math.max(0, STATE.love - (mech.dec_happy_poop || 12));
-            spawn('💩 อึเน่าเกินไป! -12♥');
+            const penaltyVal = mech.dec_happy_poop || 12;
+            STATE.love = Math.max(0, STATE.love - penaltyVal);
+            const tpl = STATE.config.template || 'pet';
+            const expireMsg = { pet: `💩 อึเน่าเกินไป! -${penaltyVal}♥`, car: `🛢️ น้ำมันไหลเลอะเทอะ! -${penaltyVal}♥`, plant: `🍂 วัชพืชรกมาก! -${penaltyVal}♥` };
+            spawn(expireMsg[tpl] || expireMsg.pet);
             updateUI(); saveState();
         }
     );
@@ -886,11 +992,14 @@ window.toggleFullScreen = () => {
         setTimeout(() => {
             const rareRate = (mech.rare_rate ?? 10) / 100;
             const type = Math.random() < rareRate ? 'gold' : 'normal';
+            const tpl = STATE.config.template || 'pet';
+            const poopMsg = { pet: '💩 น้องปวดท้องอึ!', car: '🛢️ น้ำมันหยดลงพื้น!', plant: '🍂 ใบไม้ร่วงแล้ว!' };
+            const goldMsg = { pet: '✨ น้องทำทองร่วง!', car: '✨ น้ำมันพิเศษหยดลงมา!', plant: '✨ ใบไม้สีทองร่วงลงมา!' };
 
             if (spawnPoop(type)) {
                 SFX.playSpawn();
-                if (type === 'gold') spawn('✨ อุ๊ย! น้องทำทองร่วงแวววาวเลย!', 'text-neon-gold pulse');
-                else spawn('💩 น้องปวดท้องอึ / ของร่วงลงแหมะ!');
+                if (type === 'gold') spawn(goldMsg[tpl] || goldMsg.pet, 'text-neon-gold pulse');
+                else spawn(poopMsg[tpl] || poopMsg.pet);
             }
             scheduleNextPoop();
         }, baseDelay);
@@ -898,14 +1007,15 @@ window.toggleFullScreen = () => {
     scheduleNextPoop();
 
     function scheduleNextReward() {
-        const c = STATE.config || {};
-        const r_min = c.reward_min || 90;
-        const r_max = c.reward_max || 240;
+        const mech = STATE.config.mechanics || {};
+        const cfg = STATE.config || {};
+        const r_min = mech.r_min || 30;
+        const r_max = mech.r_max || 90;
         const delay = (r_min + Math.random() * (r_max - r_min)) * 1000;
         
         setTimeout(() => {
-            const rRare = (c.rew_rare_rate || 20) / 100;
-            const rLegend = (c.rew_legend_rate || 5) / 100;
+            const rRare = (cfg.rew_rare_rate || 20) / 100;
+            const rLegend = (cfg.rew_legend_rate || 5) / 100;
             const roll = Math.random();
             let rType = 'common';
             if (roll < rLegend) rType = 'legend';
@@ -923,13 +1033,14 @@ window.toggleFullScreen = () => {
 
     setInterval(()=>{
         if (!isGameActive) return; 
-        const mech = STATE.config.mechanics || { dec_hunger: 0.12, dec_happy: 0.08, dec_clean: 0.06, reg_stamina: 0.5 };
+        // ปรับสมดุล: ลดอัตราการลดลงของค่าต่างๆ เพื่อให้เล่นได้นานขึ้น (Idle ได้ประมาณ 3-4 ชม.)
+        const mech = STATE.config.mechanics || { dec_hunger: 0.08, dec_happy: 0.05, dec_clean: 0.04, reg_stamina: 0.5 };
         STATE.maxStamina = STATE.maxStamina || 100;
         
-        STATE.hunger = Math.max(0, STATE.hunger - mech.dec_hunger);
-        STATE.clean = Math.max(0, STATE.clean - mech.dec_clean);
+        STATE.hunger = Math.max(0, STATE.hunger - (mech.dec_hunger || 0.08));
+        STATE.clean = Math.max(0, STATE.clean - (mech.dec_clean || 0.04));
 
-        let happyDecay = mech.dec_happy || 0.08;
+        let happyDecay = mech.dec_happy || 0.05;
         // ลอจิกความทุกข์: ถ้าปล่อยให้อดอยากหรือสกปรก ความสุขจะลดลงเร็วขึ้น 3 เท่า!
         if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 3;
         STATE.love = Math.max(0, STATE.love - happyDecay); 
@@ -971,5 +1082,12 @@ window.toggleFullScreen = () => {
         if (Math.random() < 0.1) saveState(); 
     }, 5000);
 
-    if (window.twemoji) twemoji.parse(document.body);
+    // --- 🔊 Audio Context Wake up (Global Listener) ---
+    window.addEventListener('click', () => SFX.init(), { once: true });
+    window.addEventListener('touchstart', () => SFX.init(), { once: true });
+
+    // Initial parse for the static parts
+    if (window.twemoji) {
+        twemoji.parse($('game-container'));
+    }
 })();
