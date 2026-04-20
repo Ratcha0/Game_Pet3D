@@ -7,10 +7,25 @@ import {
     currentUserId, loadGameConfigCloud
 } from '../store/state.js';
 import { SFX } from '../services/sound.js';
+import { isGameActive, initAuth } from './auth.js';
+import { initShop } from './shop.js';
 
 const $ = id => document.getElementById(id);
 
-function updateUI() {
+window.spawn = function(msg, cls = "text-white") {
+    const a=$('spawn-area'); if(!a) return;
+    const e=document.createElement('div');
+    e.className = `px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-white font-black text-xs shadow-2xl pointer-events-none animate-float-up ${cls}`;
+    e.style.position = 'absolute';
+    e.style.left = `${40 + Math.random() * 20}%`;
+    e.style.top = `${40 + Math.random() * 20}%`;
+    e.innerHTML = msg;
+    if (window.twemoji) twemoji.parse(e);
+    a.appendChild(e);
+    setTimeout(() => e.remove(), 2500);
+};
+
+window.updateUI = function() {
     if (!STATE) return;
 
     const musicBtn = document.getElementById('music-btn');
@@ -228,25 +243,9 @@ function incrementSpecialQuest(type, amt = 1) {
     }
 }
 
-function spawn(msg, cls = "text-white") {
-    const a=$('spawn-area'); if(!a) return;
-    const e=document.createElement('div');
-    e.className = `px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-white font-black text-xs shadow-2xl pointer-events-none animate-float-up ${cls}`;
-    e.style.position = 'absolute';
-    // สุ่มตำแหน่งให้กระจายตัวรอบๆ บริเวณกลางจอ
-    e.style.left = `${40 + Math.random() * 20}%`;
-    e.style.top = `${40 + Math.random() * 20}%`;
-    e.innerHTML = msg;
-    if (window.twemoji) twemoji.parse(e);
-    a.appendChild(e);
-    setTimeout(() => e.remove(), 2500);
-}
 
-window.toggleShop = (close) => {
-    const m = $('shop-modal'); if(!m) return;
-    if(close) m.classList.add('translate-y-full');
-    else m.classList.remove('translate-y-full');
-};
+
+
 
 window.toggleNameModal = (close) => {
     const m = $('name-modal'); if(!m) return;
@@ -285,191 +284,8 @@ window.savePetNameUI = () => {
 };
 
 // ==========================================
-// PIN LOCK SCREEN LOGIC
-// ==========================================
-let currentPin = '';
-let isGameActive = false; // จะเป็น true เมื่อปลดล็อคหน้าจอแล้วเท่านั้น
 
-function updatePinUI() {
-    const dots = document.querySelectorAll('.pin-dot');
-    dots.forEach((dot, index) => {
-        if (index < currentPin.length) {
-            dot.classList.add('pin-active');
-        } else {
-            dot.classList.remove('pin-active');
-            dot.classList.remove('pin-error');
-            dot.classList.remove('pin-success');
-        }
-    });
-
-    const isNew = !STATE.pin_code || STATE.pin_code === "";
-    const msg = $('pin-msg');
-    const pinTitle = $('pin-title');
-    const pinIcon = $('pin-icon');
-
-    if (msg) {
-        if (msg.innerText.indexOf('SUCCESS') === -1 && msg.innerText.indexOf('INCORRECT') === -1) {
-            if (isNew) {
-                if (pinTitle) pinTitle.innerText = "Set New PIN";
-                if (pinIcon) pinIcon.innerText = "✨";
-                msg.innerHTML = `ยินดีต้อนรับคุณ <span class="text-neon-purple">${STATE.username}</span><br>กรุณาตั้งรหัสผ่าน 4 หลักสำหรับไอดีนี้`;
-            } else {
-                if (pinTitle) pinTitle.innerText = "Security Lock";
-                if (pinIcon) pinIcon.innerText = "🔒";
-                msg.innerHTML = `ยินดีต้อนรับกลับคุณ <span class="text-neon-pink">${STATE.username}</span><br>กรุณาใส่รหัสผ่านเพื่อเข้าสู่ระบบ`;
-            }
-        }
-    }
-}
-
-// --- NEW LOGIN FLOW FUNCTIONS ---
-window.confirmUsername = async () => {
-    SFX.init(); // ปลุกระบบเสียง
-    SFX.playClick();
-    const input = $('login-username-input');
-    if (!input || !input.value.trim()) {
-        spawn('⚠️ กรุณาใส่ชื่อผู้ใช้ก่อนครับ');
-        return;
-    }
-
-    const name = input.value.trim().substring(0, 15);
-    STATE.username = name;
-    setUserId(name); // ใช้ชื่อเป็น ID
-
-    // บันทึกลง Session Storage (แคชชั่วคราว)
-    sessionStorage.setItem('pw3d_session_user', name);
-
-    // โหลดข้อมูลจาก Cloud/Local
-    await loadState();
-    
-    // บังคับให้ใช้ชื่อที่กรอกมาเป็นชื่อในเกมด้วย (ป้องกันค่าเริ่มต้นมาทับ)
-    STATE.username = name;
-    
-    // อัปเดต UI PIN และหน้าจอหลัก
-    updatePinUI();
-    updateUI();
-    
-    const step1 = $('login-step-1');
-    const step2 = $('login-step-2');
-    
-    if (step1 && step2) {
-        step1.classList.add('opacity-0', '-translate-y-8');
-        setTimeout(() => {
-            step1.classList.add('hidden');
-            step2.classList.remove('hidden');
-            void step2.offsetWidth; // force reflow
-            step2.classList.remove('opacity-0', 'translate-y-8');
-        }, 300);
-    }
-};
-
-window.backToStep1 = () => {
-    const step1 = $('login-step-1');
-    const step2 = $('login-step-2');
-    if (step1 && step2) {
-        step2.classList.add('opacity-0', 'translate-y-8');
-        setTimeout(() => {
-            step2.classList.add('hidden');
-            step1.classList.remove('hidden');
-            void step1.offsetWidth;
-            step1.classList.remove('opacity-0', '-translate-y-8');
-        }, 300);
-    }
-};
-// --------------------------------
-
-function verifyPin() {
-    const dots = document.querySelectorAll('.pin-dot');
-    const isNew = !STATE.pin_code || STATE.pin_code === "";
-    
-    if (isNew) {
-        // --- 1. โหมดตั้งรหัสใหม่ ---
-        STATE.pin_code = currentPin;
-        saveState(); // บันทึกดึงขึ้น Database ทันที
-        
-        dots.forEach(d => d.classList.add('pin-success'));
-        $('pin-msg').innerText = "PIN CREATED! UNLOCKING...";
-        $('pin-msg').classList.remove('text-white/50', 'text-red-400');
-        $('pin-msg').classList.add('text-green-400');
-        
-        setTimeout(unlockScreen, 600);
-    } else {
-        // --- 2. โหมดปลดล็อคปกติ ---
-        if (currentPin === STATE.pin_code) {
-            dots.forEach(d => d.classList.add('pin-success'));
-            $('pin-msg').innerText = "SUCCESS! UNLOCKING...";
-            $('pin-msg').classList.remove('text-white/50', 'text-red-400');
-            $('pin-msg').classList.add('text-green-400');
-            setTimeout(unlockScreen, 600);
-        } else {
-            dots.forEach(d => d.classList.add('pin-error'));
-            $('pin-msg').innerText = "INCORRECT PIN. TRY AGAIN.";
-            $('pin-msg').classList.remove('text-white/50', 'text-green-400');
-            $('pin-msg').classList.add('text-red-400');
-            setTimeout(() => {
-                currentPin = '';
-                updatePinUI();
-            }, 500);
-        }
-    }
-}
-
-function unlockScreen() {
-    const screen = $('pin-lock-screen');
-    if(screen) {
-        screen.classList.add('opacity-0');
-        screen.classList.add('scale-110');
-        screen.style.pointerEvents = 'none';
-        setTimeout(() => screen.remove(), 500); 
-        spawn('🔓 ปลดล็อคระบบสำเร็จ!', 'text-emerald-400');
-        
-        // เริ่มต้นชีวิตสัตว์เลี้ยง (Start Lifecycles)
-        isGameActive = true;
-    }
-}
-
-window._pressPin = (num) => {
-    SFX.init(); // ปลุกระบบเสียงและเริ่มเพลงทันทีที่สัมผัสปุ่ม
-    if (currentPin.length < 4) {
-        currentPin += num;
-        SFX.playClick();
-        updatePinUI();
-        if (currentPin.length === 4) {
-            verifyPin();
-        }
-    }
-};
-
-window._clearPin = () => {
-    currentPin = '';
-    updatePinUI();
-};
-
-window._deletePin = () => {
-    if (currentPin.length > 0) {
-        currentPin = currentPin.slice(0, -1);
-        updatePinUI();
-    }
-};
-
-// ==========================================
-
-window.buyPackage = (tier) => {
-    const pkg = STATE.config.shop[tier];
-    if (!pkg) return;
-    if (STATE.tokens < pkg.cost) { spawn('🪙 เหรียญ (Tokens) ไม่พอครับ!'); return; }
-
-    STATE.tokens -= pkg.cost;
-    STATE.stamina += pkg.amt; 
-    
-    // บันทึก Log การซื้อของ
-    logScoreAction(currentUserId, 'SHOP_PURCHASE', 0, -pkg.cost, `ซื้อแพ็คเกจ ${tier.toUpperCase()}`);
-
-    spawn(`📦 ซื้อแพ็ค ${tier.toUpperCase()} สำเร็จ! (+${pkg.amt})`);
-    SFX.playAsset('bell');
-    updateUI(); saveState();
-    setTimeout(() => toggleShop(true), 500); 
-};
+initShop();
 
 window.doAction = (type) => {
     SFX.init(); // ประกันว่า AudioContext จะทำงานเมื่อมีการคลิกครั้งแรก
@@ -613,17 +429,20 @@ window.onPoopCollectedManual = (type = 'normal') => {
 
     if (isRare) {
         if (type === 'gold') SFX.playJingle();
-        else SFX.playCoin(); // หรือใช้ jingle ก็ได้
+        else SFX.playCoin();
 
         const tMin = mech.rare_token_min ?? 20;
         const tMax = mech.rare_token_max ?? 50;
         const jackpotTokens = Math.floor(tMin + Math.random() * (tMax - tMin));
         STATE.tokens += jackpotTokens;
         
-        // บันทึก Log กรณีได้ Rare Drop
-        logScoreAction(currentUserId, 'SCOOP_RARE', actionScore, jackpotTokens, 'เจอของแรร์ในกองอึ!');
+        const tpl = STATE.config.template || 'pet';
+        const rareName = { pet: 'อึทองคำ', car: 'น้ำมันพิเศษ', plant: 'ใบไม้สีทอง' };
+        const rareLoc = { pet: 'ในกองอึ', car: 'ในคราบน้ำมัน', plant: 'ตามกองใบไม้' };
         
-        const msg = (type === 'gold') ? `✨ สุดยอด! เก็บอึทองคำสำเร็จ! (+${jackpotTokens}🪙)` : `🎁 ทาดา! ซ่อนของแรร์ไว้ (+${jackpotTokens} Token)`;
+        logScoreAction(currentUserId, 'SCOOP_RARE', actionScore, jackpotTokens, `เจอของแรร์${rareLoc[tpl]}`);
+        
+        const msg = (type === 'gold') ? `✨ สุดยอด! เก็บ${rareName[tpl]}สำเร็จ! (+${jackpotTokens}🪙)` : `🎁 ทาดา! ซ่อนของแรร์ไว้ (+${jackpotTokens} Token)`;
         spawn(msg, 'text-neon-gold pulse');
     } else {
         // บันทึก Log ปกติ
@@ -710,7 +529,11 @@ function checkLevelUp() {
 window.addEventListener('storage', (e) => {
     if(e.key==='pw3d_config') {
         loadAdminConfigLocal();
-        updateTemplate(STATE.config.template, STATE.config.custom_model, STATE.config.custom_rotation_y || 0);
+        const skins = STATE.config.available_skins || [];
+        const currentSkin = skins.find(s => s.model === STATE.config.custom_model);
+        const rotation = currentSkin ? (currentSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
+
+        updateTemplate(STATE.config.template, STATE.config.custom_model, rotation);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateEngineConfig({
             poop_lifetime: STATE.config.mechanics?.poop_lifetime,
@@ -725,7 +548,11 @@ window.addEventListener('storage', (e) => {
 window.addEventListener('message', (e) => {
     if(e.data && e.data.type === 'PW3D_PREVIEW') {
         applyConfigToState(e.data.config);
-        updateTemplate(STATE.config.template, STATE.config.custom_model, STATE.config.custom_rotation_y || 0);
+        const skins = STATE.config.available_skins || [];
+        const currentSkin = skins.find(s => s.model === STATE.config.custom_model);
+        const rotation = currentSkin ? (currentSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
+
+        updateTemplate(STATE.config.template, STATE.config.custom_model, rotation);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateEngineConfig({
             poop_lifetime: STATE.config.mechanics?.poop_lifetime,
@@ -896,47 +723,39 @@ window.toggleFullScreen = () => {
 
 
 (async () => {
-    // 1. ตรวจสอบชื่อจาก Session Storage หรือ URL
-    const urlParams = new URLSearchParams(window.location.search);
+    await initAuth();
+    
+    // We already know userId if it was loaded, but for setWorldSeed we can pass currentUserId
     const sessionUser = sessionStorage.getItem('pw3d_session_user');
-    const urlUserId = urlParams.get('userId'); // เผื่อยังอยากเข้าผ่านลิงก์ได้อยู่
-    
-    const userId = sessionUser || urlUserId;
-    const userNameParam = urlParams.get('username');
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = sessionUser || urlParams.get('userId');
 
-    const step1 = $('login-step-1');
-    const step2 = $('login-step-2');
-
-    if (userId) {
-        // --- กรณีมีชื่อจำไว้แล้ว ---
-        setUserId(userId);
-        await loadState();
-        
-        // ใช้ชื่อจาก ID หรือ URL มาเป็นชื่อแสดงผล
-        STATE.username = userNameParam || userId;
-        
-        updatePinUI();
-        
-        if (step1 && step2) {
-            step1.classList.add('hidden');
-            step2.classList.remove('hidden');
-            step2.classList.remove('opacity-0', 'translate-y-8');
-        }
-    } else {
-        // --- กรณีไม่มีชื่อ (เริ่มใหม่) ---
-        if (step1) {
-            step1.classList.remove('hidden');
-            // focus input
-            setTimeout(() => $('login-username-input')?.focus(), 500);
-        }
-    }
-    
     loadAdminConfigLocal();
     setWorldSeed(userId || 'GUEST_USER');
+    
+    // เลือกโมเดล: ดึงจากคลังสกินของเทมเพลตปัจจุบัน ถ้าไม่มีใช้ของแอดมิน
+    const tpl = STATE.config.template || 'pet';
+    let finalModel = STATE.config.custom_model;
+    
+    if (STATE.inventory) {
+        if (STATE.inventory.equipped_skins && STATE.inventory.equipped_skins[tpl]) {
+            finalModel = STATE.inventory.equipped_skins[tpl];
+        } else if (STATE.inventory.equipped_skin) {
+            // Legacy support
+            finalModel = STATE.inventory.equipped_skin;
+            // Clear legacy to fix cross-template bug
+            delete STATE.inventory.equipped_skin; 
+        }
+    }
+
+    const skins = STATE.config.available_skins || [];
+    const equippedSkin = skins.find(s => s.model === finalModel);
+    const finalRotation = equippedSkin ? (equippedSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
+
     init3D('three-canvas', STATE.config.template, { 
         sky:STATE.config.sky, ground:STATE.config.ground, 
-        customModel: STATE.config.custom_model,
-        customRotationY: STATE.config.custom_rotation_y || 0
+        customModel: finalModel,
+        customRotationY: finalRotation
     });
     updatePetScale(STATE.level); 
     resetDailyQuests(); 

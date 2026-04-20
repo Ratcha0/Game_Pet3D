@@ -33,6 +33,7 @@ export async function savePetState(userId, stateData) {
             stamina: stateData.stamina,
             quests_data: stateData.quests,
             buffs_data: stateData.buffs,
+            inventory: stateData.inventory,
             last_interaction_at: new Date().toISOString()
         }, { onConflict: 'player_id' });
         

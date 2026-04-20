@@ -1,0 +1,353 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',sans-serif; }
+.phone-frame { width:100%; height:100vh; height:100dvh; position:relative; overflow:hidden; background:#080c18; }
+.hud { position:absolute; inset:0; z-index:10; pointer-events:none; display:flex; flex-direction:column; width: 100%; height: 100%; overflow: hidden; padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 16px) 0; }
+.hud-content { width: 100%; display: flex; flex-direction: column; height: 100%; position: relative; }
+.glass { background:rgba(15, 23, 42, 0.95); border:1px solid rgba(255,255,255,0.08); }
+.glow { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+#three-canvas { position:absolute; inset:0; z-index:0; }
+.act-btn:active { transform: scale(0.92); }
+.no-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scroll::-webkit-scrollbar { display: none; }
+
+/* PIN Lock Screen Animations */
+.pin-dot { transition: all 0.2s; }
+.pin-active { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; border-color: #8b5cf6; }
+.pin-error { animation: shake 0.4s; border-color: #ef4444; background: rgba(239, 68, 68, 0.2); }
+.pin-success { border-color: #10b981; background: #10b981; box-shadow: 0 0 15px #10b981; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+.pulse { animation: pulse 1s infinite; }
+
+@keyframes critical-blink { 
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 0px transparent); } 
+    50% { opacity: 0.5; color: #f87171; transform: scale(1.05); filter: drop-shadow(0 0 5px rgba(239,68,68,0.5)); } 
+}
+.critical-warning { animation: critical-blink 0.8s ease-in-out infinite !important; }
+
+@keyframes float-up {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    80% { opacity: 0.8; }
+    100% { transform: translateY(-50px) scale(0.9); opacity: 0; }
+}
+.animate-float-up { animation: float-up 2.5s ease-out forwards; }
+
+@keyframes hud-breathe {
+    0%, 100% { transform: translateY(0); filter: drop-shadow(0 4px 15px rgba(139,92,246,0.1)); }
+    50% { transform: translateY(-3px); filter: drop-shadow(0 8px 25px rgba(139,92,246,0.25)); }
+}
+.hud-breathe { animation: hud-breathe 4s ease-in-out infinite; }
+
+/* Twemoji Styling */
+img.emoji {
+    height: 1.1em;
+    width: 1.1em;
+    margin: 0 .05em 0 .1em;
+    vertical-align: -0.1em;
+    display: inline-block;
+}
+
+/* --- RESPONSIVE CORE --- */
+@media (max-width: 400px) {
+    .stats-panel, .action-panel { transform: scale(0.9); transform-origin: bottom center; }
+    .profile-box { transform: scale(0.85); transform-origin: top left; }
+    .wallet-box { transform: scale(0.85); transform-origin: top right; }
+    #spawn-area { transform: scale(0.8) translateY(-10px); }
+    /* ลดความร้อนบนมือถือโดยการปิด Blur ที่กินเครื่องมากๆ */
+    .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(15, 23, 42, 0.95) !important; }
+}
+
+/* Login UI Responsive for small height (Widget View) */
+@media (max-height: 500px) {
+    #pin-lock-container { transform: scale(0.95); transform-origin: center; }
+    #login-step-1 .w-20 { width: 2.75rem !important; height: 2.75rem !important; margin-bottom: 0.35rem !important; }
+    #login-step-1 .text-center { margin-bottom: 0.35rem !important; }
+    #login-step-1 h2 { display: none !important; } /* ซ่อนหัวข้อในจอจิ๋วเพื่อเน้นช่องกรอก */
+    #login-step-1 p.tracking-widest { font-size: 8px !important; margin-bottom: 0.35rem !important; }
+    #login-step-1 input { padding: 0.4rem 0.75rem !important; font-size: 13px !important; border-radius: 8px !important; }
+    #login-step-1 button { margin-top: 0.35rem !important; padding: 0.4rem !important; border-radius: 8px !important; font-size: 11px !important; }
+    #login-step-1 .mt-8 { margin-top: 0.35rem !important; font-size: 7px !important; }
+    
+    #login-step-2 .w-16 { width: 2.5rem !important; height: 2.5rem !important; margin-bottom: 0.4rem !important; }
+    #login-step-2 .mb-10 { margin-bottom: 0.4rem !important; }
+    #login-step-2 #pin-dots { margin-top: 0.4rem !important; gap: 0.4rem !important; }
+    #login-step-2 .pin-dot { width: 0.6rem !important; height: 0.6rem !important; }
+    #login-step-2 #pin-keypad { gap: 0.2rem !important; max-width: 220px !important; }
+    #login-step-2 #pin-keypad button { font-size: 0.9rem !important; padding: 0.5rem !important; }
+}
+
+/* โหมดจอจิ๋วขีดสุด (Ultra Small / Widget Mode) */
+@media (max-width: 400px), (max-height: 550px) {
+    #bottom-hud { 
+        position: relative !important; 
+        width: 100% !important; 
+        height: 35px !important; 
+        display: block !important; 
+    }
+    .profile-box { transform: scale(0.85) !important; transform-origin: top left !important; }
+    .wallet-box { transform: scale(0.85) !important; transform-origin: top right !important; }
+    header { padding: 1 !important; width: 100% !important; }
+    #spawn-area { position: absolute !important; top: 70px !important; left: 52% !important; transform: translateX(-50%) scale(0.7) !important; transform-origin: top center !important; }
+    .hud { padding-top: 0 !important; padding-bottom: 0 !important; }
+    
+    .stats-panel, .action-panel {
+        position: absolute !important;
+        bottom: 0 !important;
+        margin: 0 !important;
+        gap: 4px !important;
+        width: max-content !important; 
+        max-width: none !important;
+        height: 52px !important; 
+        padding: 4px 10px !important;
+        z-index: 10;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: visible !important;
+    }
+    .stats-panel { 
+        left: 0% !important; 
+        transform-origin: bottom left !important; 
+        transform: scale(0.9) !important; 
+        flex-direction: row !important; 
+    }
+    .action-panel { 
+        right: 0% !important; 
+        transform-origin: bottom right !important; 
+        transform: scale(0.9) !important; 
+    }
+
+    /* พิเศษสำหรับจอเล็กลงไปอีก (Nano Mode < 300px) */
+    @media (max-width: 300px) {
+        .profile-box, .wallet-box { transform: scale(0.55) !important; }
+        .stats-panel { transform: scale(0.55) !important; }
+        .action-panel { transform: scale(0.55) !important; }
+
+        /* ซ่อนข้อความเพื่อให้กล่องเล็กลง */
+        .label-text { display: none !important; }
+        .stats-panel h1, .action-panel h1 { display: none !important; }
+    }
+
+    /* ย่อส่วนหน้าจอเล็กมาก */
+    @media (max-width: 280px) {
+        .stats-panel { transform: scale(0.42) !important; }
+        .action-panel { transform: scale(0.42) !important; }
+    }
+    @media (max-width: 250px) {
+        .stats-panel { transform: scale(0.35) !important; }
+        .action-panel { transform: scale(0.35) !important; }
+    }
+}
+
+@media (max-height: 650px) and (orientation: portrait) {
+    .hud { padding-top: 6px; padding-bottom: 6px; }
+    #bottom-hud { gap: 2px; }
+    .stats-panel, .action-panel { padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* --- SPECIFIC FOR 830x658 SCENARIO (Medium-Narrow) --- */
+@media screen and (max-width: 850px) {
+    .profile-box { transform: scale(0.8); transform-origin: top left; }
+    .wallet-box { transform: scale(0.8); transform-origin: top right; }
+    .stats-panel, .action-panel { max-width: 380px !important; transform: scale(0.85); }
+    #spawn-area { transform: scale(0.7) translateY(-20px); opacity: 0.9; }
+    header { padding-left: 8px !important; padding-right: 8px !important; }
+}
+
+/* จริงๆ แนวนอน (Orientation Landscape) */
+@media screen and (orientation: landscape) {
+    .hud { padding: 4px 4px !important; } /* ลด padding ด้านข้างให้ชิดขอบจอมากขึ้น */
+    #bottom-hud { 
+        position: absolute !important; bottom: 0 !important; left: 0 !important; 
+        width: 100% !important; display: flex !important; flex-direction: row !important; 
+        justify-content: space-between !important; align-items: flex-end !important;
+        padding: 0 20px 16px 20px !important;
+        transform: none !important;
+        z-index: 100 !important;
+    }
+    #spawn-area { 
+        position: absolute !important; top: 10px !important; left: 50% !important; 
+        transform: translateX(-50%) scale(0.55) !important; transform-origin: top center !important;
+    }
+    .stats-panel, .action-panel { 
+        max-width: 250px !important; 
+        transform: scale(0.75) !important; 
+        margin: 0 !important;
+    }
+    .stats-panel { transform-origin: bottom left !important; }
+    .action-panel { transform-origin: bottom right !important; }
+    .glass { background: rgba(15, 23, 42, 0.6) !important; }
+
+    /* Red Alert Pulse */
+    @keyframes pulse-red {
+        0%, 100% { opacity: 1; filter: drop-shadow(0 0 5px #ef4444); }
+        50% { opacity: 0.5; filter: drop-shadow(0 0 15px #ef4444); background: #ef444433; }
+    }
+    .alert-red { animation: pulse-red 0.8s infinite; border-color: #ef4444bb !important; }
+    
+    /* ปรับแต่งหน้าต่างให้เป็นก้อนลอยตรงกลางจอ (Universal Modal Polish) */
+    #shop-modal > div, #ranking-modal > div, #quest-modal > div {
+        margin: auto !important;
+        max-height: 90vh !important;
+        height: auto !important;
+        max-width: 520px !important;
+        border-radius: 2rem !important;
+        padding: 1.5rem !important;
+        overflow: hidden !important; /* เปลี่ยนจาก auto เป็น hidden เพื่อให้ลูกสกรอลล์แทน */
+    }
+
+    /* Optimized for Landscape / Small Height Screens */
+    @media (max-height: 550px) {
+        #shop-modal > div, #ranking-modal > div, #quest-modal > div {
+            padding: 1rem !important;
+            border-radius: 1.5rem !important;
+            margin-top: 5vh !important;
+        }
+        #shop-modal h3, #quest-modal h3 { font-size: 1.25rem !important; }
+        .shop-item-container, .space-y-4 { gap: 0.5rem !important; }
+        /* Shrink Quest Icons & Cards */
+        #quest-modal .w-12.h-12 { width: 2.25rem !important; height: 2.25rem !important; border-radius: 0.75rem !important; }
+        #quest-modal .text-2xl { font-size: 1.125rem !important; }
+        #quest-modal .p-4 { padding: 0.6rem 0.8rem !important; }
+        #quest-modal .text-xs { font-size: 0.7rem !important; }
+        #btn-claim-quest { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+    }
+    #shop-modal h3 { font-size: 1.5rem !important; }
+    
+    .shop-item-container {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.75rem !important;
+    }
+    .shop-item-container {
+        flex-grow: 0 !important;
+        margin-top: 1rem !important;
+        gap: 5px !important; /* บีบระยะห่างให้ 3 ใบวางเรียงกันได้ */
+    }
+    .shop-item-container > div {
+        aspect-ratio: auto !important;
+        padding: 0.4rem !important;
+        gap: 0.2rem !important;
+        border-radius: 1rem !important;
+        flex: none !important;
+    }
+    /* ย่อส่วนภายในให้จิ๋วตามคอลัมน์ */
+    .shop-item-container .w-10, .shop-item-container .w-12 { width: 2.2rem !important; height: 2.2rem !important; font-size: 1.2rem !important; }
+    .shop-item-container .text-xs { font-size: 9px !important; }
+    .shop-item-container span.font-bold { font-size: 8px !important; display: block !important; }
+    .shop-item-container .cost-box {
+        padding: 1px 4px !important;
+        font-size: 10px !important; /* จัดขนาดตัวเลขราคาจิ๋วพอดีคำ */
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important; /* บังคับแถวเดียว */
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 2px !important; /* ระยะห่างเลขกับเหรียญจิ๋วๆ */
+        border-radius: 0.3rem !important;
+    }
+}
+
+/* โหมดจอจิ๋วพิเศษ (Micro-Height Mode < 250px) - MICRO PREMIUM BAR */
+@media (max-height: 250px) and (orientation: landscape) {
+    .profile-box { transform: scale(0.6) !important; transform-origin: top left !important; }
+    .wallet-box { transform: scale(0.6) !important; transform-origin: top right !important; }
+    #bottom-hud { padding: 0 10px 8px 10px !important; }
+    .stats-panel, .action-panel { transform: scale(0.6) !important; margin: 0 !important; }
+    .stats-panel { transform-origin: bottom left !important; }
+    .action-panel { transform-origin: bottom right !important; }
+    #spawn-area { top: 10px !important; transform: translateX(-50%) scale(0.4) !important; }
+    header { padding: 4px 8px !important; }
+    #pin-lock-container { transform: scale(0.85) !important; transform-origin: center !important; padding-top: 0; }
+    #pin-lock-container .mb-10 { margin-bottom: 8px !important; }
+    #pin-lock-container .mb-6 { display: none !important; }
+    #pin-lock-container h2 { display: none !important; }
+    #pin-lock-container .mt-8 { margin-top: 8px !important; }
+    
+    #pin-keypad { 
+        grid-template-columns: repeat(6, minmax(0, 1fr)) !important; 
+        max-width: 100% !important;
+        padding: 0 10px !important;
+        gap: 6px !important;
+    }
+    #btn-pin-zero { grid-column-start: auto !important; }
+    #pin-keypad button { 
+        height: 34px !important; 
+        font-size: 1.1rem !important;
+        border-radius: 8px !important;
+        aspect-ratio: auto !important;
+    }
+
+    #shop-modal > div, #ranking-modal > div, #quest-modal > div {
+        margin: auto !important;
+        max-width: 280px !important;
+        max-height: 160px !important;
+        height: auto !important;
+        border-radius: 1rem !important;
+        padding: 0.4rem !important;
+        padding-top: 1.2rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+    }
+    #shop-modal h2, #shop-modal h3, #shop-modal .mt-8 { display: none !important; }
+    #shop-modal .mb-4 { margin: 0 !important; height: 0 !important; overflow: hidden !important; }
+    /* ปุ่มปิดร้านค้า */
+    #shop-modal button[onclick*="toggleShop"] { position: absolute !important; top: 4px !important; right: 4px !important; width: 22px !important; height: 22px !important; z-index: 999 !important; }
+    #shop-modal button[onclick*="toggleShop"] svg { width: 12px !important; height: 12px !important; }
+
+    /* Ranking Modal - ย่อให้กระชับบนจอเล็ก */
+    #ranking-modal h2 { font-size: 0.8rem !important; margin-bottom: 0.3rem !important; }
+    #ranking-modal .h-4 { height: 0 !important; }
+    #ranking-modal #ranking-list { gap: 0.2rem !important; font-size: 0.7rem !important; }
+    #ranking-modal #ranking-list > div { padding: 0.3rem 0.5rem !important; min-height: auto !important; }
+    #ranking-modal button[onclick*="toggleRanking"] { position: absolute !important; top: 4px !important; right: 4px !important; width: 22px !important; height: 22px !important; z-index: 999 !important; }
+    #ranking-modal button[onclick*="toggleRanking"] svg { width: 12px !important; height: 12px !important; }
+
+    /* Quest Modal - ย่อให้กระชับบนจอเล็ก */
+    #quest-modal button[onclick*="toggleQuest"] { position: absolute !important; top: 4px !important; right: 4px !important; width: 22px !important; height: 22px !important; z-index: 999 !important; }
+    #quest-modal button[onclick*="toggleQuest"] svg { width: 12px !important; height: 12px !important; }
+    
+    #shop-modal .shop-item-container {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr 1fr !important;
+        gap: 3px !important;
+    }
+    
+    .shop-card { 
+        height: 75px !important; /* แบนลงเพื่อให้หน้าต่างเตี้ยได้ */
+        padding: 3px !important;
+        border-radius: 0.6rem !important;
+        border: 1px solid rgba(251, 191, 36, 0.4) !important;
+    }
+    .shop-card .w-10, .shop-card .w-12 { width: 1.5rem !important; height: 1.4rem !important; font-size: 0.9rem !important; margin: 0 !important; }
+    .shop-card .mb-3, .shop-card .mb-2 { margin: 0 !important; gap: 0 !important; }
+    .shop-card span.font-bold { display: none !important; }
+    .shop-card .text-xs { font-size: 10px !important; font-weight: 900 !important; color: white !important; }
+    
+    .shop-card .cost-box { 
+        padding: 1px 0 !important; 
+        font-size: 9px !important; 
+        border-radius: 0.3rem !important;
+        background: #000 !important;
+        border: 1px solid #fbbf24 !important;
+        color: #fbbf24 !important;
+    }
+    .shop-card .absolute { display: none !important; }
+}
+
+/* สไตล์การ์ดไอเทม (Card System) */
+.shop-card {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.05)) !important;
+    border: 1px solid rgba(251, 191, 36, 0.2) !important;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.shop-card:hover { 
+    transform: translateY(-5px); 
+    border-color: rgba(251, 191, 36, 0.5) !important;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(251, 191, 36, 0.08)) !important;
+}

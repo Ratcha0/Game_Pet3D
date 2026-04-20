@@ -112,13 +112,16 @@
                              <div class="flex items-center justify-between mb-4">
                                  <div class="flex items-center gap-2">
                                      <div class="w-2 h-2 rounded-full bg-neon-purple animate-pulse"></div>
-                                     <label class="mb-0 text-[10px] text-neon-purple">คลังโมเดลตัวละคร (Character Gallery)</label>
+                                     <label class="mb-0 text-[10px] text-neon-purple font-black">คลังโมเดลตัวละคร (Character Gallery)</label>
                                  </div>
-                                 <span class="text-[8px] text-white/20 uppercase tracking-widest font-bold">เลือกคลิกเพื่อสวมบทบาทตัวละคร</span>
+                                 <div class="flex items-center gap-3">
+                                     <button onclick="addNewSkin()" class="text-[9px] bg-neon-purple/20 hover:bg-neon-purple/40 text-neon-purple px-3 py-1.5 rounded-lg border border-neon-purple/30 transition-all font-black uppercase tracking-widest">+ เพิ่มสกินใหม่</button>
+                                     <span class="text-[8px] text-white/20 uppercase tracking-widest font-bold hidden sm:block">คลิกโมเดลเพื่อเลือกใช้งาน</span>
+                                 </div>
                              </div>
                              
                              <!-- กระดานตู้โชว์ตัวละคร (Gallery Rendering Area) -->
-                             <div id="variant-gallery" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 no-scroll">
+                             <div id="variant-gallery" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6 no-scroll pb-10">
                                  <!-- จะถูกเรนเดอร์โดย JS -->
                              </div>
                         </div>

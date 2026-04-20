@@ -277,6 +277,15 @@ class SoundManager {
             return;
         }
 
+        if (name === 'click') {
+            this.playClick();
+            return;
+        }
+        if (name === 'error') {
+            this.playError();
+            return;
+        }
+
         if (!this.assets[name]) return;
         const audio = this.assets[name].cloneNode();
         audio.volume = 0.5 * this.masterVolume;

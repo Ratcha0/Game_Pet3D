@@ -16,6 +16,12 @@ export const STATE = {
             medium: { cost: 900, amt: 100 },
             large: { cost: 2000, amt: 250 }
         },
+        available_skins: [
+            { id: 'cat-toon', template: 'pet', name: 'Classic Cat', desc: 'แมวหน้าบูดคู่บุญ', icon: '🐱', cost: 0, model: '/toon_cat_free.glb', colorCls: 'neon-gold', scale: 1.0, drop_type: 'poop', drop_offset: {x: 0, y: 0, z: -0.2} },
+            { id: 'plant-stylized', template: 'plant', name: 'Classic Tree', desc: 'ต้นไม้แห้งๆ', icon: '🌳', cost: 0, model: '/stylized_tree.glb', colorCls: 'emerald', scale: 1.0, drop_type: 'leaves', drop_offset: {x: 0, y: 0, z: 0} },
+            { id: 'car-carton', template: 'car', name: 'Classic Car', desc: 'รถบังคับสุดจ๊าบ', icon: '🚗', cost: 0, model: '/car_carton.glb', colorCls: 'emerald', rotationY: 3.14159, scale: 1.0, drop_type: 'oil', drop_offset: {x: 0, y: 0.1, z: -0.5} },
+            { id: 'cyberpunk_car', template: 'car', name: 'Cyberpunk 2077', desc: 'รถโลกอนาคตสุดเท่', icon: '🚀💨', cost: 5000, model: '/cyberpunk_car.glb', colorCls: 'neon-cyan', scale: 0.75, drop_type: 'smoke', drop_offset: {x: 0, y: 0.2, z: -0.8} }
+        ],
         mechanics: {}
     },
     quests: {
@@ -28,7 +34,8 @@ export const STATE = {
     buffs: {
         regen: 1.0,
         regen_expiry: 0
-    }
+    },
+    inventory: { skins: [], equipped_skins: {} }
 };
 
 export const SPECIAL_QUEST_POOL = [
@@ -65,6 +72,7 @@ export function resetStateToDefaults() {
         claimed: false
     };
     STATE.buffs = { regen: 1.0, regen_expiry: 0 };
+    STATE.inventory = { skins: [], equipped_skins: {} };
 }
 
 export async function loadState() {
@@ -103,6 +111,8 @@ function mergeSaveData(d) {
     STATE.xp = d.xp ?? 0;
     STATE.level = d.level ?? 1;
     STATE.maxExp = d.maxExp ?? d.max_exp ?? 100;
+    
+    if (d.inventory) STATE.inventory = d.inventory;
 
     if (d.quests_data) STATE.quests = d.quests_data;
     else if (d.quests) STATE.quests = d.quests;
@@ -120,7 +130,8 @@ export function saveState() {
         tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
         hunger: STATE.hunger, clean: STATE.clean, stamina: STATE.stamina,
         love: STATE.love, xp: STATE.xp, level: STATE.level, maxExp: STATE.maxExp,
-        quests: STATE.quests, quest_date: today, buffs: STATE.buffs
+        quests: STATE.quests, quest_date: today, buffs: STATE.buffs,
+        inventory: STATE.inventory
     };
     const storageKey = 'PW3D_SAVE_' + currentUserId;
     localStorage.setItem(storageKey, JSON.stringify(data));
@@ -182,6 +193,9 @@ export function applyConfigToState(p) {
     STATE.config.rew_common_tokens = p.rew_common_tokens ?? 10;
     STATE.config.rew_rare_tokens = p.rew_rare_tokens ?? 50;
     STATE.config.rew_legend_tokens = p.rew_legend_tokens ?? 250;
+    
+    // สำคัญ: ซิงค์คลังโมเดล (available_skins)
+    if (p.available_skins) STATE.config.available_skins = p.available_skins;
 }
 
 export async function loadGameConfigCloud() {
