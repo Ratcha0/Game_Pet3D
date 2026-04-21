@@ -1,40 +1,93 @@
 import { loadPetState, savePetState, loadGameConfig } from '../services/supabase.js';
 
+// --- ⚙️ Hyper-Granular Settings Factory (Sync with admin.js) ---
+const createDefaultSettings = (template, diff) => {
+    const isHard = diff === 'hard';
+    const isEasy = diff === 'easy';
+    
+    // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
+    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0 : 0.055);
+    const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
+
+    return {
+        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, XP]
+        activities: {
+            feed:   { r: isEasy ? 18 : (isHard ? 6 : 12), s: isEasy ? 5 : (isHard ? 15 : 8), xp: isEasy ? 15 : (isHard ? 25 : 20) },
+            clean:  { r: isEasy ? 20 : (isHard ? 7 : 14), s: isEasy ? 4 : (isHard ? 12 : 6), xp: isEasy ? 12 : (isHard ? 20 : 15) },
+            repair: { r: isEasy ? 15 : (isHard ? 5 : 10), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 10 : (isHard ? 15 : 12) },
+            play:   { r: isEasy ? 18 : (isHard ? 6 : 10), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 25 : (isHard ? 45 : 35) }
+        },
+        // 2. รางวัล (Rewards) - [เหรียญ, เวลาแสดงผล, โอกาสเกิด]
+        rewards: {
+            legendary_tokens: isEasy ? 600 : (isHard ? 200 : 350),
+            legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
+            legendary_rate: isEasy ? 8 : (isHard ? 2 : 4), // % โอกาสเกิด Legendary จากกล่องสุ่ม
+            rare_tokens: isEasy ? 200 : (isHard ? 80 : 120),
+            rare_time: isEasy ? 20 : (isHard ? 10 : 15),
+            rare_rate: isEasy ? 30 : (isHard ? 10 : 18) // % โอกาสเกิด Rare จากกล่องสุ่ม
+        },
+        // 3. ภารกิจ (Quests)
+        quests: {
+            target_feed: isEasy ? 3 : (isHard ? 12 : 6),
+            target_clean: isEasy ? 2 : (isHard ? 10 : 5),
+            target_play: isEasy ? 1 : (isHard ? 6 : 3),
+            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.8), // รางวัลโหมด Hard จะมีมูลค่าสูงกว่า
+            base_tokens: 200,
+            base_score: 2000
+        },
+        // 4. ร้านค้า (Shop)
+        shop: {
+            small_tokens: isHard ? 650 : 500, small_amount: isHard ? 40 : 50,
+            medium_tokens: isHard ? 1200 : 1000, medium_amount: isHard ? 85 : 110,
+            large_tokens: isHard ? 2800 : 2200, large_amount: isHard ? 180 : 250
+        },
+        // 5. กลไกหลัก (Mechanics)
+        mechanics: {
+            dec_hunger: isHard ? 0.22 : (isEasy ? 0.05 : 0.11), // เพิ่มความเร็วในการลด
+            dec_clean:  isHard ? 0.12 : (isEasy ? 0.03 : 0.07),
+            dec_happy:  isHard ? 0.18 : (isEasy ? 0.03 : 0.09),
+            reg_stamina: isEasy ? 0.8 : (isHard ? 0.25 : 0.50), // โหมด Hard ฟื้นตัวช้าลงมาก
+            sp_min: isHard ? 20 : (isEasy ? 10 : 20),
+            sp_max: isHard ? 60 : (isEasy ? 30 : 50),
+            rare_rate: isHard ? 3 : (isEasy ? 18 : 10), 
+            dec_happy_poop: isHard ? 35 : (isEasy ? 5 : 15),
+            fever_threshold: isEasy ? 70 : (isHard ? 95 : 85),
+            fever_mult: isEasy ? 2.0 : (isHard ? 1.2 : 1.5),
+            poop_lifetime: isHard ? 10 : (isEasy ? 60 : 25),
+            reward_lifetime: isHard ? 8 : (isEasy ? 40 : 15),
+            max_poops: isHard ? 15 : (isEasy ? 5 : 10),
+            max_rewards: isHard ? 8 : (isEasy ? 3 : 5)
+        },
+        // 6. ฟิสิกส์ (Physics)
+        physics: {
+            speed: isHard ? baseSpeed * 0.95 : baseSpeed,
+            scale: isHard ? baseScale * 0.85 : baseScale
+        }
+    };
+};
+
 export const STATE = {
-    username: "ผู้เล่นทั่วไป", // สำหรับแสดงที่ HUD
-    pin_code: "", // ว่างไว้เพื่อให้ผู้ใช้ตั้งค่าเองครั้งแรก
+    username: "ผู้เล่นทั่วไป",
+    pin_code: "",
     tokens: 500,  
     score: 0,     
     hunger: 80, clean: 80, stamina: 100, love: 50,
     maxStamina: 100, xp: 0, level: 1, maxExp: 100,
     config: {
-        template: 'pet', sky: 'day', ground: 'grass',
-        season_name: 'Season 1', season_weeks: 1,
-        costs: { feed: 10, clean: 8, repair: 5, play: 12 },
-        shop: {
-            small: { cost: 500, amt: 50 },
-            medium: { cost: 900, amt: 100 },
-            large: { cost: 2000, amt: 250 }
-        },
-        available_skins: [
-            { id: 'cat-toon', template: 'pet', name: 'Classic Cat', desc: 'แมวหน้าบูดคู่บุญ', icon: '🐱', cost: 0, model: '/toon_cat_free.glb', colorCls: 'neon-gold', scale: 1.0, drop_type: 'poop', drop_offset: {x: 0, y: 0, z: -0.2} },
-            { id: 'plant-stylized', template: 'plant', name: 'Classic Tree', desc: 'ต้นไม้แห้งๆ', icon: '🌳', cost: 0, model: '/stylized_tree.glb', colorCls: 'emerald', scale: 1.0, drop_type: 'leaves', drop_offset: {x: 0, y: 0, z: 0} },
-            { id: 'car-carton', template: 'car', name: 'Classic Car', desc: 'รถบังคับสุดจ๊าบ', icon: '🚗', cost: 0, model: '/car_carton.glb', colorCls: 'emerald', rotationY: 3.14159, scale: 1.0, drop_type: 'oil', drop_offset: {x: 0, y: 0.1, z: -0.5} },
-            { id: 'cyberpunk_car', template: 'car', name: 'Cyberpunk 2077', desc: 'รถโลกอนาคตสุดเท่', icon: '🚀💨', cost: 5000, model: '/cyberpunk_car.glb', colorCls: 'neon-cyan', scale: 0.75, drop_type: 'smoke', drop_offset: {x: 0, y: 0.2, z: -0.8} }
-        ],
-        mechanics: {}
+        template: 'pet', 
+        difficulty_mode: 'normal',
+        sky: 'day', ground: 'grass',
+        custom_model: '', custom_rotation_y: 0,
+        available_skins: [],
+        // Matrix เก็บค่าแยกตาม Template และ Difficulty
+        matrix: {
+            pet: { easy: createDefaultSettings('pet', 'easy'), normal: createDefaultSettings('pet', 'normal'), hard: createDefaultSettings('pet', 'hard') },
+            car: { easy: createDefaultSettings('car', 'easy'), normal: createDefaultSettings('car', 'normal'), hard: createDefaultSettings('car', 'hard') },
+            plant: { easy: createDefaultSettings('plant', 'easy'), normal: createDefaultSettings('plant', 'normal'), hard: createDefaultSettings('plant', 'hard') }
+        }
     },
-    quests: {
-        feed: 0, feed_max: 3,
-        clean: 0, clean_max: 2,
-        play: 0, play_max: 1,
-        special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' },
-        claimed: false
-    },
-    buffs: {
-        regen: 1.0,
-        regen_expiry: 0
-    },
+    quests: { feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' }, claimed: false },
+    buffs: { regen: 1.0, regen_expiry: 0 },
     inventory: { skins: [], equipped_skins: {} }
 };
 
@@ -45,62 +98,25 @@ export const SPECIAL_QUEST_POOL = [
     { type: 'spend', label: 'ก้าวข้ามขีดจำกัด', icon: '⚡', targetIcon: '🏃' }
 ];
 
-// 💡 USER ID (จะรับเข้ามาจากโปรเจกต์หลัก)
 export let currentUserId = "GUEST_USER"; 
-
-export function setUserId(id) {
-    currentUserId = id;
-}
+export function setUserId(id) { currentUserId = id; }
 
 export function resetStateToDefaults() {
-    STATE.username = "ผู้เล่นทั่วไป";
-    STATE.pin_code = "";
-    STATE.tokens = 500;
-    STATE.score = 0;
-    STATE.hunger = 80;
-    STATE.clean = 80;
-    STATE.stamina = 100;
-    STATE.love = 50;
-    STATE.xp = 0;
-    STATE.level = 1;
-    STATE.maxExp = 100;
-    STATE.quests = {
-        feed: 0, feed_max: 3,
-        clean: 0, clean_max: 2,
-        play: 0, play_max: 1,
-        special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' },
-        claimed: false
-    };
-    STATE.buffs = { regen: 1.0, regen_expiry: 0 };
-    STATE.inventory = { skins: [], equipped_skins: {} };
+    STATE.tokens = 500; STATE.score = 0; STATE.hunger = 80; STATE.clean = 80; STATE.stamina = 100; STATE.love = 50;
+    STATE.xp = 0; STATE.level = 1; STATE.maxExp = 100;
 }
 
 export async function loadState() {
-    // 0. Reset ค่าปัจจุบันทิ้งก่อน เพื่อป้องกันข้อมูลคนเก่าค้าง
     resetStateToDefaults();
-
-    // 1. ดึงจาก LocalStorage ก่อน (เผื่อไม่มีเน็ต)
-    const storageKey = 'PW3D_SAVE_' + currentUserId;
-    const s = localStorage.getItem(storageKey);
-    if (s) {
-        mergeSaveData(JSON.parse(s));
-    }
-
-    // 2. โหลด Config จาก Cloud (ค่าที่ Admin ตั้งไว้)
     await loadGameConfigCloud();
-
-    // 3. ดึงจาก Supabase (ถ้ามีข้อมูลใน Cloud ให้ทับ LocalStorage ทันที)
     if (currentUserId !== "GUEST_USER") {
         const { data, error } = await loadPetState(currentUserId);
-        if (data) {
-            mergeSaveData(data);
-        }
+        if (data) mergeSaveData(data);
     }
 }
 
 function mergeSaveData(d) {
-    if (d.username) STATE.username = d.username;
-    if (d.pet_name) STATE.username = d.pet_name; // รองรับกรณีโหลดจาก Supabase
+    if (d.username || d.pet_name) STATE.username = d.username || d.pet_name;
     if (d.pin_code) STATE.pin_code = d.pin_code;
     STATE.tokens = d.tokens ?? 500;
     STATE.score = d.score ?? 0;
@@ -110,99 +126,62 @@ function mergeSaveData(d) {
     STATE.love = d.love ?? 50;
     STATE.xp = d.xp ?? 0;
     STATE.level = d.level ?? 1;
-    STATE.maxExp = d.maxExp ?? d.max_exp ?? 100;
-    
+    STATE.maxExp = d.maxExp ?? 100;
     if (d.inventory) STATE.inventory = d.inventory;
-
-    if (d.quests_data) STATE.quests = d.quests_data;
-    else if (d.quests) STATE.quests = d.quests;
-
-    if (d.buffs_data) STATE.buffs = d.buffs_data;
-    else if (d.buffs) STATE.buffs = d.buffs;
+    if (d.quests) STATE.quests = d.quests;
+    if (d.buffs) STATE.buffs = d.buffs;
 }
 
 export function saveState() {
-    // 1. เซฟลง LocalStorage กันเหนียว
-    const today = new Date().toDateString();
     const data = {
-        username: STATE.username,
-        pin_code: STATE.pin_code,
+        username: STATE.username, pin_code: STATE.pin_code,
         tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
         hunger: STATE.hunger, clean: STATE.clean, stamina: STATE.stamina,
         love: STATE.love, xp: STATE.xp, level: STATE.level, maxExp: STATE.maxExp,
-        quests: STATE.quests, quest_date: today, buffs: STATE.buffs,
-        inventory: STATE.inventory
+        quests: STATE.quests, buffs: STATE.buffs, inventory: STATE.inventory
     };
-    const storageKey = 'PW3D_SAVE_' + currentUserId;
-    localStorage.setItem(storageKey, JSON.stringify(data));
-
-    // 2. โยนขึ้น Supabase (แบบไม่ Block UI)
+    localStorage.setItem('PW3D_SAVE_' + currentUserId, JSON.stringify(data));
     if (currentUserId !== "GUEST_USER") {
-        savePetState(currentUserId, STATE).catch(e => console.error("Supabase Save Fail: ", e));
+        savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
     }
+}
+
+// ฟังก์ชันดึง Config ปัจจุบันจาก Matrix
+export function getActiveConfig() {
+    const t = STATE.config.template || 'pet';
+    const d = STATE.config.difficulty_mode || 'normal';
+    
+    if (!STATE.config.matrix[t]) return createDefaultSettings(t, d);
+    if (!STATE.config.matrix[t][d]) return createDefaultSettings(t, d);
+    
+    return STATE.config.matrix[t][d];
+}
+
+// ฟังก์ชันล้างข้อมูล URL พังๆ (เช่น ติดพอร์ต 3000 มาจาก DB)
+function sanitizeConfig(config) {
+    if (!config) return config;
+    const json = JSON.stringify(config);
+    // เปลี่ยน http://localhost:3000 หรือพอร์ตอื่นๆ ให้กลายเป็น Relative Path
+    const sanitized = json.replace(/http:\/\/localhost:\d+\//g, '/');
+    return JSON.parse(sanitized);
 }
 
 export function applyConfigToState(p) {
     if (!p) return;
-    STATE.config.template = p.template || 'pet';
-    STATE.config.sky = p.sky || 'day';
-    STATE.config.ground = p.ground || 'grass';
-    STATE.config.season_name = p.season_name || 'Season 1';
-    STATE.config.season_weeks = p.season_weeks || 1;
-    STATE.config.difficulty_mode = p.difficulty_mode || 'normal';
+    const cleanP = sanitizeConfig(p);
     
-    // ล้าง Path เก่า
-    let cm = p.custom_model || '';
-    if (cm.includes('/models/')) cm = '/' + cm.split('/').pop();
-    STATE.config.custom_model = cm;
-    
-    STATE.maxStamina = Math.floor(p.max_stamina || 100);
-    STATE.config.q_special_mult = p.q_special_mult || 1.5;
-
-    STATE.config.costs = {
-        feed: p.cost_feed ?? 10, clean: p.cost_clean ?? 8,
-        repair: p.cost_repair ?? 5, play: p.cost_play ?? 12
-    };
-    STATE.config.shop = {
-        small: { cost: p.shop_s_cost || 500, amt: p.shop_s_amt || 50 },
-        medium: { cost: p.shop_m_cost || 900, amt: p.shop_m_amt || 100 },
-        large: { cost: p.shop_l_cost || 2000, amt: p.shop_l_amt || 250 }
-    };
-    STATE.config.mechanics = {
-        dec_hunger: p.dec_hunger ?? 0.12, dec_clean: p.dec_clean ?? 0.06, dec_happy: p.dec_happy ?? 0.08,
-        reg_stamina: p.reg_stamina ?? 0.5, sp_min: p.poop_min ?? 20, sp_max: p.poop_max ?? 50,
-        r_min: p.reward_min ?? 30, r_max: p.reward_max ?? 90, rare_rate: p.rare_rate ?? 10,
-        rare_xp_mult: p.rare_xp_mult ?? 3, rare_token_min: p.rare_token_min ?? 20, rare_token_max: p.rare_token_max ?? 50,
-        fever_threshold: p.fever_threshold ?? 80, fever_mult: p.fever_mult ?? 1.5,
-        rst_feed: p.rst_feed ?? 15, rxp_feed: p.rxp_feed ?? 15, rst_play: p.rst_play ?? 10, rxp_play: p.rxp_play ?? 25,
-        rst_clean: p.rst_clean ?? 20, rxp_clean: p.rxp_clean ?? 10, rst_repair: p.rst_repair ?? 10, rxp_repair: p.rxp_repair ?? 12,
-        rscore_scoop: p.rscore_scoop ?? 20, poop_lifetime: p.poop_lifetime ?? 30, reward_lifetime: p.reward_lifetime ?? 20,
-        max_poops: p.max_poops ?? 3, max_rewards: p.max_rewards ?? 3
-    };
-    STATE.config.q_feed = p.q_feed || 3;
-    STATE.config.q_clean = p.q_clean || 2;
-    STATE.config.q_play = p.q_play || 1;
-    STATE.config.qt_scoop = p.qt_scoop || 10;
-    STATE.config.qt_fever = p.qt_fever || 2;
-    STATE.config.qt_love = p.qt_love || 10;
-    STATE.config.qt_spend = p.qt_spend || 100;
-
-    // Reward Rarity Settings (จาก Admin Dashboard)
-    STATE.config.rew_rare_rate = p.rew_rare_rate ?? 20;
-    STATE.config.rew_legend_rate = p.rew_legend_rate ?? 5;
-    STATE.config.rew_common_tokens = p.rew_common_tokens ?? 10;
-    STATE.config.rew_rare_tokens = p.rew_rare_tokens ?? 50;
-    STATE.config.rew_legend_tokens = p.rew_legend_tokens ?? 250;
-    
-    // สำคัญ: ซิงค์คลังโมเดล (available_skins)
-    if (p.available_skins) STATE.config.available_skins = p.available_skins;
+    STATE.config.template = cleanP.template || 'pet';
+    STATE.config.difficulty_mode = cleanP.difficulty_mode || 'normal';
+    STATE.config.sky = cleanP.sky || 'day';
+    STATE.config.ground = cleanP.ground || 'grass';
+    STATE.config.custom_model = cleanP.custom_model || '';
+    if (cleanP.matrix) STATE.config.matrix = cleanP.matrix;
+    if (cleanP.available_skins) STATE.config.available_skins = cleanP.available_skins;
 }
 
 export async function loadGameConfigCloud() {
-    const { data, error } = await loadGameConfig('production_config');
-    if (data) {
-        applyConfigToState(data);
-    }
+    const { data } = await loadGameConfig('production_config');
+    if (data && data.config) applyConfigToState(data.config);
 }
 
 export function loadAdminConfigLocal() {

@@ -8,17 +8,33 @@
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/20.0.0/tween.umd.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/main-Dj4uMBJC.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/supabase-BgVoOkXa.js">
-  <link rel="stylesheet" crossorigin href="/assets/main-CmJOIulN.css">
+  <script type="module" crossorigin src="/assets/main-BSrz2dTt.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/supabase-DpdXjZ27.js">
+  <link rel="stylesheet" crossorigin href="/assets/supabase-B6MYgw6h.css">
 </head>
-<body class="text-white">
+<body class="m-0 overflow-hidden bg-[#0a0e1a] select-none touch-none text-slate-100 font-sans">
 
-    <div id="game-container" class="phone-frame transition-all duration-500">
+    <!-- 🌟 Premium Splash Screen 🌟 -->
+    <div id="splash-screen" class="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-[#0a0e1a] transition-all duration-700">
+        <div class="relative">
+            <div class="absolute inset-0 bg-cyan-500 blur-3xl opacity-20 animate-pulse"></div>
+            <h1 class="relative text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-fuchsia-500 mb-2">LIKEGOTCHI</h1>
+        </div>
+        <div class="w-48 h-1 bg-slate-800 rounded-full overflow-hidden mt-4">
+            <div id="loading-bar" class="h-full bg-gradient-to-r from-cyan-400 to-fuchsia-500 w-0 transition-all duration-300"></div>
+        </div>
+        <p class="text-slate-500 text-xs mt-4 tracking-widest uppercase animate-pulse">Initializing 3D World...</p>
+    </div>
+
+    <!-- 🎮 Hidden Main Content Group -->
+    <div id="app-content" style="opacity: 0; pointer-events: none;" class="transition-opacity duration-1000">
+        <div id="engine-container" class="fixed inset-0 z-0"></div>
+        <div id="game-container" class="phone-frame transition-all duration-500">
         <!-- 3D Canvas -->
         <div id="three-canvas"></div>
         <!-- Radar Indicators Layer -->
         <div id="poop-indicators" class="absolute inset-0 pointer-events-none z-[80] overflow-hidden"></div>
+        <div id="pet-emotion-container" class="absolute pointer-events-none z-[90]" style="display: none;"></div>
 
         <div class="hud">
             <div class="hud-content">

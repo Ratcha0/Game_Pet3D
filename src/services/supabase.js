@@ -70,6 +70,21 @@ export async function loadGameConfig(configId = 'production_config') {
     if (error) console.error("Error loading game config:", error);
     return { data, error };
 }
+/**
+ * บันทึก Config จากหน้า Admin ขึ้น Cloud (Matrix, Skins, Global Settings)
+ */
+export async function saveGameConfig(configData, configId = 'production_config') {
+    const { data, error } = await supabase
+        .from('game_configs')
+        .upsert({
+            id: configId,
+            config: configData,
+            updated_at: new Date().toISOString()
+        });
+        
+    if (error) console.error("Error saving game config:", error);
+    return { data, error };
+}
 
 /**
  * บันทึกประวัติคะแนนเมื่อเล่นเกม ส่งกลับระบบหลังบ้าน

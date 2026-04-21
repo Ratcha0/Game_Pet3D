@@ -176,11 +176,16 @@ window._deletePin = () => {
 };
 
 export const initAuth = async () => {
+    // Check if running in admin preview iframe
+    const isAdminPreview = window.self !== window.top;
+    
     const urlParams = new URLSearchParams(window.location.search);
     const sessionUser = sessionStorage.getItem('pw3d_session_user');
     const urlUserId = urlParams.get('userId'); 
     
-    const userId = sessionUser || urlUserId;
+    let userId = sessionUser || urlUserId;
+    if (!userId && isAdminPreview) userId = 'Beemmy'; // Default for admin preview
+
     const userNameParam = urlParams.get('username');
 
     const step1 = $('login-step-1');
@@ -197,6 +202,12 @@ export const initAuth = async () => {
             step1.classList.add('hidden');
             step2.classList.remove('hidden');
             step2.classList.remove('opacity-0', 'translate-y-8');
+        }
+
+        // Automatic bypass for Admin Preview
+        if (isAdminPreview) {
+            console.log("Admin Preview Detected: Bypassing PIN screen...");
+            setTimeout(unlockScreen, 500);
         }
     } else {
         if (step1) {

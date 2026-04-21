@@ -12,6 +12,9 @@ export default defineConfig({
       },
     },
   },
+  resolve: {
+    dedupe: ['three']
+  },
   server: {
     port: 5173,
     open: true,
@@ -22,4 +25,3 @@ export default defineConfig({
     strictPort: true
   }
 });
-

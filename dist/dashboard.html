@@ -4,18 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบจัดการ — LikeGotchi Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: { extend: {
-                colors: { 'bg-deep':'#080c18','surface':'#111827','card':'#0f1629','neon-purple':'#8b5cf6','neon-pink':'#ec4899','neon-gold':'#fbbf24','neon-cyan':'#06b6d4','neon-emerald':'#10b981' },
-                fontFamily: { 'sans':['Outfit','sans-serif'] }
-            }}
-        }
-    </script>
+    <!-- 📦 Google Model-Viewer Script (Required for 3D Gallery) -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
     <style>
-        body { background:#060a14; overflow: hidden; }
+        body { background:#060a14; overflow: hidden; height: 100vh; }
         .glass { background:rgba(17,24,39,0.7); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.05); }
         .collapsible-header { cursor: pointer; -webkit-user-select: none; -moz-user-select: none; user-select: none; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; transition: background 0.3s ease; }
         .collapsible-header:hover { background: rgba(255,255,255,0.02); }
@@ -28,346 +21,372 @@
         select, input { background:rgba(0,0,0,0.5); color:white; border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:10px 14px; font-weight:700; font-size:14px; outline:none; width:100%; transition:all .3s; }
         input:focus { border-color:#8b5cf6; background:rgba(255,255,255,0.05); }
         label { display:block; font-size:11px; font-weight:900; color:rgba(255,255,255,0.7); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.12em; }
-        .no-scroll::-webkit-scrollbar { display: none; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ec4899; }
+
         .tpl-btn, .diff-btn { transition: all 0.3s; border: 1px solid rgba(255,255,255,0.05); }
         .tpl-btn.active, .diff-btn.active { background: #8b5cf6!important; border-color: #8b5cf6!important; color: white!important; box-shadow: 0 0 20px rgba(139,92,246,0.4); }
         iframe { background: #1a1a2e; border: none; }
-
-        /* Twemoji Styling */
-        img.emoji {
-            height: 1.2em;
-            width: 1.2em;
-            margin: 0 .05em 0 .1em;
-            vertical-align: -0.1em;
-            display: inline-block;
-        }
     </style>
-  <script type="module" crossorigin src="/assets/dashboard-CjUh-B1R.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/supabase-BgVoOkXa.js">
+  <script type="module" crossorigin src="/assets/dashboard-CV4A5NbQ.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/supabase-DpdXjZ27.js">
+  <link rel="stylesheet" crossorigin href="/assets/supabase-B6MYgw6h.css">
 </head>
-<body class="font-sans text-white flex h-screen">
+<body class="font-sans text-white flex">
 
     <!-- Sidebar Icons -->
-    <aside class="w-16 bg-surface/50 border-r border-white/5 flex flex-col items-center py-6 gap-6 shrink-0">
+    <aside class="w-16 bg-surface/50 border-r border-white/5 flex flex-col items-center py-6 gap-6 shrink-0 h-screen">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-lg shadow-lg">👑</div>
         <div class="h-px w-6 bg-white/5"></div>
-        <div class="w-8 h-8 rounded-lg bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-sm font-bold">SET</div>
+        <div title="Settings" class="w-8 h-8 rounded-lg bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-sm font-bold cursor-pointer">SET</div>
+        <button onclick="addNewSkin()" title="เพิ่มสกินใหม่" class="w-10 h-10 rounded-xl bg-fuchsia-600/10 hover:bg-fuchsia-600/30 border border-fuchsia-500/30 text-fuchsia-500 flex items-center justify-center text-xl transition-all active:scale-90">
+            +
+        </button>
     </aside>
 
-    <!-- Main Config Area -->
-    <main class="flex-1 flex flex-col bg-bg-deep overflow-hidden">
-        <header class="p-6 border-b border-white/5 flex items-center justify-between sticky top-0 bg-bg-deep/80 backdrop-blur-md z-50">
+    <!-- Center Panel (Header + Scrollable Content) -->
+    <div class="flex-1 flex flex-col h-screen min-w-0 bg-bg-deep">
+        <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 bg-bg-deep/80 backdrop-blur-xl z-[100]">
             <div>
                 <h1 class="text-2xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-white to-white/40 leading-none">Pet Simulator <span class="text-neon-purple">Admin</span></h1>
                 <p class="text-[8px] text-white/40 mt-1 uppercase tracking-widest font-bold">ระบบปรับแต่งสมดุลและกิจกรรมทั้งหมด</p>
             </div>
-            <button onclick="saveAll()" class="btn-save px-6 py-3 rounded-xl font-black text-xs tracking-widest uppercase">💾 บันทึกค่าทั้งหมด</button>
+            <div class="flex gap-2">
+                <button onclick="resetCurrentMatrix()" class="px-5 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center gap-2">🔄 คืนค่าเริ่มต้น</button>
+                <button onclick="saveAll()" class="btn-save px-6 py-3 rounded-xl font-black text-xs tracking-widest uppercase">💾 บันทึกค่าทั้งหมด</button>
+            </div>
         </header>
 
-        <div class="flex-1 overflow-y-auto p-8 no-scroll space-y-6 max-w-4xl mx-auto w-full">
-            
-            <!-- Section 0: Difficulty Presets -->
-            <section class="glass rounded-2xl overflow-hidden border border-neon-gold/20" id="sec-difficulty">
-                <div class="collapsible-header" onclick="toggleSection('sec-difficulty')">
-                    <div class="flex items-center gap-3">🔥 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ตั้งค่าระดับความยาก (Presets)</div></div>
-                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="collapsible-content">
-                    <div class="grid grid-cols-3 gap-3">
-                        <button onclick="loadPreset('easy')" id="diff-easy" class="diff-btn p-4 rounded-xl bg-white/5 text-center transition-all hover:bg-emerald-500/10 outline-none">
-                            <div class="text-xl mb-1">🌿</div>
-                            <div class="text-[10px] font-black uppercase text-emerald-400">แบบง่าย (Easy)</div>
-                        </button>
-                        <button onclick="loadPreset('normal')" id="diff-normal" class="diff-btn p-4 rounded-xl bg-white/5 text-center transition-all hover:bg-cyan-500/10 outline-none">
-                            <div class="text-xl mb-1">⚖️</div>
-                            <div class="text-[10px] font-black uppercase text-cyan-400">ปานกลาง (Normal)</div>
-                        </button>
-                        <button onclick="loadPreset('hard')" id="diff-hard" class="diff-btn p-4 rounded-xl bg-white/5 text-center transition-all hover:bg-rose-500/10 outline-none">
-                            <div class="text-xl mb-1">🔥</div>
-                            <div class="text-[10px] font-black uppercase text-rose-400">แบบยาก (Hard)</div>
-                        </button>
+        <!-- THIS IS THE SCROLLABLE AREA -->
+        <main class="flex-1 overflow-y-auto p-8 space-y-6">
+            <div class="max-w-4xl mx-auto w-full pb-20">
+                
+                <!-- Section 0: Difficulty Presets -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-gold/20" id="sec-difficulty">
+                    <div class="collapsible-header" onclick="toggleSection('sec-difficulty')">
+                        <div class="flex items-center gap-3">🔥 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ตั้งค่าระดับความยาก (Presets)</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                </div>
-            </section>
+                    <div class="collapsible-content">
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="loadPreset('easy')" id="diff-easy" class="diff-btn p-4 rounded-xl bg-white/5 text-center highlight-white/10">
+                                <div class="text-xl mb-1">🌿</div>
+                                <div class="text-[10px] font-black uppercase text-emerald-400">แบบง่าย (Easy)</div>
+                            </button>
+                            <button onclick="loadPreset('normal')" id="diff-normal" class="diff-btn p-4 rounded-xl bg-white/5 text-center highlight-white/10">
+                                <div class="text-xl mb-1">⚖️</div>
+                                <div class="text-[10px] font-black uppercase text-cyan-400">ปานกลาง (Normal)</div>
+                            </button>
+                            <button onclick="loadPreset('hard')" id="diff-hard" class="diff-btn p-4 rounded-xl bg-white/5 text-center highlight-white/10">
+                                <div class="text-xl mb-1">🔥</div>
+                                <div class="text-[10px] font-black uppercase text-rose-400">แบบยาก (Hard)</div>
+                            </button>
+                        </div>
+                    </div>
+                </section>
 
-            <!-- Section 1: Template & Theme -->
-            <section class="glass rounded-2xl overflow-hidden border border-neon-purple/10" id="sec-visuals">
-                <div class="collapsible-header" onclick="toggleSection('sec-visuals')">
-                    <div class="flex items-center gap-3">🌍 <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em]">รูปแบบตัวละครและธีมหลัก</div></div>
-                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="collapsible-content">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex flex-col gap-2">
-                            <label>เลือกเท็มเพลต (Template)</label>
-                            <div class="grid grid-cols-3 gap-2">
-                                <button onclick="setTemplate('pet')" id="btn-tpl-pet" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🐶 สัตว์เลี้ยง</button>
-                                <button onclick="setTemplate('car')" id="btn-tpl-car" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🚗 ยานพาหนะ</button>
-                                <button onclick="setTemplate('plant')" id="btn-tpl-plant" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🪴 ต้นไม้</button>
+                <!-- Section 1: Template & Theme -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-purple/10" id="sec-visuals">
+                    <div class="collapsible-header" onclick="toggleSection('sec-visuals')">
+                        <div class="flex items-center gap-3">🌍 <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em]">รูปแบบตัวละครและธีมหลัก</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex flex-col gap-2">
+                                <label>เลือกเท็มเพลต (Template)</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="setTemplate('pet')" id="btn-tpl-pet" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🐶 สัตว์เลี้ยง</button>
+                                    <button onclick="setTemplate('car')" id="btn-tpl-car" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🚗 ยานพาหนะ</button>
+                                    <button onclick="setTemplate('plant')" id="btn-tpl-plant" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🪴 ต้นไม้</button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label>ท้องฟ้า / แสง</label><select id="cfg-sky"><option value="day">กลางวัน (Day)</option><option value="night">กลางคืน (Night)</option></select></div>
-                            <div><label>พื้นผิวสนาม</label><select id="cfg-ground"><option value="grass">สนามหญ้า (Grass)</option><option value="sand">ทะเลทราย (Sand)</option></select></div>
-                        </div>
-                        <div class="col-span-1 md:col-span-2 p-5 bg-white/5 rounded-2xl border border-white/10 mt-2">
-                             <div class="flex items-center justify-between mb-4">
-                                 <div class="flex items-center gap-2">
-                                     <div class="w-2 h-2 rounded-full bg-neon-purple animate-pulse"></div>
-                                     <label class="mb-0 text-[10px] text-neon-purple">คลังโมเดลตัวละคร (Character Gallery)</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label>ท้องฟ้า / แสง</label><select id="cfg-sky"><option value="day">กลางวัน (Day)</option><option value="night">กลางคืน (Night)</option></select></div>
+                                <div><label>พื้นผิวสนาม</label><select id="cfg-ground"><option value="grass">สนามหญ้า (Grass)</option><option value="sand">ทะเลทราย (Sand)</option></select></div>
+                            </div>
+                            <!-- Model Gallery -->
+                            <div class="col-span-1 md:col-span-2 p-5 bg-white/5 rounded-2xl border border-white/10 mt-2">
+                                 <div class="flex items-center justify-between mb-4">
+                                     <div class="flex items-center gap-2">
+                                         <div class="w-2 h-2 rounded-full bg-neon-purple animate-pulse"></div>
+                                         <label class="mb-0 text-[10px] text-neon-purple font-black">คลังโมเดลตัวละคร (Character Gallery)</label>
+                                     </div>
+                                     <button onclick="addNewSkin()" class="text-[9px] bg-neon-purple/20 hover:bg-neon-purple/40 text-neon-purple px-3 py-1.5 rounded-lg border border-neon-purple/30 transition-all font-black uppercase">+ เพิ่มสกินใหม่</button>
                                  </div>
-                                 <span class="text-[8px] text-white/20 uppercase tracking-widest font-bold">เลือกคลิกเพื่อสวมบทบาทตัวละคร</span>
-                             </div>
-                             
-                             <!-- กระดานตู้โชว์ตัวละคร (Gallery Rendering Area) -->
-                             <div id="variant-gallery" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 no-scroll">
-                                 <!-- จะถูกเรนเดอร์โดย JS -->
-                             </div>
+                                 <div id="variant-gallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 mt-4"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Section 2: Survival & Spawning -->
-            <section class="glass rounded-2xl overflow-hidden border border-neon-cyan/20" id="sec-survival">
-                <div class="collapsible-header" onclick="toggleSection('sec-survival')">
-                    <div class="flex items-center gap-3">🔋 <div class="text-[10px] font-bold text-neon-cyan uppercase tracking-[0.3em]">ค่าพลังงานและไอเทมดรอป</div></div>
-                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="collapsible-content space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="p-4 bg-neon-cyan/5 rounded-xl border border-neon-cyan/10">
-                            <label class="text-neon-cyan underline decoration-2">หลอดพลังงานผู้เล่น (Stamina)</label>
-                            <div class="grid grid-cols-1 gap-4 mt-2">
-                                <div><label class="opacity-70 text-[9px]">ความจุสูงสุดที่เก็บได้</label><input type="number" id="cfg-max-stamina"></div>
-                                <div><label class="opacity-70 text-[9px]">เพิ่มให้ฟรีอัตโนมัติ (ทุก 5 วิ)</label><input type="number" step="0.1" id="cfg-reg-stamina"></div>
+                <!-- Section 2: Survival & Spawning -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-cyan/20" id="sec-survival">
+                    <div class="collapsible-header" onclick="toggleSection('sec-survival')">
+                        <div class="flex items-center gap-3">🔋 <div class="text-[10px] font-bold text-neon-cyan uppercase tracking-[0.3em]">ค่าพลังงานและไอเทมดรอป</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content space-y-6">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="p-4 bg-neon-cyan/5 rounded-xl border border-neon-cyan/10">
+                                <label class="text-neon-cyan underline">หลอดพลังงานผู้เล่น (Stamina)</label>
+                                <div class="space-y-4 mt-2">
+                                    <div><label class="opacity-70 text-[9px]">ความจุสูงสุด</label><input type="number" data-path="mechanics.max_stamina" class="matrix-input"></div>
+                                    <div><label class="opacity-70 text-[9px]">เพิ่มฟรี (ทุก 5 วิ)</label><input type="number" step="0.1" data-path="mechanics.reg_stamina" class="matrix-input"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="p-4 bg-neon-pink/5 rounded-xl border border-neon-pink/10">
-                            <label class="text-neon-pink underline decoration-2">การเกิดอึ / ขยะ (Spawn Delay)</label>
-                            <div class="grid grid-cols-2 gap-2 mt-2">
-                                <div><label class="opacity-70 text-[9px]">เร็วสุด (วินาที)</label><input type="number" id="cfg-poop-min"></div>
-                                <div><label class="opacity-70 text-[9px]">นานสุด (วินาที)</label><input type="number" id="cfg-poop-max"></div>
+                            <div class="p-4 bg-neon-pink/5 rounded-xl border border-neon-pink/10">
+                                <label class="text-neon-pink underline">การดรอปขยะ (Spawn Delay)</label>
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div><label class="opacity-70 text-[9px]">เร็วสุด</label><input type="number" data-path="mechanics.sp_min" class="matrix-input"></div>
+                                    <div><label class="opacity-70 text-[9px]">นานสุด</label><input type="number" data-path="mechanics.sp_max" class="matrix-input"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="p-4 bg-neon-gold/5 rounded-xl border border-neon-gold/10">
-                            <label class="text-neon-gold underline decoration-2">การดรอปรางวัลเหรียญ (Reward Delay)</label>
-                            <div class="grid grid-cols-2 gap-2 mt-2">
-                                <div><label class="opacity-70 text-[9px]">เร็วสุด (วินาที)</label><input type="number" id="cfg-reward-min"></div>
-                                <div><label class="opacity-70 text-[9px]">นานสุด (วินาที)</label><input type="number" id="cfg-reward-max"></div>
-                            </div>
-                        </div>
-                        <div class="p-4 bg-neon-purple/5 rounded-xl border border-neon-purple/10">
-                            <label class="text-neon-purple underline decoration-2">เป้าหมายเควสรายวัน (Daily Quest Goal)</label>
-                            <div class="grid grid-cols-3 gap-2 mt-2">
-                                <div><label class="opacity-70 text-[8px]">ป้อน (ครั้ง)</label><input type="number" id="cfg-q-feed"></div>
-                                <div><label class="opacity-70 text-[8px]">ล้าง (ครั้ง)</label><input type="number" id="cfg-q-clean"></div>
-                                <div><label class="opacity-70 text-[8px]">เล่น (ครั้ง)</label><input type="number" id="cfg-q-play"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Section 3: Action Balancing -->
-            <section class="glass rounded-2xl overflow-hidden border border-white/5" id="sec-actions">
-                <div class="collapsible-header" onclick="toggleSection('sec-actions')">
-                    <div class="flex items-center gap-3">⚙️ <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">สมดุลของกิจกรรมและการใช้พลังงาน</div></div>
-                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="collapsible-content">
-                    <div class="bg-white/5 p-4 rounded-xl">
+                <!-- Section 3: Action Balancing -->
+                <section class="glass rounded-2xl overflow-hidden border border-white/5" id="sec-actions">
+                    <div class="collapsible-header" onclick="toggleSection('sec-actions')">
+                        <div class="flex items-center gap-3">⚙️ <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">สมดุลของกิจกรรม</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content overflow-x-auto">
                         <table class="w-full text-left text-[11px]">
-                            <thead><tr class="text-white/40 border-b border-white/5 uppercase font-black">
-                                <th class="pb-3">ประเภทกิจกรรม</th><th class="pb-3 text-neon-emerald">+ฟื้นฟูสเตตัส</th><th class="pb-3 text-rose-400">-ใช้พลังงาน (⚡)</th><th class="pb-3 text-neon-gold">ได้ค่า XP (⭐)</th>
+                            <thead><tr class="text-white/40 border-b border-white/5">
+                                <th class="pb-3 uppercase">กิจกรรม</th><th class="pb-3 text-neon-emerald">+ฟื้นฟู</th><th class="pb-3 text-rose-400">-ใช้ไฟ</th><th class="pb-3 text-neon-gold">XP</th>
                             </tr></thead>
                             <tbody class="font-bold">
-                                <tr class="border-b border-white/5 hover:bg-white/3 transition-all"><td class="py-3 text-gray-300">🍖 ป้อนอาหาร / เติมเชื้อเพลิง</td><td><input type="number" id="cfg-rst-feed" class="text-neon-emerald"></td><td><input type="number" id="cfg-cost-feed" class="text-rose-400"></td><td><input type="number" id="cfg-rxp-feed" class="text-neon-gold"></td></tr>
-                                <tr class="border-b border-white/5 hover:bg-white/3 transition-all"><td class="py-3 text-gray-300">🧼 อาบน้ำ / ล้างทำความสะอาด</td><td><input type="number" id="cfg-rst-clean" class="text-neon-emerald"></td><td><input type="number" id="cfg-cost-clean" class="text-rose-400"></td><td><input type="number" id="cfg-rxp-clean" class="text-neon-gold"></td></tr>
-                                <tr class="border-b border-white/5 hover:bg-white/3 transition-all"><td class="py-3 text-gray-300">🎾 เล่นด้วยกัน / ทดสอบเครื่อง</td><td><input type="number" id="cfg-rst-play" class="text-neon-emerald"></td><td><input type="number" id="cfg-cost-play" class="text-rose-400"></td><td><input type="number" id="cfg-rxp-play" class="text-neon-gold"></td></tr>
-                                <tr class="border-b border-white/20 hover:bg-white/3 transition-all"><td class="py-3 text-gray-300">🧹 เก็บอึ / ซ่อมบำรุง</td><td><input type="number" id="cfg-rst-repair" class="text-neon-emerald"></td><td><input type="number" id="cfg-cost-repair" class="text-rose-400"></td><td><input type="number" id="cfg-rxp-repair" class="text-neon-gold"></td></tr>
+                                <tr><td class="py-2">🍖 ป้อนอาหาร</td><td><input type="number" data-path="activities.feed.r" class="matrix-input"></td><td><input type="number" data-path="activities.feed.s" class="matrix-input"></td><td><input type="number" data-path="activities.feed.xp" class="matrix-input"></td></tr>
+                                <tr><td class="py-2">🧼 อาบน้ำ</td><td><input type="number" data-path="activities.clean.r" class="matrix-input"></td><td><input type="number" data-path="activities.clean.s" class="matrix-input"></td><td><input type="number" data-path="activities.clean.xp" class="matrix-input"></td></tr>
+                                <tr><td class="py-2">💩 เก็บกวาด</td><td><input type="number" data-path="activities.repair.r" class="matrix-input"></td><td><input type="number" data-path="activities.repair.s" class="matrix-input"></td><td><input type="number" data-path="activities.repair.xp" class="matrix-input"></td></tr>
+                                <tr><td class="py-2">🎾 เล่นด้วย</td><td><input type="number" data-path="activities.play.r" class="matrix-input"></td><td><input type="number" data-path="activities.play.s" class="matrix-input"></td><td><input type="number" data-path="activities.play.xp" class="matrix-input"></td></tr>
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Section 4: Mission & Rare Items -->
-            <section class="glass rounded-2xl overflow-hidden border border-neon-gold/10" id="sec-special">
-                <div class="collapsible-header" onclick="toggleSection('sec-special')">
-                    <div class="flex items-center gap-3">✨ <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ภารกิจแจ็คพอตและของแรร์</div></div>
-                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="collapsible-content space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-neon-gold/30 transition-all">
-                            <label class="text-neon-emerald">ช่วงดวงดี (Fever Threshold %)</label>
-                            <p class="text-[9px] text-white/40 mb-2 italic">สเตตัสเฉลี่ยต้องเกินกี่ % ถึงจะเข้าโหมดคึกคัก?</p>
-                            <input type="number" id="cfg-fever-threshold">
-                            <div class="mt-3 flex items-center justify-between p-2 bg-black/40 rounded-lg">
-                                <label class="mb-0 text-[10px] opacity-70 font-bold italic">ตัวคูณพลังงาน X:</label>
-                                <input type="number" step="0.1" id="cfg-fever-mult" class="!w-24 h-8 text-center text-neon-emerald">
+            <!-- ⚙️ ระบบสมดุลกลไก (Passive Mechanics & Spawning) -->
+            <div class="bg-slate-900/50 rounded-3xl border border-white/5 overflow-hidden mb-6">
+                <button onclick="toggleSection('sec-mechanics')" class="w-full px-8 py-5 flex items-center justify-between hover:bg-white/5 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">⚙️</span>
+                        <span class="font-bold text-slate-300 uppercase tracking-widest text-sm">สมดุลกลไกและจังหวะการเกิดสุ่ม</span>
+                    </div>
+                </button>
+                <div id="sec-mechanics" class="px-8 pb-8 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- อัตราการลดลง -->
+                        <div class="space-y-4">
+                            <h4 class="text-[10px] font-black text-cyan-400 uppercase tracking-widest border-b border-cyan-400/20 pb-2">อัตราการลดลงตามธรรมชาติ (ต่อ 5 วินาที)</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ลดความหิว</label>
+                                    <input type="number" step="0.01" data-path="mechanics.dec_hunger" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ลดความสะอาด</label>
+                                    <input type="number" step="0.01" data-path="mechanics.dec_clean" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ลดความรัก</label>
+                                    <input type="number" step="0.01" data-path="mechanics.dec_happy" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ฟื้นฟูพลังงาน (Regen)</label>
+                                    <input type="number" step="0.01" data-path="mechanics.reg_stamina" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
                             </div>
                         </div>
-                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 hover:border-neon-gold/30 transition-all">
-                            <label class="text-neon-gold">โอกาสแจ็คพอต (Rare Drop Rate %)</label>
-                            <p class="text-[9px] text-white/40 mb-2 italic">โอกาสที่จะสุ่มพบเหรียญทองหรือโบนัส XP?</p>
-                            <input type="number" id="cfg-rare-rate">
-                            <div class="mt-3 flex items-center justify-between p-2 bg-black/40 rounded-lg">
-                                <label class="mb-0 text-[10px] opacity-70 font-bold italic">ตัวคูณ XP แรร์ X:</label>
-                                <input type="number" step="0.1" id="cfg-rare-xp-mult" class="!w-24 h-8 text-center text-neon-gold">
-                            </div>
-                            <div class="mt-3 grid grid-cols-2 gap-2">
-                                <div><label class="opacity-50 text-[8px]">Token ต่ำสุด</label><input type="number" id="cfg-rare-token-min" class="h-8"></div>
-                                <div><label class="opacity-50 text-[8px]">Token สูงสุด</label><input type="number" id="cfg-rare-token-max" class="h-8"></div>
+                        <!-- จังหวะการเกิดไอเทมสุ่ม -->
+                        <div class="space-y-4">
+                            <h4 class="text-[10px] font-black text-neon-pink uppercase tracking-widest border-b border-neon-pink/20 pb-2">จังหวะการเกิดไอเทมสุ่มบนแมพ</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ระยะสุ่มเร็วสุด (วินาที)</label>
+                                    <input type="number" data-path="mechanics.sp_min" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ระยะสุ่มช้าสุด (วินาที)</label>
+                                    <input type="number" data-path="mechanics.sp_max" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">โอกาสเกิดทอง/หายาก (%)</label>
+                                    <input type="number" data-path="mechanics.rare_rate" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">โทษเมื่อไม่เก็บอึ (ความรัก -)</label>
+                                    <input type="number" data-path="mechanics.dec_happy_poop" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="p-5 bg-neon-gold/5 rounded-2xl border border-neon-gold/20">
-                        <div class="flex justify-between items-center mb-4 pb-2 border-b border-neon-gold/10">
-                            <div class="flex items-center gap-2">
-                                <span class="text-lg">🏆</span>
-                                <label class="text-neon-gold m-0 font-black italic uppercase">เป้าหมายภารกิจพิเศษ (Special Goals)</label>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[9px] text-white/50 font-black">ตัวคูณบัฟ:</span>
-                                <input type="number" step="0.1" id="cfg-q-special-mult" class="w-20 h-10 text-center bg-black/60 border border-neon-gold/40 text-neon-gold rounded-xl outline-none font-black text-lg">
-                            </div>
-                        </div>
+                    <!-- Fever Mode Settings -->
+                    <div class="space-y-4 pt-4 border-t border-white/5">
+                        <h4 class="text-[10px] font-black text-neon-gold uppercase tracking-widest">FEVER MODE (สถานะความสุขล้น)</h4>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div class="flex flex-col gap-1"><label class="opacity-70 text-[8px]">เก็บทอง (ครั้ง)</label><input type="number" id="cfg-qt-scoop" class="border-neon-gold/10"></div>
-                            <div class="flex flex-col gap-1"><label class="opacity-70 text-[8px]">คึกคัก (ครั้ง)</label><input type="number" id="cfg-qt-fever" class="border-neon-gold/10"></div>
-                            <div class="flex flex-col gap-1"><label class="opacity-70 text-[8px]">แต้มรัก (หน่วย)</label><input type="number" id="cfg-qt-love" class="border-neon-gold/10"></div>
-                            <div class="flex flex-col gap-1"><label class="opacity-70 text-[8px]">ใช้ไฟหมด (ครั้ง)</label><input type="number" id="cfg-qt-spend" class="border-neon-gold/10"></div>
-                        </div>
-                        <div class="mt-4 flex items-center justify-between p-3 bg-neon-gold/10 rounded-xl">
-                            <div><label class="mb-0 text-neon-gold font-black italic">คะแนนจากการเก็บกวาด (🏆 คะแนนบอร์ด):</label><p class="text-[9px] text-white/40">ทุกครั้งที่เก็บอึ จะได้คะแนนจัดอันดับเพิ่มขึ้นเท่าไหร่?</p></div>
-                            <input type="number" id="cfg-rscore-scoop" class="!w-40 h-12 text-center text-xl font-black text-neon-gold bg-black/60 rounded-xl border border-neon-gold/50">
-                        </div>
-                    </div>
-
-                    <!-- Sub-section: Reward Rarity (NEW) -->
-                    <div class="mt-4 pt-4 border-t border-white/5 space-y-4 mb-6">
-                        <div class="text-[9px] font-black text-neon-gold uppercase tracking-[0.2em] mb-2">💰 ระดับการสุ่มเหรียญและรางวัล (Reward Rarity)</div>
-                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label>💎 โอกาสเจอ Rare (%)</label>
-                                <input type="number" id="cfg-rew-rare-rate" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-neon-gold transition-all" placeholder="20">
+                                <label class="block text-[10px] text-slate-500 uppercase mb-2">เกณฑ์เปิดโหมด (%)</label>
+                                <input type="number" data-path="mechanics.fever_threshold" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
                             </div>
                             <div>
-                                <label>👑 โอกาสเจอ Legend (%)</label>
-                                <input type="number" id="cfg-rew-legend-rate" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-neon-gold transition-all" placeholder="5">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-3 gap-3">
-                            <div>
-                                <label>⚪ Common (Token)</label>
-                                <input type="number" id="cfg-rew-common-tokens" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-neon-gold transition-all" placeholder="10">
+                                <label class="block text-[10px] text-slate-500 uppercase mb-2">ตัวคูณ Stamina Regen (x)</label>
+                                <input type="number" step="0.1" data-path="mechanics.fever_mult" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
                             </div>
                             <div>
-                                <label>🟡 Rare (Token)</label>
-                                <input type="number" id="cfg-rew-rare-tokens" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-neon-gold transition-all" placeholder="50">
+                                <label class="block text-[10px] text-slate-500 uppercase mb-2">ความเร็วเดินฐาน (BASE SPEED)</label>
+                                <input type="number" step="0.01" data-path="physics.speed" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
                             </div>
                             <div>
-                                <label>💎 Legend (Token)</label>
-                                <input type="number" id="cfg-rew-legend-tokens" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-neon-gold transition-all" placeholder="250">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-6 bg-rose-500/5 rounded-2xl border border-rose-500/20">
-                        <label class="text-rose-400 font-black tracking-widest italic mb-4">📉 อัตราการลดน้อยถอยลง (Stats Decay)</label>
-                        <div class="grid grid-cols-3 gap-4">
-                            <div class="flex flex-col gap-1"><label class="text-orange-400 text-[9px] font-bold">หิวเร็วขึ้น (ทุก 5 วิ)</label><input type="number" step="0.01" id="cfg-dec-hunger" class="border-orange-500/20 text-orange-400 text-center"></div>
-                            <div class="flex flex-col gap-1"><label class="text-cyan-400 text-[9px] font-bold">สกปรกง่าย (ทุก 5 วิ)</label><input type="number" step="0.01" id="cfg-dec-clean" class="border-cyan-500/20 text-cyan-400 text-center"></div>
-                            <div class="flex flex-col gap-1"><label class="text-neon-pink text-[9px] font-bold">ความสุขลด (ทุก 5 วิ)</label><input type="number" step="0.01" id="cfg-dec-happy" class="border-neon-pink/20 text-neon-pink text-center"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Section 5: Season & Shop -->
-            <section class="glass rounded-2xl overflow-hidden border border-neon-purple/20" id="sec-management">
-                <div class="collapsible-header" onclick="toggleSection('sec-management')">
-                    <div class="flex items-center gap-3">🏪 <div class="text-[10px] font-bold text-neon-purple uppercase tracking-[0.3em]">ตั้งค่าซีซั่นและสินค้าในร้าน</div></div>
-                    <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                </div>
-                <div class="collapsible-content space-y-6">
-                    <div class="p-5 bg-neon-purple/5 rounded-2xl border border-neon-purple/10">
-                        <label class="text-neon-purple italic font-black">📅 ข้อมูลการแข่งขัน (Season Info)</label>
-                        <div class="grid grid-cols-2 gap-6 mt-3">
-                            <div class="flex flex-col gap-1"><label class="opacity-70 text-[9px]">ชื่อรายการซีซั่น</label><input type="text" id="cfg-season-name" class="!bg-black/60 border-neon-purple/40"></div>
-                            <div class="flex flex-col gap-1"><label class="opacity-70 text-[9px]">ระยะเวลาจัดการแข่งขัน</label>
-                                <select id="cfg-season-weeks" class="!bg-black/60 border-neon-purple/40">
-                                    <option value="1">1 สัปดาห์ (7 วัน)</option>
-                                    <option value="2">2 สัปดาห์ (14 วัน)</option>
-                                    <option value="4">4 สัปดาห์ (1 เดือน)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-6 bg-gradient-to-br from-neon-gold/10 to-transparent rounded-2xl border border-neon-gold/30">
-                        <label class="text-neon-gold font-black italic mb-4">🛒 สินค้าเติมพลังงานที่วางขาย (Shop)</label>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <!-- Small -->
-                            <div class="space-y-4 p-5 bg-white/5 rounded-2xl border border-neon-cyan/30 flex flex-col items-center">
-                                <div class="text-4xl shadow-[0_0_20px_rgba(251,191,36,0.3)]">⚡</div>
-                                <label class="text-neon-cyan font-black text-[11px] underline decoration-2">พลังงาน: เล็ก</label>
-                                <div class="w-full flex flex-col gap-2 mt-2">
-                                    <div class="flex items-center justify-between"><span class="text-[10px] text-white/50">ราคา (🪙)</span><input type="number" id="cfg-shop-s-cost" class="!w-24 !bg-transparent border-none text-right text-xl font-black text-white"></div>
-                                    <div class="flex items-center justify-between"><span class="text-[10px] text-white/50">รีฟิล (⚡)</span><input type="number" id="cfg-shop-s-amt" class="!w-24 !bg-transparent border-none text-right text-xl font-black text-rose-400"></div>
-                                </div>
-                            </div>
-                            <!-- Medium -->
-                            <div class="space-y-4 p-5 bg-white/5 rounded-2xl border border-neon-purple/30 flex flex-col items-center">
-                                <div class="text-4xl shadow-[0_0_20px_rgba(251,191,36,0.3)]">⚡</div>
-                                <label class="text-neon-purple font-black text-[11px] underline decoration-2">พลังงาน: กลาง</label>
-                                <div class="w-full flex flex-col gap-2 mt-2">
-                                    <div class="flex items-center justify-between"><span class="text-[10px] text-white/50">ราคา (🪙)</span><input type="number" id="cfg-shop-m-cost" class="!w-24 !bg-transparent border-none text-right text-xl font-black text-white"></div>
-                                    <div class="flex items-center justify-between"><span class="text-[10px] text-white/50">รีฟิล (⚡)</span><input type="number" id="cfg-shop-m-amt" class="!w-24 !bg-transparent border-none text-right text-xl font-black text-rose-400"></div>
-                                </div>
-                            </div>
-                            <!-- Large -->
-                            <div class="space-y-4 p-5 bg-white/5 rounded-2xl border border-neon-pink/30 flex flex-col items-center">
-                                <div class="text-4xl shadow-[0_0_20px_rgba(251,191,36,0.3)]">⚡</div>
-                                <label class="text-neon-pink font-black text-[11px] underline decoration-2">พลังงาน: ใหญ่</label>
-                                <div class="w-full flex flex-col gap-2 mt-2">
-                                    <div class="flex items-center justify-between"><span class="text-[10px] text-white/50">ราคา (🪙)</span><input type="number" id="cfg-shop-l-cost" class="!w-24 !bg-transparent border-none text-right text-xl font-black text-white"></div>
-                                    <div class="flex items-center justify-between"><span class="text-[10px] text-white/50">รีฟิล (⚡)</span><input type="number" id="cfg-shop-l-amt" class="!w-24 !bg-transparent border-none text-right text-xl font-black text-rose-400"></div>
-                                </div>
+                                <label class="block text-[10px] text-slate-500 uppercase mb-2">ขนาดโมเดลฐาน (SCALE)</label>
+                                <input type="number" step="0.1" data-path="physics.scale" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
                             </div>
                         </div>
                     </div>
                 </div>
-            </section>
-        </div>
-        <div class="h-20"></div>
-    </main>
+            </div>
 
-    <!-- Preview Panels -->
-    <aside class="w-[820px] bg-[#050810] border-l border-white/5 flex flex-row items-start justify-center gap-8 shrink-0 overflow-y-auto sticky top-0 h-screen p-8 no-scroll">
-        <div class="flex flex-col items-center shrink-0 mt-20">
-            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">ฉบับจิ๋ว (316x182)</div>
+                <!-- Section 4: Rare Items & Rewards -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-gold/20" id="sec-rewards">
+                    <div class="collapsible-header" onclick="toggleSection('sec-rewards')">
+                        <div class="flex items-center gap-3">💎 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ไอเทมหายากและรางวัลพิเศษ</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="p-4 bg-white/5 rounded-xl border border-neon-cyan/20">
+                                <label class="text-neon-cyan">โบนัสไอเทมระดับตำนาน (Legendary)</label>
+                                <div class="grid grid-cols-2 gap-3 mt-2">
+                                    <div><label class="opacity-50 text-[9px]">เหรียญที่จะได้รับ</label><input type="number" data-path="rewards.legendary_tokens" class="matrix-input"></div>
+                                    <div><label class="opacity-50 text-[9px]">เวลาที่แสดง (วินาที)</label><input type="number" data-path="rewards.legendary_time" class="matrix-input"></div>
+                                </div>
+                            </div>
+                            <div class="p-4 bg-white/5 rounded-xl border border-neon-emerald/20">
+                                <label class="text-neon-emerald">โบนัสไอเทมระดับหายาก (Rare)</label>
+                                <div class="grid grid-cols-2 gap-3 mt-2">
+                                    <div><label class="opacity-50 text-[9px]">เหรียญที่จะได้รับ</label><input type="number" data-path="rewards.rare_tokens" class="matrix-input"></div>
+                                    <div><label class="opacity-50 text-[9px]">เวลาที่แสดง (วินาที)</label><input type="number" data-path="rewards.rare_time" class="matrix-input"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 5: Daily Quests -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-pink/10" id="sec-quests">
+                    <div class="collapsible-header" onclick="toggleSection('sec-quests')">
+                        <div class="flex items-center gap-3">📋 <div class="text-[10px] font-bold text-neon-pink uppercase tracking-[0.3em]">ภารกิจรายวัน (Daily Quests)</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="grid grid-cols-4 gap-4">
+                            <div><label>เป้าหมายป้อน</label><input type="number" data-path="quests.target_feed" class="matrix-input"></div>
+                            <div><label>เป้าหมายอาบน้ำ</label><input type="number" data-path="quests.target_clean" class="matrix-input"></div>
+                            <div><label>เป้าหมายเล่น</label><input type="number" data-path="quests.target_play" class="matrix-input"></div>
+                            <div><label>ตัวคูณของรางวัล</label><input type="number" step="0.1" data-path="quests.reward_mult" class="matrix-input"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 6: Shop Economy -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-cyan/30" id="sec-shop">
+                    <div class="collapsible-header" onclick="toggleSection('sec-shop')">
+                        <div class="flex items-center gap-3">🛒 <div class="text-[10px] font-bold text-neon-cyan uppercase tracking-[0.3em]">ระบบเศรษฐกิจและร้านค้า (Shop Economy)</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Tier 1 -->
+                            <div class="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest">Small Pack</span>
+                                    <span class="text-lg">📦</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="text-[9px] text-white/40">ราคา (Tokens)</label>
+                                        <input type="number" data-path="shop.small_tokens" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] text-white/40">พลังที่ได้รับ (Stamina)</label>
+                                        <input type="number" data-path="shop.small_amount" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tier 2 -->
+                            <div class="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Medium Pack</span>
+                                    <span class="text-lg">💼</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="text-[9px] text-white/40">ราคา (Tokens)</label>
+                                        <input type="number" data-path="shop.medium_tokens" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] text-white/40">พลังที่ได้รับ (Stamina)</label>
+                                        <input type="number" data-path="shop.medium_amount" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tier 3 -->
+                            <div class="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-black text-neon-gold uppercase tracking-widest">Large Pack</span>
+                                    <span class="text-lg">🚀</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="text-[9px] text-white/40">ราคา (Tokens)</label>
+                                        <input type="number" data-path="shop.large_tokens" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
+                                    </div>
+                                    <div>
+                                        <label class="text-[9px] text-white/40">พลังที่ได้รับ (Stamina)</label>
+                                        <input type="number" data-path="shop.large_amount" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 7: Danger Zone / Force Actions -->
+                <section class="glass rounded-2xl overflow-hidden border border-rose-500/20" id="sec-danger">
+                    <div class="collapsible-header" onclick="toggleSection('sec-danger')">
+                        <div class="flex items-center gap-3">⚡ <div class="text-[10px] font-bold text-rose-500 uppercase tracking-[0.3em]">คำสั่งพิเศษ (Force Actions)</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="flex flex-wrap gap-4 mt-2">
+                            <button onclick="forceSave()" class="px-5 py-3 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 border border-cyan-600/30 rounded-xl text-[10px] font-black uppercase transition-all">🚀 บังคับบันทึกข้อมูลคลาวด์</button>
+                            <button onclick="clearCloudData()" class="px-5 py-3 bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 border border-rose-600/30 rounded-xl text-[10px] font-black uppercase transition-all">🗑️ ล้างข้อมูลบอร์ดทั้งหมด</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Right Preview Area -->
+    <aside class="w-[850px] bg-[#050810] border-l border-white/5 flex items-start justify-center gap-8 p-10 shrink-0 overflow-y-auto h-screen">
+        <div class="flex flex-col items-center mt-20 shrink-0">
+            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">WIDGET VIEW</div>
             <div class="border border-white/5 shadow-2xl rounded-lg overflow-hidden ring-1 ring-white/10">
                 <iframe id="frame-h" src="./index.html" style="width:316px; height:182px;"></iframe>
             </div>
-            <p class="text-[7px] text-white/10 mt-3 font-mono">WIDGET VIEW</p>
         </div>
-
-        <div class="self-stretch w-[1px] bg-white/5 mx-2"></div>
-
         <div class="flex flex-col items-center shrink-0">
-            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">ฉบับมือถือ (332x700)</div>
+            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">MOBILE VIEW</div>
             <div class="border border-white/5 shadow-2xl rounded-sm overflow-hidden ring-4 ring-[#1a1a2e]">
                 <iframe id="frame-v" src="./index.html" style="width:332px; height:700px;"></iframe>
             </div>
-            <p class="text-[7px] text-white/10 mt-3 font-mono">FULLY RESPONSIVE</p>
-            <div class="h-10"></div>
         </div>
     </aside>
 

@@ -1,325 +1,356 @@
+import '../styles.css';
 import * as THREE from 'three';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { saveGameConfig, loadGameConfig } from '../services/supabase.js';
 
 const $ = id => document.getElementById(id);
-const STATE = { 
-    template: 'pet', 
-    sky: 'day', 
-    ground: 'grass',
+
+// --- ⚙️ Hyper-Granular Settings Factory ---
+const createDefaultSettings = (template, diff) => {
+    const isHard = diff === 'hard';
+    const isEasy = diff === 'easy';
+    
+    // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
+    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0 : 0.055);
+    const baseScale = template === 'plant' ? 1.2 : 1.0;
+
+    return {
+        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, XP]
+        activities: {
+            feed:   { r: isEasy ? 18 : (isHard ? 6 : 12), s: isEasy ? 5 : (isHard ? 15 : 8), xp: isEasy ? 15 : (isHard ? 25 : 20) },
+            clean:  { r: isEasy ? 20 : (isHard ? 7 : 14), s: isEasy ? 4 : (isHard ? 12 : 6), xp: isEasy ? 12 : (isHard ? 20 : 15) },
+            repair: { r: isEasy ? 15 : (isHard ? 5 : 10), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 10 : (isHard ? 15 : 12) },
+            play:   { r: isEasy ? 18 : (isHard ? 6 : 10), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 25 : (isHard ? 45 : 35) }
+        },
+        // 2. รางวัล (Rewards) - [เหรียญ, เวลาแสดงผล]
+        rewards: {
+            legendary_tokens: isEasy ? 600 : (isHard ? 200 : 350),
+            legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
+            rare_tokens: isEasy ? 200 : (isHard ? 80 : 120),
+            rare_time: isEasy ? 20 : (isHard ? 10 : 15)
+        },
+        // 3. ภารกิจ (Quests)
+        quests: {
+            target_feed: isEasy ? 3 : (isHard ? 12 : 6),
+            target_clean: isEasy ? 2 : (isHard ? 10 : 5),
+            target_play: isEasy ? 1 : (isHard ? 6 : 3),
+            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.8),
+            base_tokens: 200,
+            base_score: 2000
+        },
+        // 4. ร้านค้า (Shop)
+        shop: {
+            small_tokens: isHard ? 650 : 500, small_amount: isHard ? 40 : 50,
+            medium_tokens: isHard ? 1200 : 1000, medium_amount: isHard ? 85 : 110,
+            large_tokens: isHard ? 2800 : 2200, large_amount: isHard ? 180 : 250
+        },
+        // 5. กลไกหลัก (Mechanics)
+        mechanics: {
+            dec_hunger: isHard ? 0.22 : (isEasy ? 0.05 : 0.11),
+            dec_clean:  isHard ? 0.12 : (isEasy ? 0.03 : 0.07),
+            dec_happy:  isHard ? 0.18 : (isEasy ? 0.03 : 0.09),
+            reg_stamina: isEasy ? 0.8 : (isHard ? 0.25 : 0.50),
+            sp_min: isHard ? 20 : (isEasy ? 120 : 60),
+            sp_max: isHard ? 60 : (isEasy ? 300 : 150),
+            rare_rate: isHard ? 4 : (isEasy ? 20 : 10),
+            dec_happy_poop: isHard ? 35 : (isEasy ? 5 : 15),
+            fever_threshold: isEasy ? 70 : (isHard ? 95 : 85),
+            fever_mult: isEasy ? 2.0 : (isHard ? 1.2 : 1.5),
+            poop_lifetime: isHard ? 10 : (isEasy ? 60 : 25),
+            reward_lifetime: isHard ? 8 : (isEasy ? 40 : 15),
+            max_poops: isHard ? 15 : (isEasy ? 5 : 10),
+            max_rewards: isHard ? 8 : (isEasy ? 3 : 5)
+        },
+        // 6. ฟิสิกส์ (Physics)
+        physics: {
+            speed: isHard ? baseSpeed * 0.95 : baseSpeed,
+            scale: isHard ? baseScale * 0.85 : baseScale
+        }
+    };
+};
+
+let ADMIN_STATE = {
+    template: 'pet',
     difficulty_mode: 'normal',
-    max_stamina: 100,
-    reg_stamina: 0.5,
-    poop_min: 20,
-    poop_max: 50,
-    reward_min: 30,
-    reward_max: 90,
-    cost_feed: 10,
-    cost_clean: 8,
-    cost_repair: 5,
-    cost_play: 12,
-    rst_feed: 15,
-    rxp_feed: 5,
-    rst_clean: 20,
-    rxp_clean: 5,
-    rst_play: 10,
-    rxp_play: 10,
-    rst_repair: 10,
-    rxp_repair: 6,
-    fever_threshold: 80,
-    rare_rate: 10,
-    q_special_mult: 1.5,
-    qt_scoop: 10,
-    qt_fever: 2,
-    qt_love: 10,
-    qt_spend: 100,
-    q_feed: 5,
-    q_clean: 5,
-    q_play: 5,
-    dec_hunger: 0.12,
-    dec_clean: 0.06,
-    dec_happy: 0.08,
-    season_name: 'Season 1',
-    season_weeks: 1,
-    shop_s_cost: 500,
-    shop_s_amt: 50,
-    shop_m_cost: 900,
-    shop_m_amt: 100,
-    shop_l_cost: 2000,
-    shop_l_amt: 250,
-    rare_xp_mult: 3,
-    fever_mult: 1.5,
-    rscore_scoop: 20,
-    rare_token_min: 20,
-    rare_token_max: 50,
+    sky: 'day',
+    ground: 'grass',
     custom_model: '',
-    poop_lifetime: 30,
-    reward_lifetime: 20,
-    max_poops: 3,
-    max_rewards: 3,
-    rew_rare_rate: 20,
-    rew_legend_rate: 5,
-    rew_common_tokens: 10,
-    rew_rare_tokens: 50,
-    rew_legend_tokens: 250,
+    custom_rotation_y: 0,
     available_skins: [
         { id: 'cat-toon', template: 'pet', name: 'Classic Cat', desc: 'แมวหน้าบูดคู่บุญ', icon: '🐱', cost: 0, model: '/toon_cat_free.glb', colorCls: 'neon-gold', scale: 1.0, drop_type: 'poop', drop_offset: {x: 0, y: 0, z: -0.2} },
         { id: 'plant-stylized', template: 'plant', name: 'Classic Tree', desc: 'ต้นไม้แห้งๆ', icon: '🌳', cost: 0, model: '/stylized_tree.glb', colorCls: 'emerald', scale: 1.0, drop_type: 'leaves', drop_offset: {x: 0, y: 0, z: 0} },
         { id: 'car-carton', template: 'car', name: 'Classic Car', desc: 'รถบังคับสุดจ๊าบ', icon: '🚗', cost: 0, model: '/car_carton.glb', colorCls: 'emerald', rotationY: Math.PI, scale: 1.0, drop_type: 'oil', drop_offset: {x: 0, y: 0.1, z: -0.5} },
         { id: 'cyberpunk_car', template: 'car', name: 'Cyberpunk 2077', desc: 'รถโลกอนาคตสุดเท่', icon: '🚀💨', cost: 5000, model: '/cyberpunk_car.glb', colorCls: 'neon-cyan', scale: 0.75, drop_type: 'smoke', drop_offset: {x: 0, y: 0.2, z: -0.8} }
-    ]
+    ],
+    matrix: {
+        pet:   { easy: createDefaultSettings('pet', 'easy'),   normal: createDefaultSettings('pet', 'normal'),   hard: createDefaultSettings('pet', 'hard') },
+        car:   { easy: createDefaultSettings('car', 'easy'),   normal: createDefaultSettings('car', 'normal'),   hard: createDefaultSettings('car', 'hard') },
+        plant: { easy: createDefaultSettings('plant', 'easy'), normal: createDefaultSettings('plant', 'normal'), hard: createDefaultSettings('plant', 'hard') }
+    }
 };
 
 let miniEngines = [];
 
-function highlightDiff() {
+// Helper สำหรับหาค่าใน Object แบบลึก (e.g. "mechanics.dec_hunger")
+function getDeepValue(obj, path) {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+}
+
+function setDeepValue(obj, path, value) {
+    const parts = path.split('.');
+    const last = parts.pop();
+    const deepObj = parts.reduce((acc, part) => acc[part], obj);
+    if (deepObj) deepObj[last] = value;
+}
+
+function highlightUI() {
     ['easy', 'normal', 'hard'].forEach(k => {
         const el = $(`diff-${k}`);
-        if (el) el.classList.toggle('active', k === STATE.difficulty_mode);
+        if (el) el.classList.toggle('active', k === ADMIN_STATE.difficulty_mode);
     });
-}
-
-function highlightTpl() {
     ['pet', 'car', 'plant'].forEach(k => {
         const el = $(`btn-tpl-${k}`);
-        if (el) el.classList.toggle('active', k === STATE.template);
+        if (el) el.classList.toggle('active', k === ADMIN_STATE.template);
+    });
+    $('cfg-sky').value = ADMIN_STATE.sky;
+    $('cfg-ground').value = ADMIN_STATE.ground;
+}
+
+function syncInputsWithMatrix() {
+    const config = ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode];
+    
+    // หา Input ทุกตัวที่มี data-path
+    document.querySelectorAll('.matrix-input').forEach(el => {
+        const path = el.dataset.path;
+        if (path) {
+            const val = getDeepValue(config, path);
+            if (val !== undefined) el.value = val;
+
+            // ผูก Event ให้บันทึกลง Matrix
+            if (!el.dataset.bound) {
+                el.addEventListener('input', (e) => {
+                    const newVal = parseFloat(e.target.value);
+                    setDeepValue(config, path, isNaN(newVal) ? e.target.value : newVal);
+                    sendPreview();
+                    saveLocal();
+                });
+                el.dataset.bound = "true";
+            }
+        }
+    });
+
+    // Support สำหรับค่าเก่าที่เป็น cfg- (สำหรับ Backward Compatibility)
+    Object.keys(config).forEach(key => {
+        if (typeof config[key] !== 'object') {
+            const oldEl = $(`cfg-${key.replace(/_/g, '-')}`);
+            if (oldEl) {
+                oldEl.value = config[key];
+                if (!oldEl.dataset.bound) {
+                    oldEl.addEventListener('input', (e) => {
+                        config[key] = parseFloat(e.target.value) || e.target.value;
+                        sendPreview(); saveLocal();
+                    });
+                    oldEl.dataset.bound = "true";
+                }
+            }
+        }
     });
 }
 
-function loadConfig() {
+function deepMerge(target, source) {
+    for (const key in source) {
+        if (source[key] instanceof Object && key in target) {
+            deepMerge(target[key], source[key]);
+        } else {
+            // Overwrite or add the key
+            target[key] = source[key];
+        }
+    }
+    return target;
+}
+
+function loadLocal() {
     const c = localStorage.getItem('pw3d_config');
     if (c) {
-        const parsed = JSON.parse(c);
-        if (parsed.custom_model && (parsed.custom_model.includes('/models/pet/') || parsed.custom_model.includes('/models/car/') || parsed.custom_model.includes('/models/plant/'))) {
-            parsed.custom_model = '/' + parsed.custom_model.split('/').pop();
-        }
-        Object.assign(STATE, parsed);
-        Object.keys(STATE).forEach(key => {
-            const el = $(`cfg-${key.replace(/_/g, '-')}`);
-            if (el) el.value = STATE[key];
-        });
-        highlightDiff();
-        highlightTpl();
+        try {
+            const parsed = JSON.parse(c);
+            deepMerge(parsed.matrix, ADMIN_STATE.matrix);
+            Object.assign(ADMIN_STATE, parsed);
+        } catch(e) { console.error("Config corrupt", e); }
     }
 }
 
-function saveAll() {
-    localStorage.setItem('pw3d_config', JSON.stringify(STATE));
-    // Notification for admin
-    if(window.spawn) window.spawn("✅ บันทึกการตั้งค่าสำเร็จ", "text-emerald-400");
-}
-
-function sendPreview() {
-    const frame = $('preview-frame');
-    if (frame && frame.contentWindow) {
-        frame.contentWindow.postMessage({ type: 'PW3D_PREVIEW', config: STATE }, '*');
+window.resetCurrentMatrix = () => {
+    if(confirm(`ยืนยันการคืนค่าเริ่มต้นสำหรับ ${ADMIN_STATE.template} [${ADMIN_STATE.difficulty_mode}]?`)) {
+        ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode] = createDefaultSettings(ADMIN_STATE.template, ADMIN_STATE.difficulty_mode);
+        syncInputsWithMatrix();
+        sendPreview();
+        saveLocal();
+        if(window.spawn) window.spawn("🔄 คืนค่าเริ่มต้นเรียบร้อย", "text-cyan-400");
     }
-}
-
-window.setSky = v => { STATE.sky = v; sendPreview(); saveAll(); };
-window.setGround = v => { STATE.ground = v; sendPreview(); saveAll(); };
-window.updateVal = (id, val) => {
-    const key = id.replace('cfg-', '').replace(/-/g, '_');
-    STATE[key] = parseFloat(val) || val;
-    sendPreview();
-    saveAll();
 };
 
-window.setTemplate = (type) => { 
-    STATE.template = type; 
-    STATE.custom_model = ''; 
-    highlightTpl(); 
-    renderGallery();
+function saveLocal() { localStorage.setItem('pw3d_config', JSON.stringify(ADMIN_STATE)); }
+
+function sendPreview() {
+    document.querySelectorAll('iframe').forEach(f => {
+        if (f.contentWindow) f.contentWindow.postMessage({ type: 'PW3D_PREVIEW', config: ADMIN_STATE }, '*');
+    });
+}
+
+window.setTemplate = (t) => {
+    ADMIN_STATE.template = t;
+    const firstSkin = (ADMIN_STATE.available_skins || []).find(s => s.template === t);
+    if (firstSkin) {
+        ADMIN_STATE.custom_model = firstSkin.model;
+        ADMIN_STATE.custom_rotation_y = firstSkin.rotationY || 0;
+    } else {
+        ADMIN_STATE.custom_model = '';
+    }
+    highlightUI(); syncInputsWithMatrix(); renderGallery(); sendPreview(); saveLocal();
+};
+
+window.loadPreset = (m) => {
+    ADMIN_STATE.difficulty_mode = m;
+    highlightUI(); syncInputsWithMatrix(); sendPreview(); saveLocal();
+};
+
+window.saveAll = async () => {
+    saveLocal();
+    if(window.spawn) window.spawn("💾 กำลังบันทึกข้อมูลขึ้น Cloud...", "text-cyan-400 animate-pulse");
+    
+    // ส่งข้อมูลขึ้น Supabase
+    const { error } = await saveGameConfig(ADMIN_STATE);
+    
+    if (error) {
+        if(window.spawn) window.spawn("❌ บันทึกขึ้น Cloud ไม่สำเร็จ!", "text-rose-500 font-bold");
+    } else {
+        if(window.spawn) window.spawn("✅ บันทึกเมทริกซ์และคลาวด์สำเร็จ!", "text-emerald-400 font-black");
+    }
+};
+
+window.updateSkinProp = (id, prop, val) => {
+    const skin = ADMIN_STATE.available_skins.find(s => s.id === id);
+    if (skin) {
+        skin[prop] = (prop === 'cost' || prop === 'scale') ? parseFloat(val) : val;
+        if(prop === 'model' || prop === 'scale') renderGallery(); 
+        sendPreview(); saveLocal();
+    }
+};
+
+window.updateSkinOffset = (id, axis, val) => {
+    const skin = ADMIN_STATE.available_skins.find(s => s.id === id);
+    if (skin) {
+        if(!skin.drop_offset) skin.drop_offset = {x:0, y:0, z:0};
+        skin.drop_offset[axis] = parseFloat(val);
+        sendPreview(); saveLocal();
+    }
+};
+
+window.selectVariant = (modelPath, rotationY = 0) => {
+    ADMIN_STATE.custom_model = modelPath;
+    ADMIN_STATE.custom_rotation_y = rotationY;
+    renderGallery(); 
     sendPreview(); 
-    saveAll();
+    saveLocal();
+    if (window.spawn) window.spawn("✨ เลือกสกินสำเร็จ", "text-neon-purple font-bold");
 };
 
 window.addNewSkin = () => {
     const id = 'skin-' + Date.now();
-    const newSkin = {
-        id, 
-        template: STATE.template, 
-        name: 'สกินใหม่', 
-        desc: 'คำอธิบายสกิน', 
-        icon: '🎁', 
-        cost: 1000, 
-        model: '', 
-        colorCls: 'neon-purple',
-        scale: 1.0,
-        drop_type: (STATE.template === 'car' ? 'smoke' : (STATE.template === 'plant' ? 'leaves' : 'poop')),
-        drop_offset: {x: 0, y: 0.1, z: -0.2}
-    };
-    STATE.available_skins.push(newSkin);
-    renderGallery();
-    saveAll();
+    ADMIN_STATE.available_skins.push({
+        id, template: ADMIN_STATE.template, name: 'New Skin', desc: '', icon: '🎁', cost: 0, model: '', scale: 1.0,
+        drop_type: (ADMIN_STATE.template === 'car' ? 'oil' : (ADMIN_STATE.template === 'plant' ? 'leaves' : 'poop')), 
+        drop_offset: {x:0, y:0.1, z: (ADMIN_STATE.template === 'car' ? -0.5 : -0.2)}
+    });
+    renderGallery(); saveLocal();
 };
 
 window.deleteSkin = (id) => {
-    if(!confirm('ยืนยันการลบสกินนี้หรือไม่?')) return;
-    STATE.available_skins = STATE.available_skins.filter(s => s.id !== id);
-    renderGallery();
-    saveAll();
+    if(confirm('Delete skin?')) {
+        ADMIN_STATE.available_skins = ADMIN_STATE.available_skins.filter(s => s.id !== id);
+        renderGallery(); saveLocal();
+    }
 };
 
 function renderGallery() {
     const container = $('variant-gallery');
     if(!container) return;
     
-    miniEngines.forEach(e => { e.stop = true; if(e.renderer) e.renderer.dispose(); });
-    miniEngines = [];
+    // ล้าง Engine เก่าทิ้งเพื่อคืนความจำ (ถ้าหลงเหลือ)
+    if (window.miniEngines) {
+        window.miniEngines.forEach(e => { e.stop = true; if(e.renderer) e.renderer.dispose(); });
+        window.miniEngines = [];
+    }
 
-    const list = (STATE.available_skins || []).filter(s => s.template === STATE.template);
+    const list = (ADMIN_STATE.available_skins || []).filter(s => s.template === ADMIN_STATE.template);
     container.innerHTML = list.map(v => `
-        <div class="group relative flex flex-col glass p-4 rounded-3xl border ${STATE.custom_model === v.model ? 'border-neon-purple shadow-[0_0_20px_rgba(139,92,246,0.2)]' : 'border-white/5'}">
-            <div class="flex gap-4">
-                <div id="card-${v.id}" onclick="selectVariant('${v.model}', ${v.rotationY || 0})" class="w-24 h-32 sm:w-24 sm:h-32 rounded-2xl bg-black/40 border border-white/5 relative overflow-hidden cursor-pointer shrink-0">
-                    <div id="preview-${v.id}" class="absolute inset-0 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity"></div>
-                    ${v.model === '' ? '<div class="absolute inset-0 flex items-center justify-center text-[8px] text-white/20 font-black uppercase text-center p-2">กรอกลิงก์โมเดล</div>' : ''}
-                </div>
-                <div class="flex-1 space-y-2">
-                    <div class="flex justify-between items-start gap-1">
-                        <input type="text" value="${v.name}" onchange="updateSkinProp('${v.id}', 'name', this.value)" 
-                            class="!text-[10px] !bg-white/5 border border-white/10 !font-black !p-1.5 !rounded-lg" placeholder="ชื่อสกิน">
-                        <button onclick="deleteSkin('${v.id}')" class="text-rose-500 hover:text-rose-400 text-sm transition-all p-1">🗑️</button>
-                    </div>
-                    <div class="space-y-0.5">
-                        <label class="!text-[7px] opacity-40 uppercase">Model Path</label>
-                        <input type="text" value="${v.model}" onchange="updateSkinProp('${v.id}', 'model', this.value)" 
-                            class="!text-[8px] !bg-black/40 border-white/10 !p-1 !rounded-lg font-mono focus:border-neon-purple" placeholder="/model.glb">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="!text-[7px] opacity-40 uppercase">Price</label>
-                            <input type="number" value="${v.cost}" onchange="updateSkinProp('${v.id}', 'cost', this.value)" 
-                                class="!text-[10px] !bg-white/5 border-white/10 !p-1.5 !rounded-lg font-black text-neon-gold">
-                        </div>
-                        <div>
-                            <label class="!text-[7px] opacity-40 uppercase">Scale</label>
-                            <input type="number" step="0.1" value="${v.scale || 1.0}" onchange="updateSkinProp('${v.id}', 'scale', this.value)" 
-                                class="!text-[10px] !bg-white/5 border-white/10 !p-1.5 !rounded-lg font-black text-neon-cyan">
-                        </div>
-                    </div>
+        <div class="group relative flex flex-col glass p-6 rounded-[2.5rem] border ${ADMIN_STATE.custom_model === v.model ? 'border-neon-purple shadow-[0_0_30px_rgba(139,92,246,0.3)]' : 'border-white/5'} transition-all duration-500">
+            <div class="absolute top-4 right-4 z-10 flex gap-2">
+                <button onclick="deleteSkin('${v.id}')" class="w-8 h-8 rounded-full bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">🗑️</button>
+            </div>
+            
+            <!-- Optimized Model-Viewer (High Performance) -->
+            <div id="card-${v.id}" onclick="selectVariant('${v.model}', ${v.rotationY || 0})" class="w-full h-56 rounded-[2rem] bg-black/40 border border-white/5 relative overflow-hidden cursor-pointer mb-6 ring-1 ring-white/10 group-hover:ring-neon-purple/30 transition-all">
+                <model-viewer 
+                    src="${v.model.startsWith('/') ? v.model : '/' + v.model}" 
+                    camera-controls 
+                    auto-rotate 
+                    interaction-prompt="none"
+                    shadow-intensity="1" 
+                    exposure="1.2"
+                    loading="lazy"
+                    style="width:100%; height:100%; background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);">
+                </model-viewer>
+                <div class="absolute bottom-3 left-0 w-full flex justify-center pointer-events-none">
+                    <div class="px-4 py-1.5 rounded-full bg-neon-purple/90 backdrop-blur-md text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 shadow-lg">⚡ เลือกสกินนี้</div>
                 </div>
             </div>
-            <div class="mt-4 pt-4 border-t border-white/5">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="text-[8px] font-black text-white/40 uppercase tracking-widest">Exhaust Pipe Position (สำหรับเล็งจุดปล่อยควัน)</div>
-                </div>
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <div><label class="!text-[6px] opacity-50 uppercase">Model Rotation (Y)</label>
-                        <div class="flex gap-1">
-                            <input type="number" step="0.1" value="${v.rotationY || 0}" oninput="updateSkinProp('${v.id}', 'rotationY', this.value)" class="!text-[9px] !p-1 h-7 text-center flex-1 !bg-white/5 border-white/10">
-                            <button onclick="updateSkinProp('${v.id}', 'rotationY', ${(v.rotationY || 0) > 1.5 ? 0 : 3.14})" class="bg-white/5 hover:bg-white/10 px-1.5 rounded text-[8px] border border-white/10 font-black">FLIP</button>
-                        </div>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="text-[9px] opacity-40 uppercase font-black tracking-widest">ชื่อสกินศิลปิน (Skin Name)</label>
+                        <input type="text" value="${v.name}" onchange="updateSkinProp('${v.id}', 'name', this.value)" class="!bg-white/5 !border-white/5 !py-4 font-bold">
+                    </div>
+                    <div>
+                        <label class="text-[9px] opacity-40 uppercase font-black tracking-widest">ราคาขาย (Price)</label>
+                        <input type="number" value="${v.cost}" onchange="updateSkinProp('${v.id}', 'cost', this.value)" class="!bg-white/5 !border-white/5 !py-4 text-neon-gold">
+                    </div>
+                    <div>
+                        <label class="text-[9px] opacity-40 uppercase font-black tracking-widest">ขนาดตัว (Scale)</label>
+                        <input type="number" step="0.1" value="${v.scale || 1.0}" onchange="updateSkinProp('${v.id}', 'scale', this.value)" class="!bg-white/5 !border-white/5 !py-4">
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div><label class="!text-[6px] opacity-50">X (ซ้าย/ขวา)</label><input type="number" step="0.05" value="${v.drop_offset?.x || 0}" oninput="updateSkinOffset('${v.id}', 'x', this.value)" class="!text-[9px] !p-1 h-7 text-center"></div>
-                    <div><label class="!text-[6px] opacity-50">Y (สูง/ต่ำ)</label><input type="number" step="0.05" value="${v.drop_offset?.y || 0}" oninput="updateSkinOffset('${v.id}', 'y', this.value)" class="!text-[9px] !p-1 h-7 text-center"></div>
-                    <div><label class="!text-[6px] opacity-50">Z (หน้า/หลัง)</label><input type="number" step="0.05" value="${v.drop_offset?.z || 0}" oninput="updateSkinOffset('${v.id}', 'z', this.value)" class="!text-[9px] !p-1 h-7 text-center"></div>
+
+                <div class="pt-4 border-t border-white/5">
+                    <div class="flex items-center justify-center gap-2 mb-3">
+                        <div class="h-px bg-white/5 flex-1"></div>
+                        <label class="text-[8px] opacity-30 uppercase font-black tracking-[0.2em] whitespace-nowrap">พิกัดการดรอป (Offsets)</label>
+                        <div class="h-px bg-white/5 flex-1"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="number" step="0.05" value="${v.drop_offset?.x || 0}" oninput="updateSkinOffset('${v.id}', 'x', this.value)" class="!bg-black/60 !py-3 text-center text-[10px]" placeholder="X">
+                        <input type="number" step="0.05" value="${v.drop_offset?.y || 0}" oninput="updateSkinOffset('${v.id}', 'y', this.value)" class="!bg-black/60 !py-3 text-center text-[10px]" placeholder="Y">
+                        <input type="number" step="0.05" value="${v.drop_offset?.z || 0}" oninput="updateSkinOffset('${v.id}', 'z', this.value)" class="!bg-black/60 !py-3 text-center text-[10px]" placeholder="Z">
+                    </div>
                 </div>
             </div>
         </div>
     `).join('');
-    if (window.twemoji) twemoji.parse(container);
-    setTimeout(() => { list.forEach(v => initMiniPreview(v)); }, 100);
 }
 
-function initMiniPreview(v) {
-    const parent = $(`preview-${v.id}`);
-    if (!parent || !v.model) return;
-    const engine = { id: v.id, stop: false, lastScale: 1 };
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(0, 0.6, 3.8);
-    camera.lookAt(0, 0.2, 0);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(parent.clientWidth, parent.clientHeight);
-    parent.appendChild(renderer.domElement);
-    engine.renderer = renderer;
-    const ambient = new THREE.AmbientLight(0xffffff, 1.5);
-    scene.add(ambient);
-    const modelGroup = new THREE.Group();
-    scene.add(modelGroup);
-    const modelPath = v.model.startsWith('/') ? v.model.substring(1) : v.model;
-    new GLTFLoader().load(modelPath, g => {
-        const m = g.scene;
-        m.traverse(node => {
-            if (node.isMesh && node.material) {
-                const mats = Array.isArray(node.material) ? node.material : [node.material];
-                mats.forEach(mat => { mat.side = THREE.DoubleSide; mat.depthWrite = true; mat.needsUpdate = true; });
-            }
-        });
-        const box = new THREE.Box3().setFromObject(m);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const baseScale = 2.0 / (maxDim || 1);
-        const finalScale = baseScale * (v.scale || 1.0);
-        engine.lastScale = finalScale;
-        m.scale.set(finalScale, finalScale, finalScale);
-        m.position.sub(center.multiplyScalar(finalScale));
-        m.position.y -= 0.1;
-        modelGroup.add(m);
-        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-        const off = v.drop_offset || {x:0, y:0, z:0};
-        dot.position.set(off.x * finalScale, off.y * finalScale, off.z * finalScale);
-        modelGroup.add(dot);
-        engine.dot = dot;
-        if (g.animations && g.animations.length > 0) {
-            engine.mixer = new THREE.AnimationMixer(m);
-            engine.mixer.clipAction(g.animations[0]).play();
-        }
-    });
-    const clock = new THREE.Clock();
-    const anim = () => {
-        if (engine.stop) return;
-        requestAnimationFrame(anim);
-        if (engine.mixer) engine.mixer.update(clock.getDelta());
-        modelGroup.rotation.y += 0.01;
-        renderer.render(scene, camera);
-    };
-    anim();
-    miniEngines.push(engine);
-}
+window.toggleSection = id => $(id)?.classList.toggle('section-collapsed');
+window.forceSave = () => { saveLocal(); sendPreview(); window.spawn?.("🚀 บังคับเซฟโหมดพรีวิวสำเร็จ", "text-cyan-400 font-black"); };
 
-window.updateSkinProp = (id, prop, val) => {
-    const skin = STATE.available_skins.find(s => s.id === id);
-    if (!skin) return;
-    skin[prop] = (prop === 'cost' || prop === 'scale') ? parseFloat(val) : val;
-    if(prop === 'model' || prop === 'scale') renderGallery(); 
-    sendPreview(); 
-};
-
-window.updateSkinOffset = (id, axis, val) => {
-    const skin = STATE.available_skins.find(s => s.id === id);
-    if (!skin) return;
-    if (!skin.drop_offset) skin.drop_offset = {x:0, y:0, z:0};
-    skin.drop_offset[axis] = parseFloat(val);
-    const engine = miniEngines.find(e => e.id === id);
-    if(engine && engine.dot) {
-        engine.dot.position.set(skin.drop_offset.x * engine.lastScale, skin.drop_offset.y * engine.lastScale, skin.drop_offset.z * engine.lastScale);
+(async () => {
+    loadLocal();
+    const { data, error } = await loadGameConfig();
+    if (data && data.config) {
+        deepMerge(ADMIN_STATE, data.config);
     }
-    sendPreview();
-};
-
-window.selectVariant = (modelPath, rotationY = 0) => {
-    STATE.custom_model = modelPath;
-    STATE.custom_rotation_y = rotationY;
+    highlightUI();
+    syncInputsWithMatrix();
     renderGallery();
-    sendPreview();
-};
-
-window.loadPreset = (mode) => {
-    const presets = {
-        easy: { difficulty_mode:'easy', dec_hunger:0.05, dec_clean:0.03, dec_happy:0.03, reg_stamina:1.0, max_stamina:150 },
-        normal: { difficulty_mode:'normal', dec_hunger:0.12, dec_clean:0.06, dec_happy:0.08, reg_stamina:0.5, max_stamina:100 },
-        hard: { difficulty_mode:'hard', dec_hunger:0.18, dec_clean:0.09, dec_happy:0.12, reg_stamina:0.35, max_stamina:80 }
-    };
-    if(presets[mode]) { Object.assign(STATE, presets[mode]); renderAll(); sendPreview(); saveAll(); }
-};
-
-window.toggleSection = (id) => { const sec = $(id); if(sec) sec.classList.toggle('section-collapsed'); };
-const renderAll = () => { loadConfig(); renderGallery(); if(window.twemoji) twemoji.parse(document.body); };
-renderAll();
+    if(window.twemoji) twemoji.parse(document.body);
+})();
