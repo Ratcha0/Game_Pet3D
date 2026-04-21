@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-let scene, camera, renderer, petModel, particles, groundMesh;
+let scene, camera, renderer, petModel, particles, groundMesh, debugDropPoint;
 let ambientLight, sunLight, purpleLight, pinkLight, mixer;
 let currentTemplate = 'pet';
 let currentAction = null;
@@ -144,6 +144,14 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
     camera.position.set(0, 4, 8);
     camera.lookAt(0, 0, 0);
+    
+    // สร้างจุดเล็งสีแดงเพื่อช่วย Admin กะระยะ (Debug Hotspot)
+    const debugGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    const debugMat = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 });
+    debugDropPoint = new THREE.Mesh(debugGeo, debugMat);
+    debugDropPoint.renderOrder = 999;
+    scene.add(debugDropPoint);
+    debugDropPoint.visible = window.location.search.includes('admin=true');
 
     renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", precision: 'mediump' });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -171,6 +179,52 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     createParticles();
     createPetObject(customModel, customRotationY);
 
+    const actionChannel = new BroadcastChannel('like-gotchi-action-sync');
+    actionChannel.onmessage = (e) => {
+        const { type, x, z, syncId, itemType, value } = e.data;
+        
+        if (type === 'MOVE' && petModel) {
+            targetPos.set(x, -1.2, z);
+            isWalking = true;
+            nextAutoWalkTime = (performance.now() / 1000) + 12;
+        }
+        else if (type === 'TOUCH' && petModel) {
+            if (window.doTouch) window.doTouch();
+            petModel.scale.setScalar(targetPetScale * 1.15);
+        }
+        else if (type === 'SPAWN_POOP') {
+            const mesh = createPoopMesh(x, z, itemType);
+            mesh.userData.syncId = syncId;
+            scene.add(mesh);
+            poopObjects.push({ mesh, elapsed: 0, x, z, type: itemType });
+        }
+        else if (type === 'SPAWN_REWARD') {
+            spawnReward(itemType, value, syncId, x, z, true); // true = fromSync
+        }
+        else if (type === 'COLLECT') {
+            // ค้นหาและลบไอเทมที่มี ID เดียวกันในจอนี้ โดยไม่รัน Callback (เพื่อเลี่ยงเสียงซ้ำ)
+            const pIdx = poopObjects.findIndex(p => p.mesh.userData.syncId === syncId);
+            if (pIdx !== -1) {
+                const p = poopObjects[pIdx];
+                scene.remove(p.mesh); disposeObject(p.mesh); poopObjects.splice(pIdx, 1);
+            }
+            const rIdx = rewardObjects.findIndex(r => r.mesh.userData.syncId === syncId);
+            if (rIdx !== -1) {
+                const r = rewardObjects[rIdx];
+                scene.remove(r.mesh); disposeObject(r.mesh); rewardObjects.splice(rIdx, 1);
+            }
+        }
+    };
+
+    window._actionChannel = actionChannel; // เก็บไว้ใช้ในฟังก์ชันอื่น
+
+    window.addEventListener('resize', () => {
+        const w = container.clientWidth, h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+    });
+
     const handleGlobalInput = (clientX, clientY) => {
         const rect = renderer.domElement.getBoundingClientRect();
         const mouse = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
@@ -180,14 +234,18 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         for (let i = 0; i < poopObjects.length; i++) {
             const p = poopObjects[i];
             if (ray.intersectObject(p.mesh, true).length > 0) {
+                const sid = p.mesh.userData.syncId;
                 scene.remove(p.mesh); disposeObject(p.mesh); poopObjects.splice(i, 1);
+                if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
                 if (onPoopCollected) onPoopCollected(p.type || 'normal'); return;
             }
         }
         for (let i = 0; i < rewardObjects.length; i++) {
             const r = rewardObjects[i];
             if (ray.intersectObject(r.mesh, true).length > 0) {
+                const sid = r.mesh.userData.syncId;
                 scene.remove(r.mesh); disposeObject(r.mesh); rewardObjects.splice(i, 1);
+                if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
                 if (onRewardCollected) onRewardCollected(r.type, r.value); return;
             }
         }
@@ -196,12 +254,19 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
             if (ray.intersectObject(petModel, true).length > 0 || (groundHit.length > 0 && groundHit[0].point.distanceTo(petModel.position) < 1.3)) {
                 if (window.doTouch) window.doTouch();
                 petModel.scale.setScalar(targetPetScale * 1.15);
+                
+                // กระจายท่าทาง "โดนจิ้ม" ให้จออื่นเด้งตาม
+                if (window._actionChannel) window._actionChannel.postMessage({ type: 'TOUCH' });
                 return;
             }
             if (groundHit.length > 0) {
-                targetPos.copy(groundHit[0].point); targetPos.y = -1.2; isWalking = true;
+                const hit = groundHit[0].point;
+                targetPos.copy(hit); targetPos.y = -1.2; isWalking = true;
                 nextAutoWalkTime = (performance.now() / 1000) + 12;
                 targetItemToCollect = null;
+                
+                // กระจายคำสั่งเดินให้จออื่น
+                actionChannel.postMessage({ type: 'MOVE', x: hit.x, z: hit.z });
             }
         }
     };
@@ -269,7 +334,7 @@ function createDecorations() {
             tree.rotation.y = seededRandom() * Math.PI;
             
             tree.userData.isDecoration = true;
-            tree.traverse(c => { if(c.isMesh) { c.castShadow = true; c.material = c.material.clone(); c.material.transparent = true; } });
+            tree.traverse(c => { if(c.isMesh) { c.castShadow = true; c.material = c.material.clone(); } });
             scene.add(tree);
         } else {
             // หินที่มีขนาดใหญ่ขึ้นเพื่อความสมดุล
@@ -282,7 +347,7 @@ function createDecorations() {
             rock.rotation.set(seededRandom(), seededRandom(), seededRandom());
             rock.castShadow = true;
             rock.userData.isDecoration = true;
-            rock.material = rock.material.clone(); rock.material.transparent = true;
+            rock.material = rock.material.clone();
             scene.add(rock);
         }
     }
@@ -299,6 +364,8 @@ function createParticles() {
 }
 
 // --- 🌟 Pre-load & Seamless Swap Function 🌟 ---
+let pendingModelLoad = null;
+
 function createPetObject(path = '', rotationY = 0) {
     if (!path) return;
     
@@ -309,7 +376,11 @@ function createPetObject(path = '', rotationY = 0) {
         return;
     }
 
-    if (isCurrentlyLoading) return;
+    if (isCurrentlyLoading) {
+        // Queue the request if something is already downloading
+        pendingModelLoad = { path, rotationY };
+        return;
+    }
     isCurrentlyLoading = true;
 
     new GLTFLoader().load(path, (gltf) => {
@@ -329,9 +400,23 @@ function createPetObject(path = '', rotationY = 0) {
         isCurrentlyLoading = false;
         
         swapModel(m, null, gltf.animations, rotationY, path);
+        
+        // Process next in queue if any
+        if (pendingModelLoad) {
+            const nextLoad = pendingModelLoad;
+            pendingModelLoad = null;
+            createPetObject(nextLoad.path, nextLoad.rotationY);
+        }
+        
     }, null, (err) => {
         console.error("Load failed:", err);
         isCurrentlyLoading = false;
+        
+        if (pendingModelLoad) {
+            const nextLoad = pendingModelLoad;
+            pendingModelLoad = null;
+            createPetObject(nextLoad.path, nextLoad.rotationY);
+        }
     });
 }
 
@@ -368,6 +453,7 @@ function swapModel(newModelContent, existingMixer, animations, rotationY, path) 
 
     // ตั้งค่า Animation
     if (animations.length > 0) {
+        if (mixer) mixer.stopAllAction(); // 🔥 Deep Audit FIX: เคลียร์คิวเดิมก่อน
         mixer = new THREE.AnimationMixer(newModelContent);
         walkActions = []; idleActions = [];
         
@@ -477,39 +563,62 @@ function animate() {
         updateIndicators(); 
         if(currentTemplate === 'car') spawnExhaustSmoke(); 
         updateEmotionPos();
-    }
-    indicatorFrameCount++;
 
-    if (petModel && camera) {
-        // --- 🛡️ ระบบ Camera Occlusion (ตรวจจับการบัง) ---
+        // --- 🎯 อัปเดตพิกัดจุดแดงนำทาง ---
+        if (debugDropPoint && petModel && petModel.children[0]) {
+            const off = window._currentSkinOffset || engineConfig.drop_offset || {x:0, y:0.1, z:-0.2};
+            const v = _tempVec.set(off.x, off.y, off.z);
+            petModel.children[0].localToWorld(v);
+            debugDropPoint.position.copy(v);
+            debugDropPoint.visible = window.location.search.includes('admin=true');
+        }
+    }
+    
+    // --- 🛡️ ระบบ Camera Occlusion (ตรวจจับการบัง) แบบ Optimize: รันเฟรมเว้นเฟรมยืดหยุ่น ---
+    if (indicatorFrameCount % 6 === 0 && petModel && camera) {
+        
+        // คืนค่าความทึบแสง (Opaque) ให้ Object ที่ไม่บังแล้ว
         occludedObjects.forEach(obj => {
-            obj.traverse(c => { if(c.isMesh) c.material.opacity = 1.0; });
+            obj.traverse(c => { 
+                if(c.isMesh) { 
+                    c.material.opacity = 1.0; 
+                    c.material.transparent = false; 
+                    c.material.needsUpdate = true;
+                } 
+            });
         });
         occludedObjects = [];
 
-        const camPos = camera.position.clone();
-        const petPos = petModel.position.clone(); petPos.y += 0.5; 
-        const dir = petPos.clone().sub(camPos).normalize();
+        const camPos = camera.position;
+        const petPos = _tempVec.copy(petModel.position); petPos.y += 0.5; 
+        const dir = _dir.copy(petPos).sub(camPos).normalize();
         const distToPet = camPos.distanceTo(petPos);
 
         raycaster.set(camPos, dir);
+        // Optimize: ตรวจสอบแค่ระยะสั้นๆ ที่กล้องส่องไปหาตัวละคร ไม่ส่องทะลุไปไกล
+        raycaster.far = distToPet;
+        
         const intersects = raycaster.intersectObjects(scene.children, true);
 
         for (let i = 0; i < intersects.length; i++) {
             const hit = intersects[i];
-            if (hit.distance < distToPet) {
-                let root = hit.object;
-                while (root.parent && root.parent !== scene && !root.userData.isDecoration) root = root.parent;
+            let root = hit.object;
+            while (root.parent && root.parent !== scene && !root.userData.isDecoration) root = root.parent;
 
-                if (root.userData.isDecoration) {
-                    root.traverse(c => { if(c.isMesh) c.material.opacity = 0.25; });
-                    if (!occludedObjects.includes(root)) occludedObjects.push(root);
-                }
-            } else {
-                break;
+            if (root.userData.isDecoration) {
+                root.traverse(c => { 
+                    if(c.isMesh) { 
+                        c.material.transparent = true; 
+                        c.material.opacity = 0.25; 
+                        c.material.needsUpdate = true;
+                    } 
+                });
+                if (!occludedObjects.includes(root)) occludedObjects.push(root);
             }
         }
     }
+    
+    indicatorFrameCount++;
 
     renderer.render(scene, camera);
 }
@@ -681,23 +790,37 @@ export function createPoopMesh(x, z, type) {
 }
 
 function spawnExhaustSmoke() {
-    if (!petModel || currentTemplate !== 'car') return;
-    const off = window._currentSkinOffset || {x:0, y:0.2, z:-0.5}, scale = window._currentSkinScale || 1;
-    const v = new THREE.Vector3(off.x * scale, off.y * scale, off.z * scale).applyQuaternion(petModel.quaternion);
+    if (!petModel || currentTemplate !== 'car' || !petModel.children[0]) return;
+    const off = window._currentSkinOffset || {x:0, y:0.2, z:-0.5}, scale = 1; // scale is already handled by localToWorld
+    
+    // ใช้ localToWorld เพื่อให้พิกัดตรงกับสิ่งที่เห็นใน Model-viewer เป๊ะๆ
+    const v = new THREE.Vector3(off.x, off.y, off.z);
+    petModel.children[0].localToWorld(v);
+    
     const vel = new THREE.Vector3(0, 0.03, -0.05).applyQuaternion(petModel.quaternion);
-    addParticle(petModel.position.x + v.x, petModel.position.y + v.y, petModel.position.z + v.z, vel, 0xcccccc, 0.08, 25);
+    addParticle(v.x, v.y, v.z, vel, 0xcccccc, 0.08, 25);
 }
 
-export function spawnPoop(type = 'normal') {
+export function spawnPoop(type = 'normal', fromSync = false, syncId = null, x = null, z = null) {
     if (!petModel || poopObjects.length >= engineConfig.max_poops) return false;
-    const px = petModel.position.x, pz = petModel.position.z;
-    const mesh = createPoopMesh(px, pz, type); scene.add(mesh);
-    poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, type }); return true;
+    const px = x !== null ? x : petModel.position.x;
+    const pz = z !== null ? z : petModel.position.z;
+    const sid = syncId || 'P' + Date.now() + Math.random();
+    
+    const mesh = createPoopMesh(px, pz, type); 
+    mesh.userData.syncId = sid;
+    scene.add(mesh);
+    poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, type }); 
+
+    if (!fromSync && window._actionChannel) {
+        window._actionChannel.postMessage({ type: 'SPAWN_POOP', x: px, z: pz, syncId: sid, itemType: type });
+    }
+    return true;
 }
 
 export function setPoopCallbacks(c, e) { onPoopCollected = c; onPoopExpired = e; }
 export function setRewardCallback(c) { onRewardCollected = c; }
-export function spawnReward(type, value) {
+export function spawnReward(type, value, syncId = null, x = null, z = null, fromSync = false) {
     const group = new THREE.Group();
     group.add(new THREE.Mesh(
         new THREE.CylinderGeometry(0.32, 0.32, 0.06, 24), 
@@ -706,8 +829,20 @@ export function spawnReward(type, value) {
     const light = new THREE.PointLight(0xffaa00, 3, 3);
     light.position.y = 0.5;
     group.add(light);
-    group.position.set((Math.random()-0.5)*12, -0.9, (Math.random()-0.5)*12);
-    scene.add(group); rewardObjects.push({ mesh: group, type, value, startY: -0.9, elapsed: 0 }); return true;
+    
+    const sid = syncId || 'R' + Date.now() + Math.random();
+    const rx = x !== null ? x : (Math.random()-0.5)*12;
+    const rz = z !== null ? z : (Math.random()-0.5)*12;
+    
+    group.position.set(rx, -0.9, rz);
+    group.userData.syncId = sid;
+    scene.add(group); 
+    rewardObjects.push({ mesh: group, type, value, startY: -0.9, elapsed: 0 }); 
+
+    if (!fromSync && window._actionChannel) {
+        window._actionChannel.postMessage({ type: 'SPAWN_REWARD', x: rx, z: rz, syncId: sid, itemType: type, value });
+    }
+    return true;
 }
 export function updatePetScale(level) { 
     if (!petModel) return;
@@ -733,7 +868,11 @@ export function updateEnvironment(sky, ground) {
     if(sky && SKY_COLORS[sky]) scene.background = new THREE.Color(SKY_COLORS[sky]);
     if(ground && groundMesh) groundMesh.material.color.set(GROUND_COLORS[ground]);
 }
-export function updateEngineConfig(c) { Object.assign(engineConfig, c); }
+export function updateEngineConfig(c) { 
+    if (!c) return;
+    Object.assign(engineConfig, c);
+    if (c.drop_offset) window._currentSkinOffset = c.drop_offset;
+}
 export function updateTemplate(type, path = '', rotationY = 0) { currentTemplate = type; createPetObject(path, rotationY); }
 export function triggerLevelUpEffect() {
     if (!petModel) return;
@@ -803,9 +942,21 @@ export function refreshPetAura(level) {
 export function collectPoopByUI() { if (poopObjects.length === 0) return false; const p = poopObjects.shift(); scene.remove(p.mesh); disposeObject(p.mesh); return p.type || 'normal'; }
 function collectItemAtPet() {
     if (!targetItemToCollect) return;
+    const sid = targetItemToCollect.userData.syncId;
+    
     [poopObjects, rewardObjects].forEach(arr => {
         const idx = arr.findIndex(i => i.mesh === targetItemToCollect);
-        if (idx !== -1) { const item = arr.splice(idx, 1)[0]; scene.remove(item.mesh); disposeObject(item.mesh); if (arr === poopObjects) onPoopCollected(item.type); else onRewardCollected(item.type, item.value); }
+        if (idx !== -1) { 
+            const item = arr.splice(idx, 1)[0]; 
+            scene.remove(item.mesh); 
+            disposeObject(item.mesh); 
+            
+            // Broadcast การเก็บอัตโนมัติให้จออื่นลบตาม
+            if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
+            
+            if (arr === poopObjects) onPoopCollected(item.type); 
+            else onRewardCollected(item.type, item.value); 
+        }
     });
 }
 function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }

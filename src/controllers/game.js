@@ -12,6 +12,9 @@ import { isGameActive, initAuth } from './auth.js';
 import { initShop } from './shop.js';
 
 const $ = id => document.getElementById(id);
+const urlParams = new URLSearchParams(window.location.search);
+const viewType = urlParams.get('view') || 'mobile';
+const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'admin-preview';
 
 (async function() {
 window.spawn = function(msg, cls = "text-white") {
@@ -26,6 +29,11 @@ window.spawn = function(msg, cls = "text-white") {
     a.appendChild(e);
     setTimeout(() => e.remove(), 2500);
 };
+
+// --- Sync UI with other instances ---
+window.addEventListener('state-synced', () => {
+    window.updateUI();
+});
 
 window.updateUI = function() {
     try {
@@ -132,8 +140,8 @@ window.updateUI = function() {
     }
 
     // Season
-    const sb=$('season-badge'); if(sb) sb.innerText=STATE.config.season_name;
-    const st=$('season-timer'); if(st) st.innerText=`${STATE.config.season_weeks}W`;
+    const sb=$('season-badge'); if(sb) sb.innerText=STATE.config.season_name || 'Season 1';
+    const st=$('season-timer'); if(st) st.innerText=`${STATE.config.season_duration || 15}D`;
 
     // Quest Check for Pure Love
     if(STATE.love >= 100) incrementSpecialQuest('pure_love');
@@ -606,17 +614,25 @@ window.addEventListener('storage', (e) => {
     if(e.key==='pw3d_config') {
         loadAdminConfigLocal();
         const active = getActiveConfig();
+        const tpl = STATE.config.template || 'pet';
+        
+        let finalModel = STATE.config.custom_model;
+        if (!isAdminPreview && STATE.inventory?.equipped_skins?.[tpl]) {
+            finalModel = STATE.inventory.equipped_skins[tpl];
+        }
+
         const skins = STATE.config.available_skins || [];
-        const currentSkin = skins.find(s => s.model === STATE.config.custom_model);
+        const currentSkin = skins.find(s => s.model === finalModel) || skins.find(s => s.model === STATE.config.custom_model);
         const rotation = currentSkin ? (currentSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
 
-        updateTemplate(STATE.config.template, STATE.config.custom_model, rotation);
+        updateTemplate(STATE.config.template, finalModel, rotation);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateEngineConfig({
-            poop_lifetime: active.mechanics.poop_lifetime, // Sync with Matrix structure
-            reward_lifetime: active.mechanics.reward_lifetime,
-            max_poops: active.mechanics.max_poops,
-            max_rewards: active.mechanics.max_rewards
+            poop_lifetime: active.mechanics?.poop_lifetime || 30,
+            reward_lifetime: active.mechanics?.reward_lifetime || 20,
+            max_poops: active.mechanics?.max_poops || 3,
+            max_rewards: active.mechanics?.max_rewards || 3,
+            drop_offset: currentSkin?.drop_offset || {x:0, y:0.1, z:-0.2}
         });
         updateUI();
     }
@@ -626,17 +642,27 @@ window.addEventListener('message', (e) => {
     if(e.data && e.data.type === 'PW3D_PREVIEW') {
         applyConfigToState(e.data.config);
         const active = getActiveConfig();
+        
+        let finalModel = STATE.config.custom_model;
+        const tpl = STATE.config.template || 'pet';
+        
+        // ในหน้าพรีวิว Admin ให้เชื่อฟังค่าจาก Dashboard เท่านั้น ไม่ต้องสน Inventory ผู้เล่น
+        if (!isAdminPreview && STATE.inventory?.equipped_skins?.[tpl]) {
+            finalModel = STATE.inventory.equipped_skins[tpl];
+        }
+
         const skins = STATE.config.available_skins || [];
-        const currentSkin = skins.find(s => s.model === STATE.config.custom_model);
+        const currentSkin = skins.find(s => s.model === finalModel) || skins.find(s => s.model === STATE.config.custom_model);
         const rotation = currentSkin ? (currentSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
 
-        updateTemplate(STATE.config.template, STATE.config.custom_model, rotation);
+        updateTemplate(STATE.config.template, finalModel, rotation);
         updateEnvironment(STATE.config.sky, STATE.config.ground);
         updateEngineConfig({
-            poop_lifetime: active.mechanics.poop_lifetime,
-            reward_lifetime: active.mechanics.reward_lifetime,
-            max_poops: active.mechanics.max_poops,
-            max_rewards: active.mechanics.max_rewards
+            poop_lifetime: active.mechanics?.poop_lifetime || 30,
+            reward_lifetime: active.mechanics?.reward_lifetime || 20,
+            max_poops: active.mechanics?.max_poops || 3,
+            max_rewards: active.mechanics?.max_rewards || 3,
+            drop_offset: currentSkin?.drop_offset || {x:0, y:0.1, z:-0.2}
         });
         
         if (typeof unlockScreen === 'function' && $('pin-lock-screen')) unlockScreen();
@@ -968,7 +994,7 @@ function updateLoading(progress) {
             scheduleNextPoop();
         }, baseDelay);
     }
-    scheduleNextPoop();
+    if (viewType !== 'widget') scheduleNextPoop();
 
     function scheduleNextReward() {
         const tpl = STATE.config.template || 'pet';
@@ -1002,7 +1028,7 @@ function updateLoading(progress) {
             scheduleNextReward();
         }, delay);
     }
-    scheduleNextReward();
+    if (viewType !== 'widget') scheduleNextReward();
 
     function updatePetSentience() {
         const tpl = STATE.config.template || 'pet';
@@ -1030,63 +1056,61 @@ function updateLoading(progress) {
         }
     }
 
-    setInterval(()=>{
-        if (!isGameActive) return; 
-        
-        const tpl = STATE.config.template || 'pet';
-        const diff = STATE.config.difficulty_mode || 'normal';
-        const matrix = (STATE.config.matrix[tpl] && STATE.config.matrix[tpl][diff]) ? STATE.config.matrix[tpl][diff] : {};
-        const mRaw = matrix.mechanics || {};
-        const mech = {
-            dec_hunger: mRaw.dec_hunger ?? 0.11,
-            dec_happy: mRaw.dec_happy ?? 0.09,
-            dec_clean: mRaw.dec_clean ?? 0.07,
-            reg_stamina: mRaw.reg_stamina ?? 0.5
-        };
-        
-        // รัน Sentience (Emoji) ทุกๆ 5 วินาที (ใช้สุ่มเพื่อไม่ให้กินแรงเครื่อง)
-        if (Math.random() < 0.2) updatePetSentience();
+    if (viewType !== 'widget') {
+        setInterval(()=>{
+            if (!isGameActive) return; 
+            
+            const tpl = STATE.config.template || 'pet';
+            const diff = STATE.config.difficulty_mode || 'normal';
+            const matrix = (STATE.config.matrix[tpl] && STATE.config.matrix[tpl][diff]) ? STATE.config.matrix[tpl][diff] : {};
+            const mRaw = matrix.mechanics || {};
+            const mech = {
+                dec_hunger: mRaw.dec_hunger ?? 0.11,
+                dec_happy: mRaw.dec_happy ?? 0.09,
+                dec_clean: mRaw.dec_clean ?? 0.07,
+                reg_stamina: mRaw.reg_stamina ?? 0.5
+            };
+            
+            if (Math.random() < 0.2) updatePetSentience();
 
-        STATE.maxStamina = STATE.maxStamina || 100;
-        
-        // ลดค่าสถานะ (หาร 2 เพราะเราอยากได้ความเร็วที่พอเหมาะใน 1 วินาที)
-        const decayMult = 1.0; 
-        STATE.hunger = Math.max(0, STATE.hunger - (mech.dec_hunger * decayMult));
-        STATE.clean = Math.max(0, STATE.clean - (mech.dec_clean * decayMult));
+            STATE.maxStamina = STATE.maxStamina || 100;
+            const decayMult = 1.0; 
+            STATE.hunger = Math.max(0, STATE.hunger - (mech.dec_hunger * decayMult));
+            STATE.clean = Math.max(0, STATE.clean - (mech.dec_clean * decayMult));
 
-        let happyDecay = mech.dec_happy * decayMult;
-        if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 2.5; // ลงโทษถ้าปล่อยให้หิว/สกปรก
-        STATE.love = Math.max(0, STATE.love - happyDecay); 
+            let happyDecay = mech.dec_happy * decayMult;
+            if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 2.5; 
+            STATE.love = Math.max(0, STATE.love - happyDecay); 
 
-        if (STATE.hunger > 85 && STATE.clean > 85) {
-            STATE.love = Math.min(100, STATE.love + 0.05); 
-        }
-        
-        let currentRegen = mech.reg_stamina;
-        const thr = mech.fever_threshold ?? 85;
-        const isPerfect = (STATE.hunger >= thr && STATE.love >= thr && STATE.clean >= thr);
-        
-        let multiplier = 1.0;
-        if (isPerfect) {
-            multiplier *= (mech.fever_mult ?? 1.5);
-            if (Math.random() < 0.01) {
-                spawn('🌟 สั่นสะเทือน! น้องแฮปปี้สุดๆ! (ฟื้นพลังไว)', 'text-neon-gold');
-                incrementSpecialQuest('fever');
+            if (STATE.hunger > 85 && STATE.clean > 85) {
+                STATE.love = Math.min(100, STATE.love + 0.05); 
             }
-        }
+            
+            let currentRegen = mech.reg_stamina;
+            const thr = mech.fever_threshold ?? 85;
+            const isPerfect = (STATE.hunger >= thr && STATE.love >= thr && STATE.clean >= thr);
+            
+            let multiplier = 1.0;
+            if (isPerfect) {
+                multiplier *= (mech.fever_mult ?? 1.5);
+                if (Math.random() < 0.01) {
+                    spawn('🌟 สั่นสะเทือน! น้องแฮปปี้สุดๆ! (ฟื้นพลังไว)', 'text-neon-gold');
+                    incrementSpecialQuest('fever');
+                }
+            }
 
-        if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) {
-            multiplier *= STATE.buffs.regen;
-        }
+            if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) {
+                multiplier *= STATE.buffs.regen;
+            }
 
-        const prevStamina = STATE.stamina;
-        if (STATE.stamina < STATE.maxStamina) {
-            STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (currentRegen * multiplier));
-        }
+            if (STATE.stamina < STATE.maxStamina) {
+                STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (currentRegen * multiplier));
+            }
 
-        updateUI();
-        if (Math.random() < 0.05) saveState(); // ประหยัดการเขียน Disk
-    }, 1000);
+            updateUI();
+            if (Math.random() < 0.05) saveState(); 
+        }, 1000);
+    }
 
     window.addEventListener('click', () => SFX.init(), { once: true });
     window.addEventListener('touchstart', () => SFX.init(), { once: true });

@@ -31,8 +31,8 @@
         ::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #ec4899; }
 
-        .tpl-btn, .diff-btn { transition: all 0.3s; border: 1px solid rgba(255,255,255,0.05); }
         .tpl-btn.active, .diff-btn.active { background: #8b5cf6!important; border-color: #8b5cf6!important; color: white!important; box-shadow: 0 0 20px rgba(139,92,246,0.4); }
+        .nav-btn.active { background: #8b5cf6!important; border-color: #8b5cf6!important; color: white!important; box-shadow: 0 0 15px rgba(139,92,246,0.3); }
         iframe { background: #1a1a2e; border: none; }
     </style>
 </head>
@@ -42,10 +42,9 @@
     <aside class="w-16 bg-surface/50 border-r border-white/5 flex flex-col items-center py-6 gap-6 shrink-0 h-screen">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-lg shadow-lg">👑</div>
         <div class="h-px w-6 bg-white/5"></div>
-        <div title="Settings" class="w-8 h-8 rounded-lg bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-sm font-bold cursor-pointer">SET</div>
-        <button onclick="addNewSkin()" title="เพิ่มสกินใหม่" class="w-10 h-10 rounded-xl bg-fuchsia-600/10 hover:bg-fuchsia-600/30 border border-fuchsia-500/30 text-fuchsia-500 flex items-center justify-center text-xl transition-all active:scale-90">
-            +
-        </button>
+        <button onclick="switchView('settings')" id="nav-settings" title="ตั่งค่าเกม" class="nav-btn w-10 h-10 rounded-xl bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-xs font-black cursor-pointer transition-all active:scale-90 active">SET</button>
+        <button onclick="switchView('history')" id="nav-history" title="ประวัติซีซั่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">LOG</button>
+        <button onclick="switchView('users')" id="nav-users" title="จัดการผู้เล่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">USR</button>
     </aside>
 
     <!-- Center Panel (Header + Scrollable Content) -->
@@ -62,9 +61,52 @@
         </header>
 
         <!-- THIS IS THE SCROLLABLE AREA -->
-        <main class="flex-1 overflow-y-auto p-8 space-y-6">
+        <main id="view-settings" class="flex-1 overflow-y-auto p-8 pt-16 space-y-6">
             <div class="max-w-4xl mx-auto w-full pb-20">
                 
+                <!-- Section 00: Season Configuration -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-purple/30 mb-6 relative" id="sec-season">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-purple to-neon-pink"></div>
+                    <div class="collapsible-header" onclick="toggleSection('sec-season')">
+                        <div class="flex items-center gap-3">📅 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">ตั้งค่าซีซั่น (Season Configuration)</div></div>
+                        <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="text-neon-purple text-[10px] font-black uppercase tracking-widest mb-2 block">ลำดับซีซั่น (Season Number)</label>
+                                <input type="number" id="input-season-num" data-global="season_number" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold" placeholder="1">
+                            </div>
+                            <div>
+                                <label class="text-neon-pink text-[10px] font-black uppercase tracking-widest mb-2 block">ชื่อซีซั่น (Season Name)</label>
+                                <input type="text" data-global="season_name" placeholder="ระบุชื่อซีซั่นที่นี่..." class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold">
+                            </div>
+                            <div>
+                                <label class="text-neon-gold text-[10px] font-black uppercase tracking-widest mb-2 block">ระยะเวลาการเล่น (Duration)</label>
+                                <select data-global="season_duration" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold">
+                                    <option value="7">7 วัน (แบบสั้น)</option>
+                                    <option value="15">15 วัน (ปกติ)</option>
+                                    <option value="30">30 วัน (แบบยาว)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 🚀 New Action Button: Finish Season -->
+                        <div class="mt-8 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="text-[10px] text-white/30 italic max-w-sm">
+                                * การกดปุ่มนี้จะทำการปัดเลขซีซั่นขึ้น และรีเซ็ตคะแนนผู้เล่นทุกคนเป็น 0 ทันทีเมื่อเข้าเกมรอบหน้า
+                            </div>
+                            <button onclick="finishSeason()" class="group px-8 py-4 bg-gradient-to-r from-rose-600/20 to-orange-600/20 hover:from-rose-600/40 hover:to-orange-600/40 border border-rose-500/30 rounded-2xl transition-all active:scale-95 flex items-center gap-4">
+                                <span class="text-2xl group-hover:rotate-12 transition-transform">🚀</span>
+                                <div class="text-left">
+                                    <div class="text-[10px] font-black text-rose-400 uppercase tracking-widest">Finish Season</div>
+                                    <div class="text-white font-black text-xs">จบซีซั่นและเริ่มซีซั่นใหม่</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Section 0: Difficulty Presets -->
                 <section class="glass rounded-2xl overflow-hidden border border-neon-gold/20" id="sec-difficulty">
                     <div class="collapsible-header" onclick="toggleSection('sec-difficulty')">
@@ -106,17 +148,17 @@
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
-                                <div><label>ท้องฟ้า / แสง</label><select id="cfg-sky"><option value="day">กลางวัน (Day)</option><option value="night">กลางคืน (Night)</option></select></div>
-                                <div><label>พื้นผิวสนาม</label><select id="cfg-ground"><option value="grass">สนามหญ้า (Grass)</option><option value="sand">ทะเลทราย (Sand)</option></select></div>
+                                <div><label>ท้องฟ้า / แสง</label><select data-global="sky" id="cfg-sky"><option value="day">กลางวัน</option><option value="night">กลางคืน</option></select></div>
+                                <div><label>พื้นผิวสนาม</label><select data-global="ground" id="cfg-ground"><option value="grass">สนามหญ้า</option><option value="sand">ทะเลทราย</option></select></div>
                             </div>
                             <!-- Model Gallery -->
                             <div class="col-span-1 md:col-span-2 p-5 bg-white/5 rounded-2xl border border-white/10 mt-2">
                                  <div class="flex items-center justify-between mb-4">
                                      <div class="flex items-center gap-2">
                                          <div class="w-2 h-2 rounded-full bg-neon-purple animate-pulse"></div>
-                                         <label class="mb-0 text-[10px] text-neon-purple font-black">คลังโมเดลตัวละคร (Character Gallery)</label>
+                                         <label class="mb-0 text-[10px] text-white uppercase tracking-widest font-black">คลังโมเดลตัวละคร (Character Gallery)</label>
                                      </div>
-                                     <button onclick="addNewSkin()" class="text-[9px] bg-neon-purple/20 hover:bg-neon-purple/40 text-neon-purple px-3 py-1.5 rounded-lg border border-neon-purple/30 transition-all font-black uppercase">+ เพิ่มสกินใหม่</button>
+                                     <button onclick="addNewSkin()" class="text-[9px] bg-neon-purple/20 hover:bg-neon-purple/40 text-neon-purple px-3 py-1.5 rounded-lg border border-neon-purple/30 transition-all font-black uppercase">+ เพิ่มโมเดล</button>
                                  </div>
                                  <div id="variant-gallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 mt-4"></div>
                             </div>
@@ -259,16 +301,16 @@
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content">
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="grid grid-cols-2 gap-6 p-8">
                             <div class="p-4 bg-white/5 rounded-xl border border-neon-cyan/20">
-                                <label class="text-neon-cyan">โบนัสไอเทมระดับตำนาน (Legendary)</label>
+                                <label class="text-neon-cyan text-[10px] uppercase font-black mb-3 block">ไอเทมระดับตำนาน (Legendary)</label>
                                 <div class="grid grid-cols-2 gap-3 mt-2">
                                     <div><label class="opacity-50 text-[9px]">เหรียญที่จะได้รับ</label><input type="number" data-path="rewards.legendary_tokens" class="matrix-input"></div>
                                     <div><label class="opacity-50 text-[9px]">เวลาที่แสดง (วินาที)</label><input type="number" data-path="rewards.legendary_time" class="matrix-input"></div>
                                 </div>
                             </div>
                             <div class="p-4 bg-white/5 rounded-xl border border-neon-emerald/20">
-                                <label class="text-neon-emerald">โบนัสไอเทมระดับหายาก (Rare)</label>
+                                <label class="text-neon-emerald text-[10px] uppercase font-black mb-3 block">ไอเทมระดับหายาก (Rare)</label>
                                 <div class="grid grid-cols-2 gap-3 mt-2">
                                     <div><label class="opacity-50 text-[9px]">เหรียญที่จะได้รับ</label><input type="number" data-path="rewards.rare_tokens" class="matrix-input"></div>
                                     <div><label class="opacity-50 text-[9px]">เวลาที่แสดง (วินาที)</label><input type="number" data-path="rewards.rare_time" class="matrix-input"></div>
@@ -301,16 +343,16 @@
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-8">
                             <!-- Tier 1 -->
                             <div class="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-4">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest">Small Pack</span>
+                                    <span class="text-[10px] font-black text-rose-400 uppercase tracking-widest">เซ็ตเล็ก (Small Pack)</span>
                                     <span class="text-lg">📦</span>
                                 </div>
                                 <div class="space-y-3">
                                     <div>
-                                        <label class="text-[9px] text-white/40">ราคา (Tokens)</label>
+                                        <label class="text-[9px] text-white/40">ราคา (Coins/Tokens)</label>
                                         <input type="number" data-path="shop.small_tokens" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
                                     </div>
                                     <div>
@@ -322,12 +364,12 @@
                             <!-- Tier 2 -->
                             <div class="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-4">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Medium Pack</span>
+                                    <span class="text-[10px] font-black text-cyan-400 uppercase tracking-widest">เซ็ตกลาง (Medium Pack)</span>
                                     <span class="text-lg">💼</span>
                                 </div>
                                 <div class="space-y-3">
                                     <div>
-                                        <label class="text-[9px] text-white/40">ราคา (Tokens)</label>
+                                        <label class="text-[9px] text-white/40">ราคา (Coins/Tokens)</label>
                                         <input type="number" data-path="shop.medium_tokens" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
                                     </div>
                                     <div>
@@ -339,12 +381,12 @@
                             <!-- Tier 3 -->
                             <div class="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-4">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-[10px] font-black text-neon-gold uppercase tracking-widest">Large Pack</span>
+                                    <span class="text-[10px] font-black text-neon-gold uppercase tracking-widest">เซ็ตใหญ่ (Large Pack)</span>
                                     <span class="text-lg">🚀</span>
                                 </div>
                                 <div class="space-y-3">
                                     <div>
-                                        <label class="text-[9px] text-white/40">ราคา (Tokens)</label>
+                                        <label class="text-[9px] text-white/40">ราคา (Coins/Tokens)</label>
                                         <input type="number" data-path="shop.large_tokens" class="matrix-input w-full bg-black/60 border-white/10 rounded-xl">
                                     </div>
                                     <div>
@@ -372,6 +414,90 @@
                 </section>
             </div>
         </main>
+
+        <!-- Section: History View (Hidden by default) -->
+        <main id="view-history" class="hidden flex-1 overflow-y-auto p-8 pt-16 space-y-6">
+            <div class="max-w-4xl mx-auto w-full pb-20">
+                <section class="glass rounded-3xl overflow-hidden border border-white/5 p-8 sm:p-10">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
+                        <div class="flex items-center gap-4">
+                            <span class="text-4xl">🏆</span>
+                            <div>
+                                <h2 class="text-2xl sm:text-3xl font-black text-white italic tracking-tighter uppercase whitespace-nowrap">ประวัติซีซั่น (Season Logs)</h2>
+                                <p class="text-[9px] text-white/30 uppercase tracking-[0.2em] mt-1">ประวัติอันดับและคะแนนสูงสุดของผู้เล่น</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] font-black text-white/40 uppercase">เลือกซีซั่น:</span>
+                            <select id="history-season-select" onchange="renderHistoryRankings()" class="!w-32 !py-2 !px-3 !bg-neon-purple/20 !border-neon-purple/30">
+                                <option value="1">ซีซั่น 1</option>
+                                <option value="2">ซีซั่น 2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2" id="history-list">
+                        <!-- Rankings will be injected here -->
+                        <div class="text-center py-20 text-white/20">
+                            (ยังไม่มีข้อมูลซีซั่นที่เลือก)
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Section: User Management View (Hidden by default) -->
+        <main id="view-users" class="hidden flex-1 overflow-hidden flex flex-col h-full bg-black/40">
+            <header class="p-8 border-b border-white/5 flex items-center justify-between shrink-0">
+                <div>
+                    <h2 class="text-2xl font-black text-white italic tracking-tighter uppercase">👥 จัดการผู้เล่น (User Management)</h2>
+                    <p class="text-[9px] text-white/30 uppercase tracking-[0.2em] mt-1">จัดการสถานะผู้เล่นและการเข้าถึงระบบ (Ban/Unban)</p>
+                </div>
+                <button onclick="refreshUserLists()" class="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/60 transition-all flex items-center gap-2">🔄 <span class="text-[10px] font-bold uppercase">รีเฟรชข้อมูล</span></button>
+            </header>
+
+            <!-- Quick Stats Row -->
+            <div class="px-8 py-6 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white/[0.01] border-b border-white/5">
+                <div class="p-6 bg-white/5 rounded-3xl border border-white/5">
+                    <div class="text-[9px] font-black text-cyan-400 uppercase tracking-widest mb-1">ผู้เล่นทั้งหมด (Total Players)</div>
+                    <div id="stat-total" class="text-3xl font-black text-white">0</div>
+                </div>
+                <div class="p-6 bg-white/5 rounded-3xl border border-white/5">
+                    <div class="text-[9px] font-black text-green-400 uppercase tracking-widest mb-1">กำลังเล่น (Active 24h)</div>
+                    <div id="stat-active" class="text-3xl font-black text-white">0</div>
+                </div>
+                <div class="p-6 bg-white/5 rounded-3xl border border-white/5">
+                    <div class="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">บัญชีที่ถูกระงับ (Banned)</div>
+                    <div id="stat-banned" class="text-3xl font-black text-white">0</div>
+                </div>
+            </div>
+            
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Panel: Active Players -->
+                <div class="flex-1 border-r border-white/5 flex flex-col min-w-0">
+                    <div class="p-6 bg-white/[0.02] border-b border-white/5">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-black text-white/60 uppercase tracking-widest pl-2">รายชื่อผู้เล่นทั้งหมด</span>
+                            <div class="flex-1"></div>
+                            <input type="text" id="user-search" onkeyup="renderUserLists()" placeholder="ค้นหาไอดีผู้เล่น..." class="bg-black/40 border-white/10 rounded-lg px-4 py-2 text-xs text-white w-48">
+                        </div>
+                    </div>
+                    <div id="user-list-all" class="flex-1 overflow-y-auto p-4 space-y-2">
+                        <!-- Users will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Panel: Banned Players -->
+                <div class="w-[400px] bg-red-950/20 flex flex-col shrink-0">
+                    <div class="p-6 bg-red-500/10 border-b border-red-500/20">
+                        <span class="text-sm font-black text-red-400 uppercase tracking-widest pl-2">บัญชีที่ถูกระงับ (Banned)</span>
+                    </div>
+                    <div id="user-list-banned" class="flex-1 overflow-y-auto p-4 space-y-2">
+                        <!-- Banned Users will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- Right Preview Area -->
@@ -379,13 +505,13 @@
         <div class="flex flex-col items-center mt-20 shrink-0">
             <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">WIDGET VIEW</div>
             <div class="border border-white/5 shadow-2xl rounded-lg overflow-hidden ring-1 ring-white/10">
-                <iframe id="frame-h" src="./index.html" style="width:316px; height:182px;"></iframe>
+                <iframe id="frame-h" src="./index.html?admin=true&view=widget" style="width:316px; height:182px;"></iframe>
             </div>
         </div>
         <div class="flex flex-col items-center shrink-0">
             <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">MOBILE VIEW</div>
             <div class="border border-white/5 shadow-2xl rounded-sm overflow-hidden ring-4 ring-[#1a1a2e]">
-                <iframe id="frame-v" src="./index.html" style="width:332px; height:700px;"></iframe>
+                <iframe id="frame-v" src="./index.html?admin=true&view=mobile" style="width:332px; height:700px;"></iframe>
             </div>
         </div>
     </aside>

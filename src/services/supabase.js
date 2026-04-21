@@ -34,6 +34,7 @@ export async function savePetState(userId, stateData) {
             quests_data: stateData.quests,
             buffs_data: stateData.buffs,
             inventory: stateData.inventory,
+            current_season: stateData.current_season || 1,
             last_interaction_at: new Date().toISOString()
         }, { onConflict: 'player_id' });
         
@@ -105,6 +106,23 @@ export async function logScoreAction(userId, actionType, scoreGain, tokenGain, d
 }
 
 /**
+ * บันทึกสรุปผลงานเมื่อจบซีซั่น (Season Reset)
+ */
+export async function logSeasonHistory(userId, seasonNum, score, rank = null) {
+    const { data, error } = await supabase
+        .from('season_history')
+        .insert({
+            player_id: userId,
+            season_number: seasonNum,
+            final_score: Math.floor(score),
+            final_rank: rank
+        });
+        
+    if (error) console.error("Error logging season history:", error);
+    return { data, error };
+}
+
+/**
  * ดึง Ranking ผู้เล่นดะแนนสูงสุด 10 อันดับแรก
  */
 export async function fetchLeaderboard() {
@@ -115,5 +133,64 @@ export async function fetchLeaderboard() {
         .limit(10);
         
     if (error) console.error("Error fetching leaderboard:", error);
+    return { data, error };
+}
+
+/**
+ * ดึงสรุปอันดับของซีซั่นที่ผ่านๆ มา
+ */
+export async function fetchSeasonRankings(seasonNum) {
+    const { data, error } = await supabase
+        .from('season_history')
+        .select('player_id, final_score, created_at')
+        .eq('season_number', seasonNum)
+        .order('final_score', { ascending: false })
+        .limit(20);
+        
+    if (error) console.error("Error fetching season rankings:", error);
+    return { data, error };
+}
+
+/**
+ * ดึงอันดับ "สด" ของซีซั่นปัจจุบัน (ดึงจาก Pet States โดยตรง)
+ */
+export async function fetchLiveRankings(seasonNum) {
+    const { data, error } = await supabase
+        .from('pet_states')
+        .select('player_id, score, last_interaction_at')
+        .eq('current_season', seasonNum)
+        .order('score', { ascending: false })
+        .limit(20);
+        
+    if (error) console.error("Error fetching live rankings:", error);
+    return { data, error };
+}
+
+/**
+ * ดึงรายชื่อผู้เล่นทั้งหมด (สำหรับหน้าจัดการผู้เล่น)
+ */
+export async function fetchAllUsers(onlyBanned = false) {
+    let query = supabase
+        .from('pet_states')
+        .select('player_id, score, level, tokens, is_banned, last_interaction_at')
+        .order('last_interaction_at', { ascending: false });
+        
+    if (onlyBanned) query = query.eq('is_banned', true);
+    
+    const { data, error } = await query;
+    if (error) console.error("Error fetching users:", error);
+    return { data, error };
+}
+
+/**
+ * แบน/ปลดแบนผู้เล่น
+ */
+export async function setUserBanStatus(userId, status) {
+    const { data, error } = await supabase
+        .from('pet_states')
+        .update({ is_banned: status })
+        .eq('player_id', userId);
+        
+    if (error) console.error(`Error setting ban status for ${userId}:`, error);
     return { data, error };
 }

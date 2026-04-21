@@ -1,4 +1,4 @@
-import { loadPetState, savePetState, loadGameConfig } from '../services/supabase.js';
+import { loadPetState, savePetState, loadGameConfig, logSeasonHistory } from '../services/supabase.js';
 
 // --- ⚙️ Hyper-Granular Settings Factory (Sync with admin.js) ---
 const createDefaultSettings = (template, diff) => {
@@ -73,6 +73,7 @@ export const STATE = {
     score: 0,     
     hunger: 80, clean: 80, stamina: 100, love: 50,
     maxStamina: 100, xp: 0, level: 1, maxExp: 100,
+    current_season: 1, // ซีซั่นล่าสุดที่ผู้เล่นคนนี้เล่นล่าสุด
     config: {
         template: 'pet', 
         difficulty_mode: 'normal',
@@ -111,7 +112,45 @@ export async function loadState() {
     await loadGameConfigCloud();
     if (currentUserId !== "GUEST_USER") {
         const { data, error } = await loadPetState(currentUserId);
-        if (data) mergeSaveData(data);
+        if (data) {
+            mergeSaveData(data);
+            // --- 📅 Season Reset Logic (Lazy Reset) ---
+            const globalSeason = STATE.config.season_number || 1;
+            const playerSeason = STATE.current_season || 1;
+            
+            if (playerSeason < globalSeason) {
+                console.log(`NEW SEASON DETECTED! Resetting from S${playerSeason} to S${globalSeason}`);
+                
+                // 1. บันทึกผลงานเก่าลง History ก่อนสลายหายไป
+                await logSeasonHistory(currentUserId, playerSeason, STATE.score);
+                
+                // 2. รีเซ็ตค่าสำคัญทั้งหมด (เริ่มใหม่ 100% ยกเว้นสกิน)
+                STATE.score = 0;
+                STATE.level = 1;
+                STATE.xp = 0;
+                STATE.maxExp = 100;
+                STATE.tokens = 500; // รีเซ็ตเงินเริ่มต้นใหม่
+                STATE.hunger = 80;
+                STATE.clean = 80;
+                STATE.stamina = 100;
+                STATE.love = 50;
+                STATE.current_season = globalSeason;
+                
+                // รีเซ็ตภารกิจ
+                STATE.quests = { 
+                    feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, 
+                    special: STATE.quests.special, // รักษาชนิด Quest พิเศษไว้
+                    claimed: false 
+                };
+                
+                // บันทึกทับทันทีเพื่อให้ข้อมูลบน Cloud เป็นซีซั่นใหม่
+                savePetState(currentUserId, STATE);
+                
+                if (window.spawn) {
+                    window.spawn(`🎉 เริ่มต้นซีซั่นใหม่ ${STATE.config.season_name}! (เริ่มเก็บสะสมใหม่กัน!)`, "text-neon-pink font-black");
+                }
+            }
+        }
     }
 }
 
@@ -127,22 +166,43 @@ function mergeSaveData(d) {
     STATE.xp = d.xp ?? 0;
     STATE.level = d.level ?? 1;
     STATE.maxExp = d.maxExp ?? 100;
+    STATE.current_season = d.current_season ?? d.season_number ?? 1;
     if (d.inventory) STATE.inventory = d.inventory;
-    if (d.quests) STATE.quests = d.quests;
-    if (d.buffs) STATE.buffs = d.buffs;
+    if (d.quests || d.quests_data) STATE.quests = d.quests || d.quests_data;
+    if (d.buffs || d.buffs_data) STATE.buffs = d.buffs || d.buffs_data;
 }
 
-export function saveState() {
+const SYNC_CHANNEL = new BroadcastChannel('like-gotchi-state-sync');
+
+SYNC_CHANNEL.onmessage = (event) => {
+    if (event.data && event.data.type === 'STATE_UPDATED') {
+        const d = event.data.state;
+        // Merge incoming state without re-triggering save
+        mergeSaveData(d);
+        // Dispatch custom event for UI updates
+        window.dispatchEvent(new CustomEvent('state-synced'));
+    }
+};
+
+export function saveState(isSync = false) {
     const data = {
         username: STATE.username, pin_code: STATE.pin_code,
         tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
         hunger: STATE.hunger, clean: STATE.clean, stamina: STATE.stamina,
         love: STATE.love, xp: STATE.xp, level: STATE.level, maxExp: STATE.maxExp,
+        current_season: STATE.current_season,
         quests: STATE.quests, buffs: STATE.buffs, inventory: STATE.inventory
     };
+    
     localStorage.setItem('PW3D_SAVE_' + currentUserId, JSON.stringify(data));
+    
     if (currentUserId !== "GUEST_USER") {
         savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
+    }
+
+    // กระจายข้อมูลให้หน้าจออื่นทราบ (ถ้าไม่ได้เกิดจากการ Sync รับมา)
+    if (!isSync) {
+        SYNC_CHANNEL.postMessage({ type: 'STATE_UPDATED', state: data });
     }
 }
 
@@ -175,6 +235,9 @@ export function applyConfigToState(p) {
     STATE.config.sky = cleanP.sky || 'day';
     STATE.config.ground = cleanP.ground || 'grass';
     STATE.config.custom_model = cleanP.custom_model || '';
+    STATE.config.season_number = cleanP.season_number || 1;
+    STATE.config.season_name = cleanP.season_name || 'Beta Season';
+    STATE.config.season_duration = cleanP.season_duration || 15;
     if (cleanP.matrix) STATE.config.matrix = cleanP.matrix;
     if (cleanP.available_skins) STATE.config.available_skins = cleanP.available_skins;
 }
