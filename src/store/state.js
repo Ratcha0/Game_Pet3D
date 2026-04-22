@@ -6,63 +6,88 @@ const createDefaultSettings = (template, diff) => {
     const isEasy = diff === 'easy';
     
     // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
-    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0 : 0.055);
+    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0.055 : 0.065);
     const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
 
     return {
-        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, XP]
+        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
+        // ปรับให้โหมดยากได้แต้มเยอะกว่าชัดเจนเพื่อจูงใจการไต่อันดับ
         activities: {
-            feed:   { r: isEasy ? 18 : (isHard ? 6 : 12), s: isEasy ? 5 : (isHard ? 15 : 8), xp: isEasy ? 15 : (isHard ? 25 : 20) },
-            clean:  { r: isEasy ? 20 : (isHard ? 7 : 14), s: isEasy ? 4 : (isHard ? 12 : 6), xp: isEasy ? 12 : (isHard ? 20 : 15) },
-            repair: { r: isEasy ? 15 : (isHard ? 5 : 10), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 10 : (isHard ? 15 : 12) },
-            play:   { r: isEasy ? 18 : (isHard ? 6 : 10), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 25 : (isHard ? 45 : 35) }
+            feed:   { r: isEasy ? 15 : (isHard ? 8 : 12), s: isEasy ? 3 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
+            clean:  { r: isEasy ? 18 : (isHard ? 7 : 14), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
+            repair: { r: isEasy ? 12 : (isHard ? 6 : 10), s: isEasy ? 2 : (isHard ? 8 : 4), xp: isEasy ? 30 : (isHard ? 100 : 55) },
+            play:   { r: isEasy ? 20 : (isHard ? 10 : 18), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
         },
-        // 2. รางวัล (Rewards) - [เหรียญ, เวลาแสดงผล, โอกาสเกิด]
+        // 2. รางวัลไอเทมบนแมพ (Rewards) - Config แบบ 3 ระดับใหม่
         rewards: {
-            legendary_tokens: isEasy ? 600 : (isHard ? 200 : 350),
-            legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
-            legendary_rate: isEasy ? 8 : (isHard ? 2 : 4), // % โอกาสเกิด Legendary จากกล่องสุ่ม
-            rare_tokens: isEasy ? 200 : (isHard ? 80 : 120),
-            rare_time: isEasy ? 20 : (isHard ? 10 : 15),
-            rare_rate: isEasy ? 30 : (isHard ? 10 : 18) // % โอกาสเกิด Rare จากกล่องสุ่ม
+            silver_min: isEasy ? 50 : (isHard ? 20 : 30),
+            silver_max: isEasy ? 100 : (isHard ? 50 : 80),
+            gold_min: isEasy ? 200 : (isHard ? 100 : 150),
+            gold_max: isEasy ? 500 : (isHard ? 300 : 400),
+            gold_rate: isEasy ? 30 : (isHard ? 15 : 20),
+            diamond_min: isEasy ? 1000 : (isHard ? 500 : 750),
+            diamond_max: isEasy ? 2000 : (isHard ? 1200 : 1500),
+            diamond_rate: isEasy ? 5 : (isHard ? 1 : 3)
         },
-        // 3. ภารกิจ (Quests)
+        // 3. ภารกิจรายวัน (Quests)
+        // ตั้งเป้า 1M(H) / 700k(N) / 500k(E)
         quests: {
-            target_feed: isEasy ? 3 : (isHard ? 12 : 6),
-            target_clean: isEasy ? 2 : (isHard ? 10 : 5),
-            target_play: isEasy ? 1 : (isHard ? 6 : 3),
-            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.8), // รางวัลโหมด Hard จะมีมูลค่าสูงกว่า
-            base_tokens: 200,
-            base_score: 2000
+            target_feed: isEasy ? 2 : (isHard ? 8 : 4),
+            target_clean: isEasy ? 1 : (isHard ? 6 : 3),
+            target_play: isEasy ? 1 : (isHard ? 3 : 2),
+            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4), // Gap 1.0 -> 1.4 -> 2.5
+            base_tokens: isEasy ? 300 : (isHard ? 400 : 430), // Multiply result -> H:1000, N:600, E:300
+            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150), // Multiply result -> H:15000, N:10000, E:4000
+            // Special Quest Targets
+            target_scoop: isEasy ? 3 : (isHard ? 15 : 8),
+            target_fever: isEasy ? 1 : (isHard ? 4 : 2),
+            target_spend: isEasy ? 500 : (isHard ? 2000 : 1000)
         },
-        // 4. ร้านค้า (Shop)
+        // 4. ร้านค้า (Shop Economy)
+        // ปรับให้สอดคล้องกับพฤติกรรม: "รวยขึ้นแต่ต้องจ่ายเพื่อปั๊มแต้ม"
         shop: {
-            small_tokens: isHard ? 650 : 500, small_amount: isHard ? 40 : 50,
-            medium_tokens: isHard ? 1200 : 1000, medium_amount: isHard ? 85 : 110,
-            large_tokens: isHard ? 2800 : 2200, large_amount: isHard ? 180 : 250
+            small_tokens: isHard ? 600 : 450, small_amount: 50,
+            medium_tokens: isHard ? 1400 : 1000, medium_amount: 120,
+            large_tokens: isHard ? 3200 : 2500, large_amount: 300
         },
         // 5. กลไกหลัก (Mechanics)
+        // กฎ 1-2-10: รอ 1 นาที สนุก 10 นาที (ในโหมดปกติ)
         mechanics: {
-            dec_hunger: isHard ? 0.22 : (isEasy ? 0.05 : 0.11), // เพิ่มความเร็วในการลด
-            dec_clean:  isHard ? 0.12 : (isEasy ? 0.03 : 0.07),
-            dec_happy:  isHard ? 0.18 : (isEasy ? 0.03 : 0.09),
-            reg_stamina: isEasy ? 0.8 : (isHard ? 0.25 : 0.50), // โหมด Hard ฟื้นตัวช้าลงมาก
-            sp_min: isHard ? 20 : (isEasy ? 10 : 20),
-            sp_max: isHard ? 60 : (isEasy ? 30 : 50),
-            rare_rate: isHard ? 3 : (isEasy ? 18 : 10), 
-            dec_happy_poop: isHard ? 35 : (isEasy ? 5 : 15),
-            fever_threshold: isEasy ? 70 : (isHard ? 95 : 85),
-            fever_mult: isEasy ? 2.0 : (isHard ? 1.2 : 1.5),
-            poop_lifetime: isHard ? 10 : (isEasy ? 60 : 25),
-            reward_lifetime: isHard ? 8 : (isEasy ? 40 : 15),
-            max_poops: isHard ? 15 : (isEasy ? 5 : 10),
-            max_rewards: isHard ? 8 : (isEasy ? 3 : 5)
+            dec_hunger: isHard ? 0.18 : (isEasy ? 0.04 : 0.08), 
+            dec_clean:  isHard ? 0.10 : (isEasy ? 0.02 : 0.05),
+            dec_happy:  isHard ? 0.12 : (isEasy ? 0.03 : 0.06),
+            reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75), 
+            sp_min: isHard ? 15 : (isEasy ? 30 : 20),
+            sp_max: isHard ? 45 : (isEasy ? 90 : 60),
+            rare_rate: isHard ? 12 : (isEasy ? 5 : 8),
+            // สเปคการดรอป: จำกัดรวม 6 ชิ้น และอยู่นานขึ้นเพื่อให้เก็บทัน (AFK Friendly)
+            poop_lifetime: isEasy ? 300 : (isHard ? 90 : 180), 
+            reward_lifetime: isEasy ? 240 : (isHard ? 80 : 150),
+            max_poops: 3, max_rewards: 3,
+            dec_happy_poop: isHard ? 30 : (isEasy ? 5 : 15),
+            fever_threshold: 85, fever_mult: 1.5
         },
-        // 6. ฟิสิกส์ (Physics)
+        // 6. บัฟและไอเทมเสริม (Boosters) - [ราคา, ตัวคูณ, ระยะเวลา(นาที)]
+        boosters: {
+            score: { cost: 300, mult: 1.10, duration: 15 }, // +10% Score / 15m
+            decay: { cost: 450, mult: 0.80, duration: 20 }, // -20% Hunger Decay / 20m
+            luck:  { cost: 500, mult: 1.50, duration: 10 }  // x1.5 Rare Rate / 10m
+        },
+        // 7. ฟิสิกส์ (Physics)
         physics: {
-            speed: isHard ? baseSpeed * 0.95 : baseSpeed,
-            scale: isHard ? baseScale * 0.85 : baseScale
-        }
+            speed: isHard ? baseSpeed * 1.15 : baseSpeed,
+            scale: baseScale
+        },
+        // 8. รางวันเช็คอินรายวัน (Login Rewards)
+        login_rewards: [
+            { day: 1, tokens: 100 },
+            { day: 2, tokens: 150 },
+            { day: 3, tokens: 200 },
+            { day: 4, tokens: 250 },
+            { day: 5, tokens: 300 },
+            { day: 6, tokens: 400 },
+            { day: 7, tokens: 1000 }
+        ]
     };
 };
 
@@ -72,8 +97,10 @@ export const STATE = {
     tokens: 500,  
     score: 0,     
     hunger: 80, clean: 80, stamina: 100, love: 50,
-    maxStamina: 100, xp: 0, level: 1, maxExp: 100,
-    current_season: 1, // ซีซั่นล่าสุดที่ผู้เล่นคนนี้เล่นล่าสุด
+    maxStamina: 100, xp: 0, level: 1, maxExp: 200,
+    current_season: 1,
+    login_streak: 0,
+    last_login_date: "",
     config: {
         template: 'pet', 
         difficulty_mode: 'normal',
@@ -88,7 +115,12 @@ export const STATE = {
         }
     },
     quests: { feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' }, claimed: false },
-    buffs: { regen: 1.0, regen_expiry: 0 },
+    buffs: { 
+        score_mult: 1.0, score_expiry: 0,
+        decay_mult: 1.0, decay_expiry: 0,
+        luck_mult: 1.0, luck_expiry: 0,
+        regen: 1.0, regen_expiry: 0 
+    },
     inventory: { skins: [], equipped_skins: {} }
 };
 
@@ -103,8 +135,23 @@ export let currentUserId = "GUEST_USER";
 export function setUserId(id) { currentUserId = id; }
 
 export function resetStateToDefaults() {
-    STATE.tokens = 500; STATE.score = 0; STATE.hunger = 80; STATE.clean = 80; STATE.stamina = 100; STATE.love = 50;
-    STATE.xp = 0; STATE.level = 1; STATE.maxExp = 100;
+    STATE.tokens = 500; 
+    STATE.score = 0; 
+    STATE.hunger = 80; 
+    STATE.clean = 80; 
+    STATE.stamina = 100; 
+    STATE.love = 50;
+    STATE.xp = 0; 
+    STATE.level = 1; 
+    STATE.maxExp = 200;
+    STATE.inventory = { skins: [], equipped_skins: {} };
+    STATE.quests = { feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' }, claimed: false };
+    STATE.buffs = { 
+        score_mult: 1.0, score_expiry: 0,
+        decay_mult: 1.0, decay_expiry: 0,
+        luck_mult: 1.0, luck_expiry: 0,
+        regen: 1.0, regen_expiry: 0 
+    };
 }
 
 export async function loadState() {
@@ -176,9 +223,12 @@ const SYNC_CHANNEL = new BroadcastChannel('like-gotchi-state-sync');
 
 SYNC_CHANNEL.onmessage = (event) => {
     if (event.data && event.data.type === 'STATE_UPDATED') {
-        const d = event.data.state;
+        const { userId, state } = event.data;
+        // 🔒 ป้องกันการ Sync ข้อมูลข้ามบัญชีในบราวเซอร์เดียวกัน
+        if (userId !== currentUserId) return;
+
         // Merge incoming state without re-triggering save
-        mergeSaveData(d);
+        mergeSaveData(state);
         // Dispatch custom event for UI updates
         window.dispatchEvent(new CustomEvent('state-synced'));
     }
@@ -200,9 +250,9 @@ export function saveState(isSync = false) {
         savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
     }
 
-    // กระจายข้อมูลให้หน้าจออื่นทราบ (ถ้าไม่ได้เกิดจากการ Sync รับมา)
+    // กระจายข้อมูลให้หน้าจออื่นทราบ โดยระบุสิทธิ์ความเป็นเจ้าของ
     if (!isSync) {
-        SYNC_CHANNEL.postMessage({ type: 'STATE_UPDATED', state: data });
+        SYNC_CHANNEL.postMessage({ type: 'STATE_UPDATED', userId: currentUserId, state: data });
     }
 }
 
@@ -210,11 +260,29 @@ export function saveState(isSync = false) {
 export function getActiveConfig() {
     const t = STATE.config.template || 'pet';
     const d = STATE.config.difficulty_mode || 'normal';
+    const defaults = createDefaultSettings(t, d);
     
-    if (!STATE.config.matrix[t]) return createDefaultSettings(t, d);
-    if (!STATE.config.matrix[t][d]) return createDefaultSettings(t, d);
+    // หากไม่มี Matrix ให้ใช้ค่าเริ่มต้น
+    if (!STATE.config.matrix[t] || !STATE.config.matrix[t][d]) {
+        return defaults;
+    }
     
-    return STATE.config.matrix[t][d];
+    const active = STATE.config.matrix[t][d];
+    
+    // Deep Merge เพื่อป้องกันกรณี Config เก่าไม่มีระบบใหม่ (เช่น boosters, login_rewards)
+    return {
+        ...defaults,
+        ...active,
+        // เจาะจงส่วนที่มักจะเพิ่มใหม่
+        activities: { ...defaults.activities, ...(active.activities || {}) },
+        rewards: { ...defaults.rewards, ...(active.rewards || {}) },
+        mechanics: { ...defaults.mechanics, ...(active.mechanics || {}) },
+        quests: { ...defaults.quests, ...(active.quests || {}) },
+        shop: { ...defaults.shop, ...(active.shop || {}) },
+        boosters: { ...defaults.boosters, ...(active.boosters || {}) },
+        physics: { ...defaults.physics, ...(active.physics || {}) },
+        login_rewards: (active.login_rewards && active.login_rewards.length > 0) ? active.login_rewards : defaults.login_rewards
+    };
 }
 
 // ฟังก์ชันล้างข้อมูล URL พังๆ (เช่น ติดพอร์ต 3000 มาจาก DB)

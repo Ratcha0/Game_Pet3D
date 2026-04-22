@@ -173,7 +173,7 @@
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content space-y-6">
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="grid grid-cols-2 gap-6 pb-2">
                             <div class="p-4 bg-neon-cyan/5 rounded-xl border border-neon-cyan/10">
                                 <label class="text-neon-cyan underline">หลอดพลังงานผู้เล่น (Stamina)</label>
                                 <div class="space-y-4 mt-2">
@@ -184,18 +184,18 @@
                             <div class="p-4 bg-neon-pink/5 rounded-xl border border-neon-pink/10">
                                 <label class="text-neon-pink underline">การดรอปขยะ (Spawn Delay)</label>
                                 <div class="grid grid-cols-2 gap-2 mt-2">
-                                    <div><label class="opacity-70 text-[9px]">เร็วสุด</label><input type="number" data-path="mechanics.sp_min" class="matrix-input"></div>
-                                    <div><label class="opacity-70 text-[9px]">นานสุด</label><input type="number" data-path="mechanics.sp_max" class="matrix-input"></div>
+                                    <div><label class="opacity-70 text-[9px]">เร็วสุด (วิ)</label><input type="number" data-path="mechanics.sp_min" class="matrix-input"></div>
+                                    <div><label class="opacity-70 text-[9px]">นานสุด (วิ)</label><input type="number" data-path="mechanics.sp_max" class="matrix-input"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <!-- Section 3: Action Balancing -->
+                <!-- Section 3: Action Summary Table -->
                 <section class="glass rounded-2xl overflow-hidden border border-white/5" id="sec-actions">
                     <div class="collapsible-header" onclick="toggleSection('sec-actions')">
-                        <div class="flex items-center gap-3">⚙️ <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">สมดุลของกิจกรรม</div></div>
+                        <div class="flex items-center gap-3">📋 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">สรุปค่าตอบแทนกิจกรรม (Overview)</div></div>
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content overflow-x-auto">
@@ -204,117 +204,174 @@
                                 <th class="pb-3 uppercase">กิจกรรม</th><th class="pb-3 text-neon-emerald">+ฟื้นฟู</th><th class="pb-3 text-rose-400">-ใช้ไฟ</th><th class="pb-3 text-neon-gold">XP</th>
                             </tr></thead>
                             <tbody class="font-bold">
-                                <tr><td class="py-2">🍖 ป้อนอาหาร</td><td><input type="number" data-path="activities.feed.r" class="matrix-input"></td><td><input type="number" data-path="activities.feed.s" class="matrix-input"></td><td><input type="number" data-path="activities.feed.xp" class="matrix-input"></td></tr>
-                                <tr><td class="py-2">🧼 อาบน้ำ</td><td><input type="number" data-path="activities.clean.r" class="matrix-input"></td><td><input type="number" data-path="activities.clean.s" class="matrix-input"></td><td><input type="number" data-path="activities.clean.xp" class="matrix-input"></td></tr>
-                                <tr><td class="py-2">💩 เก็บกวาด</td><td><input type="number" data-path="activities.repair.r" class="matrix-input"></td><td><input type="number" data-path="activities.repair.s" class="matrix-input"></td><td><input type="number" data-path="activities.repair.xp" class="matrix-input"></td></tr>
-                                <tr><td class="py-2">🎾 เล่นด้วย</td><td><input type="number" data-path="activities.play.r" class="matrix-input"></td><td><input type="number" data-path="activities.play.s" class="matrix-input"></td><td><input type="number" data-path="activities.play.xp" class="matrix-input"></td></tr>
+                                <tr><td class="py-2">🍖 ป้อนอาหาร</td><td><input type="number" data-path="activities.feed.r" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.feed.s" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.feed.xp" class="matrix-input !py-1"></td></tr>
+                                <tr><td class="py-2">🧼 อาบน้ำ</td><td><input type="number" data-path="activities.clean.r" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.clean.s" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.clean.xp" class="matrix-input !py-1"></td></tr>
+                                <tr><td class="py-2">💩 เก็บกวาด</td><td><input type="number" data-path="activities.repair.r" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.repair.s" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.repair.xp" class="matrix-input !py-1"></td></tr>
+                                <tr><td class="py-2">🎾 เล่นด้วย</td><td><input type="number" data-path="activities.play.r" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.play.s" class="matrix-input !py-1"></td><td><input type="number" data-path="activities.play.xp" class="matrix-input !py-1"></td></tr>
                             </tbody>
                         </table>
                     </div>
                 </section>
 
-            <!-- ⚙️ ระบบสมดุลกลไก (Passive Mechanics & Spawning) -->
-            <div class="bg-slate-900/50 rounded-3xl border border-white/5 overflow-hidden mb-6">
-                <button onclick="toggleSection('sec-mechanics')" class="w-full px-8 py-5 flex items-center justify-between hover:bg-white/5 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <span class="text-xl">⚙️</span>
-                        <span class="font-bold text-slate-300 uppercase tracking-widest text-sm">สมดุลกลไกและจังหวะการเกิดสุ่ม</span>
+                <!-- Section 4: Activity Tuning Console (Visual Detail) -->
+                <section class="glass rounded-2xl overflow-hidden border border-rose-500/20" id="sec-activities-tuning">
+                    <div class="collapsible-header" onclick="toggleSection('sec-activities-tuning')">
+                        <div class="flex items-center gap-3">🎮 <div class="text-[10px] font-bold text-rose-400 uppercase tracking-[0.3em]">ปรับจูนค่าวัดผลกิจกรรม (Activity Console)</div></div>
+                        <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                </button>
-                <div id="sec-mechanics" class="px-8 pb-8 space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <!-- อัตราการลดลง -->
-                        <div class="space-y-4">
-                            <h4 class="text-[10px] font-black text-cyan-400 uppercase tracking-widest border-b border-cyan-400/20 pb-2">อัตราการลดลงตามธรรมชาติ (ต่อ 5 วินาที)</h4>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ลดความหิว</label>
-                                    <input type="number" step="0.01" data-path="mechanics.dec_hunger" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ลดความสะอาด</label>
-                                    <input type="number" step="0.01" data-path="mechanics.dec_clean" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ลดความรัก</label>
-                                    <input type="number" step="0.01" data-path="mechanics.dec_happy" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ฟื้นฟูพลังงาน (Regen)</label>
-                                    <input type="number" step="0.01" data-path="mechanics.reg_stamina" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                            </div>
-                        </div>
-                        <!-- จังหวะการเกิดไอเทมสุ่ม -->
-                        <div class="space-y-4">
-                            <h4 class="text-[10px] font-black text-neon-pink uppercase tracking-widest border-b border-neon-pink/20 pb-2">จังหวะการเกิดไอเทมสุ่มบนแมพ</h4>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ระยะสุ่มเร็วสุด (วินาที)</label>
-                                    <input type="number" data-path="mechanics.sp_min" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">ระยะสุ่มช้าสุด (วินาที)</label>
-                                    <input type="number" data-path="mechanics.sp_max" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">โอกาสเกิดทอง/หายาก (%)</label>
-                                    <input type="number" data-path="mechanics.rare_rate" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] text-slate-500 uppercase mb-2">โทษเมื่อไม่เก็บอึ (ความรัก -)</label>
-                                    <input type="number" data-path="mechanics.dec_happy_poop" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                                </div>
-                            </div>
+                    <div class="collapsible-content p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                             <!-- Feed Tuning -->
+                             <div class="p-4 bg-orange-500/5 rounded-2xl border border-orange-500/10 space-y-3">
+                                 <div class="text-orange-400 font-black text-[9px] uppercase border-b border-orange-500/10 pb-1.5 flex justify-between">
+                                     <span>🍕 Feed</span>
+                                     <span class="opacity-30">ป้อน</span>
+                                 </div>
+                                 <div class="space-y-2">
+                                     <div><label class="text-[8px] opacity-40">ฟื้นฟู (%)</label><input type="number" data-path="activities.feed.r" class="matrix-input !py-1 text-xs"></div>
+                                     <div><label class="text-[8px] opacity-40">ใช้ Stamina</label><input type="number" data-path="activities.feed.s" class="matrix-input !py-1 text-xs"></div>
+                                 </div>
+                             </div>
+                             <!-- Clean Tuning -->
+                             <div class="p-4 bg-cyan-500/5 rounded-2xl border border-cyan-500/10 space-y-3">
+                                 <div class="text-cyan-400 font-black text-[9px] uppercase border-b border-cyan-500/10 pb-1.5 flex justify-between">
+                                     <span>🧼 Clean</span>
+                                     <span class="opacity-30">อาบน้ำ</span>
+                                 </div>
+                                 <div class="space-y-2">
+                                     <div><label class="text-[8px] opacity-40">ฟื้นฟู (%)</label><input type="number" data-path="activities.clean.r" class="matrix-input !py-1 text-xs"></div>
+                                     <div><label class="text-[8px] opacity-40">ใช้ Stamina</label><input type="number" data-path="activities.clean.s" class="matrix-input !py-1 text-xs"></div>
+                                 </div>
+                             </div>
+                             <!-- Repair Tuning -->
+                             <div class="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 space-y-3">
+                                 <div class="text-emerald-400 font-black text-[9px] uppercase border-b border-emerald-500/10 pb-1.5 flex justify-between">
+                                     <span>💩 Repair</span>
+                                     <span class="opacity-30">เก็บกวาด</span>
+                                 </div>
+                                 <div class="space-y-2">
+                                     <div><label class="text-[8px] opacity-40">ฟื้นฟู (%)</label><input type="number" data-path="activities.repair.r" class="matrix-input !py-1 text-xs"></div>
+                                     <div><label class="text-[8px] opacity-40">ใช้ Stamina</label><input type="number" data-path="activities.repair.s" class="matrix-input !py-1 text-xs"></div>
+                                 </div>
+                             </div>
+                             <!-- Play Tuning -->
+                             <div class="p-4 bg-pink-500/5 rounded-2xl border border-pink-500/10 space-y-3">
+                                 <div class="text-pink-400 font-black text-[9px] uppercase border-b border-pink-500/10 pb-1.5 flex justify-between">
+                                     <span>🎾 Play</span>
+                                     <span class="opacity-30">เล่น</span>
+                                 </div>
+                                 <div class="space-y-2">
+                                     <div><label class="text-[8px] opacity-40">ฟื้นฟู (%)</label><input type="number" data-path="activities.play.r" class="matrix-input !py-1 text-xs"></div>
+                                     <div><label class="text-[8px] opacity-40">ใช้ Stamina</label><input type="number" data-path="activities.play.s" class="matrix-input !py-1 text-xs"></div>
+                                 </div>
+                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Fever Mode Settings -->
-                    <div class="space-y-4 pt-4 border-t border-white/5">
-                        <h4 class="text-[10px] font-black text-neon-gold uppercase tracking-widest">FEVER MODE (สถานะความสุขล้น)</h4>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div>
-                                <label class="block text-[10px] text-slate-500 uppercase mb-2">เกณฑ์เปิดโหมด (%)</label>
-                                <input type="number" data-path="mechanics.fever_threshold" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] text-slate-500 uppercase mb-2">ตัวคูณ Stamina Regen (x)</label>
-                                <input type="number" step="0.1" data-path="mechanics.fever_mult" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] text-slate-500 uppercase mb-2">ความเร็วเดินฐาน (BASE SPEED)</label>
-                                <input type="number" step="0.01" data-path="physics.speed" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] text-slate-500 uppercase mb-2">ขนาดโมเดลฐาน (SCALE)</label>
-                                <input type="number" step="0.1" data-path="physics.scale" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white matrix-input">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-                <!-- Section 4: Rare Items & Rewards -->
-                <section class="glass rounded-2xl overflow-hidden border border-neon-gold/20" id="sec-rewards">
+                <!-- Section 5: The 3-Tier Economy Console -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-gold/30" id="sec-rewards">
                     <div class="collapsible-header" onclick="toggleSection('sec-rewards')">
-                        <div class="flex items-center gap-3">💎 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ไอเทมหายากและรางวัลพิเศษ</div></div>
+                        <div class="flex items-center gap-3">💰 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">เศรษฐกิจเหรียญทอง 3 ระดับ (Economy)</div></div>
+                        <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+                                <div class="font-black text-white/50 text-[10px] uppercase tracking-widest border-b border-white/5 pb-2">🥈 Silver (ปกติ)</div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div><label>Min</label><input type="number" data-path="rewards.silver_min" class="matrix-input"></div>
+                                    <div><label>Max</label><input type="number" data-path="rewards.silver_max" class="matrix-input"></div>
+                                </div>
+                            </div>
+                            <div class="p-5 bg-neon-gold/5 rounded-2xl border border-neon-gold/10 space-y-4">
+                                <div class="font-black text-neon-gold text-[10px] uppercase tracking-widest border-b border-neon-gold/10 pb-2">🥇 Gold (หายาก)</div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div><label>Min</label><input type="number" data-path="rewards.gold_min" class="matrix-input"></div>
+                                    <div><label>Max</label><input type="number" data-path="rewards.gold_max" class="matrix-input"></div>
+                                </div>
+                                <div><label>โอกาสดรอป (%)</label><input type="number" data-path="rewards.gold_rate" class="matrix-input"></div>
+                            </div>
+                            <div class="p-5 bg-neon-cyan/5 rounded-2xl border border-neon-cyan/10 space-y-4">
+                                <div class="font-black text-neon-cyan text-[10px] uppercase tracking-widest border-b border-neon-cyan/10 pb-2">💎 Diamond (ตำนาน)</div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div><label>Min</label><input type="number" data-path="rewards.diamond_min" class="matrix-input"></div>
+                                    <div><label>Max</label><input type="number" data-path="rewards.diamond_max" class="matrix-input"></div>
+                                </div>
+                                <div><label>โอกาสดรอป (%)</label><input type="number" data-path="rewards.diamond_rate" class="matrix-input"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 6: Fever & Physics Console -->
+                <section class="glass rounded-2xl overflow-hidden border border-amber-500/20" id="sec-physics">
+                    <div class="collapsible-header" onclick="toggleSection('sec-physics')">
+                        <div class="flex items-center gap-3">🌀 <div class="text-[10px] font-bold text-amber-500 uppercase tracking-[0.3em]">โหมด Fever และกายภาพ (Physics)</div></div>
+                        <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content p-6">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pb-2">
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                                <label class="opacity-50">เกณฑ์ฟีเวอร์ (%)</label><input type="number" data-path="mechanics.fever_threshold" class="matrix-input">
+                            </div>
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                                <label class="opacity-50">Stamina x (Fever)</label><input type="number" step="0.1" data-path="mechanics.fever_mult" class="matrix-input">
+                            </div>
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                                <label class="opacity-50">ความเร็วเดิน (Base)</label><input type="number" step="0.01" data-path="physics.speed" class="matrix-input">
+                            </div>
+                            <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                                <label class="opacity-50">ขนาดตัว (Scale)</label><input type="number" step="0.1" data-path="physics.scale" class="matrix-input">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 7: Passive Mechanics, Boosters & Daily Rewards -->
+                <section class="glass rounded-2xl overflow-hidden border border-white/5" id="sec-passive">
+                    <div class="collapsible-header" onclick="toggleSection('sec-passive')">
+                        <div class="flex items-center gap-3">📊 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">กลไกต่อเนื่องและระบบบัฟ (Passive)</div></div>
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                    <div class="collapsible-content">
-                        <div class="grid grid-cols-2 gap-6 p-8">
-                            <div class="p-4 bg-white/5 rounded-xl border border-neon-cyan/20">
-                                <label class="text-neon-cyan text-[10px] uppercase font-black mb-3 block">ไอเทมระดับตำนาน (Legendary)</label>
-                                <div class="grid grid-cols-2 gap-3 mt-2">
-                                    <div><label class="opacity-50 text-[9px]">เหรียญที่จะได้รับ</label><input type="number" data-path="rewards.legendary_tokens" class="matrix-input"></div>
-                                    <div><label class="opacity-50 text-[9px]">เวลาที่แสดง (วินาที)</label><input type="number" data-path="rewards.legendary_time" class="matrix-input"></div>
+                    <div class="collapsible-content p-6 space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-4">
+                                <h4 class="text-[9px] font-black text-cyan-400 uppercase tracking-widest border-b border-cyan-400/20 pb-2">📉 อัตราการลดลง (ต่อ 5 วินาที)</h4>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div><label class="text-[8px] opacity-40">ความหิว</label><input type="number" step="0.01" data-path="mechanics.dec_hunger" class="matrix-input !py-1"></div>
+                                    <div><label class="text-[8px] opacity-40">ความสะอาด</label><input type="number" step="0.01" data-path="mechanics.dec_clean" class="matrix-input !py-1"></div>
+                                    <div><label class="text-[8px] opacity-40">ความรัก</label><input type="number" step="0.01" data-path="mechanics.dec_happy" class="matrix-input !py-1"></div>
                                 </div>
                             </div>
-                            <div class="p-4 bg-white/5 rounded-xl border border-neon-emerald/20">
-                                <label class="text-neon-emerald text-[10px] uppercase font-black mb-3 block">ไอเทมระดับหายาก (Rare)</label>
-                                <div class="grid grid-cols-2 gap-3 mt-2">
-                                    <div><label class="opacity-50 text-[9px]">เหรียญที่จะได้รับ</label><input type="number" data-path="rewards.rare_tokens" class="matrix-input"></div>
-                                    <div><label class="opacity-50 text-[9px]">เวลาที่แสดง (วินาที)</label><input type="number" data-path="rewards.rare_time" class="matrix-input"></div>
+                            <div class="space-y-4">
+                                <h4 class="text-[9px] font-black text-neon-pink uppercase tracking-widest border-b border-neon-pink/20 pb-2">🍀 โอกาสเกิดทองและโทษขยะ</h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="text-[8px] opacity-40">หายาก (%)</label><input type="number" data-path="mechanics.rare_rate" class="matrix-input !py-1"></div>
+                                    <div><label class="text-[8px] opacity-40">โทษความรัก (-)</label><input type="number" data-path="mechanics.dec_happy_poop" class="matrix-input !py-1"></div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-6 border-t border-white/5">
+                            <h4 class="text-[9px] font-black text-neon-gold uppercase tracking-widest mb-4">🛡️ ระบบไอเทมรักษา (Booster Cost)</h4>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="p-3 bg-white/5 rounded-lg border border-white/5"><label class="text-[8px] text-amber-400">SCORE (🪙)</label><input type="number" data-path="boosters.score.cost" class="matrix-input !py-1"></div>
+                                <div class="p-3 bg-white/5 rounded-lg border border-white/5"><label class="text-[8px] text-blue-400">DECAY (🪙)</label><input type="number" data-path="boosters.decay.cost" class="matrix-input !py-1"></div>
+                                <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] text-emerald-400">LUCK (🪙)</label><input type="number" data-path="boosters.luck.cost" class="matrix-input !py-1"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-6 border-t border-white/5">
+                            <h4 class="text-[9px] font-black text-neon-cyan uppercase tracking-widest mb-4">📆 ล็อกอินรายวัน (7 Days Rewards)</h4>
+                            <div class="grid grid-cols-7 gap-1.5 focus-within:ring-1 ring-neon-cyan/20 rounded-lg overflow-hidden">
+                                <input type="number" data-path="login_rewards.0.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 1">
+                                <input type="number" data-path="login_rewards.1.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 2">
+                                <input type="number" data-path="login_rewards.2.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 3">
+                                <input type="number" data-path="login_rewards.3.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 4">
+                                <input type="number" data-path="login_rewards.4.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 5">
+                                <input type="number" data-path="login_rewards.5.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 6">
+                                <input type="number" data-path="login_rewards.6.tokens" class="matrix-input !rounded-none !px-1 text-center" title="Day 7">
                             </div>
                         </div>
                     </div>

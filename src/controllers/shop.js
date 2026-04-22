@@ -4,7 +4,10 @@ import { SFX } from '../services/sound.js';
 import { updateTemplate } from '../engine/3d_engine.js';
 
 const getAvailableSkins = () => {
-    return STATE.config.available_skins || [
+    if (STATE.config.available_skins && STATE.config.available_skins.length > 0) {
+        return STATE.config.available_skins;
+    }
+    return [
         { id: 'cat-toon', template: 'pet', name: 'Classic Cat', desc: 'แมวหน้าบูดคู่บุญ', icon: '🐱', cost: 0, model: '/toon_cat_free.glb', colorCls: 'neon-gold' },
         { id: 'plant-stylized', template: 'plant', name: 'Classic Tree', desc: 'ต้นไม้แห้งๆ', icon: '🌳', cost: 0, model: '/stylized_tree.glb', colorCls: 'emerald' },
         { id: 'car-carton', template: 'car', name: 'Classic Car', desc: 'รถบังคับสุดจ๊าบ', icon: '🚗', cost: 0, model: '/car_carton.glb', colorCls: 'emerald', rotationY: 3.14159 },
@@ -125,41 +128,59 @@ export function initShop() {
     window.toggleShop = (close) => {
         const m = document.getElementById('shop-modal'); 
         if(!m) return;
-        if(close) m.classList.add('translate-y-full');
-        else {
-            m.classList.remove('translate-y-full');
+        if(close) {
+            m.classList.add('opacity-0', 'translate-y-8', 'pointer-events-none');
+            m.classList.remove('opacity-100', 'translate-y-0');
+            setTimeout(() => { if(m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 500);
+        } else {
+            // Close other modals
+            if (window.toggleQuest) window.toggleQuest(true);
+            if (window.toggleRanking) window.toggleRanking(true);
+            if (window.toggleNameModal) window.toggleNameModal(true);
+            
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0', 'translate-y-8', 'pointer-events-none');
+                m.classList.add('opacity-100', 'translate-y-0');
+            }, 10);
+            
             if (window.renderShopSkins) window.renderShopSkins();
+            if (window.renderShopBoosters) window.renderShopBoosters();
         }
     };
 
-    window.switchShopTab = (tabName) => {
+    window.switchShopTab = (tab) => {
         const tabStamina = document.getElementById('shop-tab-stamina');
+        const tabBoosters = document.getElementById('shop-tab-boosters');
         const tabSkins = document.getElementById('shop-tab-skins');
         const btnStamina = document.getElementById('btn-tab-stamina');
+        const btnBoosters = document.getElementById('btn-tab-boosters');
         const btnSkins = document.getElementById('btn-tab-skins');
-        
-        if (!tabStamina || !tabSkins) return;
+        if (!tabStamina || !tabSkins || !tabBoosters) return;
 
-        SFX.playAsset('click');
+        // Reset all: Remove block and add hidden
+        [tabStamina, tabBoosters, tabSkins].forEach(t => { 
+            t.classList.add('hidden'); 
+            t.classList.remove('block'); 
+        });
+        [btnStamina, btnBoosters, btnSkins].forEach(b => { 
+            b.className = "flex-1 py-3 rounded-lg text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all text-white/40 hover:bg-white/10 hover:text-white"; 
+        });
 
-        if (tabName === 'stamina') {
+        if (tab === 'stamina') {
             tabStamina.classList.remove('hidden');
             tabStamina.classList.add('block');
-            tabSkins.classList.remove('block');
-            tabSkins.classList.add('hidden');
-            
-            btnStamina.className = "flex-1 py-3 sm:py-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
-            btnSkins.className = "flex-1 py-3 sm:py-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all text-white/40 hover:bg-white/10 hover:text-white";
-        } else {
+            btnStamina.className = "flex-1 py-3 rounded-lg text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
+        } else if (tab === 'boosters') {
+            tabBoosters.classList.remove('hidden');
+            tabBoosters.classList.add('block');
+            btnBoosters.className = "flex-1 py-3 rounded-lg text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all bg-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]";
+            if (window.renderShopBoosters) window.renderShopBoosters();
+        } else if (tab === 'skins') {
             tabSkins.classList.remove('hidden');
             tabSkins.classList.add('block');
-            tabStamina.classList.remove('block');
-            tabStamina.classList.add('hidden');
-            
-            window.renderShopSkins(); // Render before display
-            
-            btnSkins.className = "flex-1 py-3 sm:py-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all bg-pink-500/20 text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.2)]";
-            btnStamina.className = "flex-1 py-3 sm:py-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all text-white/40 hover:bg-white/10 hover:text-white";
+            btnSkins.className = "flex-1 py-3 rounded-lg text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all bg-pink-500/20 text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.2)]";
+            if (window.renderShopSkins) window.renderShopSkins();
         }
     };
 
@@ -229,5 +250,77 @@ export function initShop() {
         if (window.updateUI) window.updateUI(); 
         saveState();
         setTimeout(() => window.toggleShop(true), 500); 
+    };
+
+    window.renderShopBoosters = () => {
+        const grid = document.getElementById('shop-boosters-grid');
+        if (!grid) return;
+        const config = getActiveConfig().boosters || {};
+        
+        const types = [
+            { id: 'score', name: 'แต้มทวีคูณ', getDesc: (c) => `+${Math.round((c.mult-1)*100)}% Score ตลอด ${c.duration} นาที`, icon: '📊', color: 'amber' },
+            { id: 'decay', name: 'เกราะกันหิว', getDesc: (c) => `สถานะลดช้าลง ${Math.round((1-c.mult)*100)}% นาน ${c.duration} นาที`, icon: '🛡️', color: 'blue' },
+            { id: 'luck', name: 'ดวงมหาเฮง', getDesc: (c) => `พบของแรร์ง่ายขึ้น ${c.mult} เท่า นาน ${c.duration} นาที`, icon: '🍀', color: 'emerald' }
+        ];
+
+        let html = '';
+        types.forEach(t => {
+            const item = config[t.id];
+            if (!item) return;
+            const desc = t.getDesc(item);
+            const expiry = STATE.buffs[`${t.id}_expiry`] || 0;
+            const isActive = expiry > Date.now();
+            const timeStr = isActive ? `ใช้งานอยู่ในอีก ${Math.ceil((expiry - Date.now())/60000)} นาที` : 'พร้อมซื้อ';
+
+            html += `
+                <div onclick="buyBooster('${t.id}')" class="glass p-3 sm:p-4 rounded-2xl flex items-center gap-3 sm:gap-4 border border-white/5 hover:bg-white/5 active:scale-[0.98] transition-all cursor-pointer group">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-${t.color}-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl">${t.icon}</div>
+                    <div class="flex-1 text-left">
+                        <div class="flex justify-between items-center mb-0.5">
+                            <h4 class="font-black text-xs sm:text-sm text-white uppercase italic">${t.name}</h4>
+                            <span class="text-[9px] font-black ${isActive ? 'text-neon-gold animate-pulse' : 'text-white/20 uppercase tracking-tighter'}">${timeStr}</span>
+                        </div>
+                        <p class="text-[10px] text-white/50 leading-none">${desc}</p>
+                    </div>
+                    <div class="cost-box bg-black/40 px-3 py-2 rounded-xl border border-white/10 font-black text-neon-gold text-xs sm:text-sm">
+                        ${isActive ? '✅' : `${item.cost} 🪙`}
+                    </div>
+                </div>
+            `;
+        });
+        grid.innerHTML = html;
+    };
+
+    window._buying = false;
+    window.buyBooster = (type) => {
+        if (window._buying) return;
+        const config = getActiveConfig().boosters || {};
+        const b = config[type];
+        if (!b) return;
+
+        if (STATE.tokens < b.cost) {
+            if(window.spawn) window.spawn('🪙 เหรียญไม่พอซื้อบัฟครับ!'); 
+            SFX.playAsset('error');
+            return;
+        }
+
+        window._buying = true;
+        setTimeout(() => { window._buying = false; }, 800); // 800ms throttle
+
+        const now = Date.now();
+        const currentExp = STATE.buffs[`${type}_expiry`] || 0;
+        const baseStart = currentExp > now ? currentExp : now;
+        
+        STATE.tokens -= b.cost;
+        STATE.buffs[`${type}_mult`] = b.mult;
+        STATE.buffs[`${type}_expiry`] = baseStart + (b.duration * 60 * 1000);
+
+        logScoreAction(currentUserId, 'BUFF_PURCHASE', 0, -b.cost, `ซื้อบัฟ ${type}`);
+        if(window.spawn) window.spawn(`🌟 เปิดใช้งานบัฟ ${type.toUpperCase()} สำเร็จ!`);
+        SFX.playAsset('bell');
+        
+        saveState();
+        window.renderShopBoosters();
+        if (window.updateUI) window.updateUI();
     };
 }

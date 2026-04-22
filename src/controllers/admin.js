@@ -24,61 +24,79 @@ const createDefaultSettings = (template, diff) => {
     const isEasy = diff === 'easy';
     
     // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
-    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0 : 0.055);
+    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0.055 : 0.065);
     const baseScale = template === 'plant' ? 1.2 : 1.0;
 
     return {
-        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, XP]
+        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
         activities: {
-            feed:   { r: isEasy ? 18 : (isHard ? 6 : 12), s: isEasy ? 5 : (isHard ? 15 : 8), xp: isEasy ? 15 : (isHard ? 25 : 20) },
-            clean:  { r: isEasy ? 20 : (isHard ? 7 : 14), s: isEasy ? 4 : (isHard ? 12 : 6), xp: isEasy ? 12 : (isHard ? 20 : 15) },
-            repair: { r: isEasy ? 15 : (isHard ? 5 : 10), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 10 : (isHard ? 15 : 12) },
-            play:   { r: isEasy ? 18 : (isHard ? 6 : 10), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 25 : (isHard ? 45 : 35) }
+            feed:   { r: isEasy ? 15 : (isHard ? 8 : 12), s: isEasy ? 3 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
+            clean:  { r: isEasy ? 18 : (isHard ? 7 : 14), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
+            repair: { r: isEasy ? 12 : (isHard ? 6 : 10), s: isEasy ? 2 : (isHard ? 8 : 4), xp: isEasy ? 30 : (isHard ? 100 : 55) },
+            play:   { r: isEasy ? 20 : (isHard ? 10 : 18), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
         },
-        // 2. รางวัล (Rewards) - [เหรียญ, เวลาแสดงผล]
+        // 2. รางวัลไอเทมบนแมพ (Rewards) - [เหรียญ, เวลาแสดงผล]
         rewards: {
-            legendary_tokens: isEasy ? 600 : (isHard ? 200 : 350),
+            legendary_tokens: isHard ? 2000 : (isEasy ? 500 : 1000),
             legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
-            rare_tokens: isEasy ? 200 : (isHard ? 80 : 120),
-            rare_time: isEasy ? 20 : (isHard ? 10 : 15)
+            legendary_rate: isEasy ? 4 : (isHard ? 1 : 2), 
+            rare_tokens: isHard ? 500 : (isEasy ? 150 : 300),
+            rare_time: isEasy ? 20 : (isHard ? 10 : 15),
+            rare_rate: isEasy ? 25 : (isHard ? 8 : 15) 
         },
-        // 3. ภารกิจ (Quests)
+        // 3. ภารกิจรายวัน (Quests)
         quests: {
-            target_feed: isEasy ? 3 : (isHard ? 12 : 6),
-            target_clean: isEasy ? 2 : (isHard ? 10 : 5),
-            target_play: isEasy ? 1 : (isHard ? 6 : 3),
-            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.8),
-            base_tokens: 200,
-            base_score: 2000
+            target_feed: isEasy ? 2 : (isHard ? 8 : 4),
+            target_clean: isEasy ? 1 : (isHard ? 6 : 3),
+            target_play: isEasy ? 1 : (isHard ? 3 : 2),
+            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4),
+            base_tokens: isEasy ? 300 : (isHard ? 400 : 430),
+            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150)
         },
-        // 4. ร้านค้า (Shop)
+        // 4. ร้านค้า (Shop Economy)
         shop: {
-            small_tokens: isHard ? 650 : 500, small_amount: isHard ? 40 : 50,
-            medium_tokens: isHard ? 1200 : 1000, medium_amount: isHard ? 85 : 110,
-            large_tokens: isHard ? 2800 : 2200, large_amount: isHard ? 180 : 250
+            small_tokens: isHard ? 600 : 450, small_amount: 50,
+            medium_tokens: isHard ? 1400 : 1000, medium_amount: 120,
+            large_tokens: isHard ? 3200 : 2500, large_amount: 300
         },
         // 5. กลไกหลัก (Mechanics)
         mechanics: {
-            dec_hunger: isHard ? 0.22 : (isEasy ? 0.05 : 0.11),
-            dec_clean:  isHard ? 0.12 : (isEasy ? 0.03 : 0.07),
-            dec_happy:  isHard ? 0.18 : (isEasy ? 0.03 : 0.09),
-            reg_stamina: isEasy ? 0.8 : (isHard ? 0.25 : 0.50),
-            sp_min: isHard ? 20 : (isEasy ? 120 : 60),
-            sp_max: isHard ? 60 : (isEasy ? 300 : 150),
-            rare_rate: isHard ? 4 : (isEasy ? 20 : 10),
-            dec_happy_poop: isHard ? 35 : (isEasy ? 5 : 15),
-            fever_threshold: isEasy ? 70 : (isHard ? 95 : 85),
-            fever_mult: isEasy ? 2.0 : (isHard ? 1.2 : 1.5),
-            poop_lifetime: isHard ? 10 : (isEasy ? 60 : 25),
-            reward_lifetime: isHard ? 8 : (isEasy ? 40 : 15),
-            max_poops: isHard ? 15 : (isEasy ? 5 : 10),
-            max_rewards: isHard ? 8 : (isEasy ? 3 : 5)
+            dec_hunger: isHard ? 0.18 : (isEasy ? 0.04 : 0.08),
+            dec_clean:  isHard ? 0.10 : (isEasy ? 0.02 : 0.05),
+            dec_happy:  isHard ? 0.12 : (isEasy ? 0.03 : 0.06),
+            reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75),
+            sp_min: isHard ? 15 : (isEasy ? 30 : 20),
+            sp_max: isHard ? 45 : (isEasy ? 90 : 60),
+            rare_rate: isHard ? 12 : (isEasy ? 5 : 8),
+            poop_lifetime: isEasy ? 300 : (isHard ? 90 : 180),
+            reward_lifetime: isEasy ? 240 : (isHard ? 80 : 150),
+            max_poops: 3,
+            max_rewards: 3,
+            dec_happy_poop: isHard ? 30 : (isEasy ? 5 : 15),
+            fever_threshold: isEasy ? 70 : (isHard ? 90 : 80),
+            fever_mult: isEasy ? 2.0 : (isHard ? 1.5 : 1.8)
         },
-        // 6. ฟิสิกส์ (Physics)
+        // 6. บัฟและไอเทมเสริม (Boosters) - [ราคา, ตัวคูณ, ระยะเวลา(นาที)]
+        boosters: {
+            score: { cost: 300, mult: 1.10, duration: 15 }, // +10% Score / 15m
+            decay: { cost: 450, mult: 0.80, duration: 20 }, // -20% Hunger Decay / 20m
+            luck:  { cost: 500, mult: 1.50, duration: 10 }  // x1.5 Rare Rate / 10m
+        },
+        // 7. ฟิสิกส์ (Physics)
         physics: {
-            speed: isHard ? baseSpeed * 0.95 : baseSpeed,
-            scale: isHard ? baseScale * 0.85 : baseScale
-        }
+            speed: isHard ? baseSpeed * 1.15 : baseSpeed,
+            scale: baseScale
+        },
+        // 8. รางวันเช็คอินรายวัน (Login Rewards)
+        login_rewards: [
+            { day: 1, tokens: 100 },
+            { day: 2, tokens: 150 },
+            { day: 3, tokens: 200 },
+            { day: 4, tokens: 250 },
+            { day: 5, tokens: 300 },
+            { day: 6, tokens: 400 },
+            { day: 7, tokens: 1000 }
+        ]
     };
 };
 

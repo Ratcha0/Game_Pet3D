@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 let scene, camera, renderer, petModel, particles, groundMesh, debugDropPoint;
 let ambientLight, sunLight, purpleLight, pinkLight, mixer;
 let currentTemplate = 'pet';
+let currentDropOffset = { x: 0, y: 0.1, z: -0.2 };
 let currentAction = null;
 let envConfig = { sky: 'day', ground: 'grass' };
 
@@ -93,7 +94,7 @@ let onPoopCollected = null;
 let onPoopExpired = null;
 let onRewardCollected = null;
 const rewardObjects = [];
-let engineConfig = { poop_lifetime: 30, reward_lifetime: 20, max_poops: 3, max_rewards: 3 };
+let engineConfig = { poop_lifetime: 180, reward_lifetime: 150, max_poops: 3, max_rewards: 3 };
 let targetItemToCollect = null;
 
 function disposeObject(obj) {
@@ -231,25 +232,10 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         const ray = new THREE.Raycaster();
         ray.setFromCamera(mouse, camera);
 
-        for (let i = 0; i < poopObjects.length; i++) {
-            const p = poopObjects[i];
-            if (ray.intersectObject(p.mesh, true).length > 0) {
-                const sid = p.mesh.userData.syncId;
-                scene.remove(p.mesh); disposeObject(p.mesh); poopObjects.splice(i, 1);
-                if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
-                if (onPoopCollected) onPoopCollected(p.type || 'normal'); return;
-            }
-        }
-        for (let i = 0; i < rewardObjects.length; i++) {
-            const r = rewardObjects[i];
-            if (ray.intersectObject(r.mesh, true).length > 0) {
-                const sid = r.mesh.userData.syncId;
-                scene.remove(r.mesh); disposeObject(r.mesh); rewardObjects.splice(i, 1);
-                if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
-                if (onRewardCollected) onRewardCollected(r.type, r.value); return;
-            }
-        }
-        if (petModel) {
+        // [Physical Update] ยกเลิกการคลิกแล้วเก็บทันที เพื่อให้ต้องเดินเข้าไปชนจริงๆ เท่านั้น
+        // (Removing Direct Click Collection Loop)
+
+            if (petModel) {
             const groundHit = ray.intersectObject(groundMesh);
             if (ray.intersectObject(petModel, true).length > 0 || (groundHit.length > 0 && groundHit[0].point.distanceTo(petModel.position) < 1.3)) {
                 if (window.doTouch) window.doTouch();
@@ -421,7 +407,13 @@ function createPetObject(path = '', rotationY = 0) {
 }
 
 function swapModel(newModelContent, existingMixer, animations, rotationY, path) {
-    const skinConfig = (window.STATE?.config?.available_skins || []).find(s => s.model === path) || {};
+    // 🔥 บัคฟิกซ์: ตรวจสอบความถูกต้องของ Path (เติม /) เพื่อให้หาใน Config เจอเสมอ
+    const normalizedPath = path.startsWith('/') ? path : '/' + path;
+    const skinConfig = (window.STATE?.config?.available_skins || []).find(s => {
+        const sModel = s.model?.startsWith('/') ? s.model : '/' + (s.model || '');
+        return sModel === normalizedPath;
+    }) || {};
+
     const skinScaleMultiplier = skinConfig.scale || 1.0;
 
     // สร้าง Group ใหม่เพื่อไม่ให้ทับกับ Group เก่าระหว่างโหลด
@@ -449,7 +441,11 @@ function swapModel(newModelContent, existingMixer, animations, rotationY, path) 
 
     modelBaseScale = scale;
     window._currentSkinScale = scale;
-    window._currentSkinOffset = skinConfig.drop_offset || {x:0, y:0.1, z:-0.2};
+
+    if (skinConfig.drop_offset) {
+        currentDropOffset = skinConfig.drop_offset;
+        window._currentSkinOffset = currentDropOffset;
+    }
 
     // ตั้งค่า Animation
     if (animations.length > 0) {
@@ -554,6 +550,18 @@ function animate() {
             _camTarget.set(petModel.position.x, petModel.position.y + 4.7, petModel.position.z + 8);
             camera.position.lerp(_camTarget, 0.03); camera.lookAt(petModel.position.x, petModel.position.y + 0.7, petModel.position.z);
         }
+        
+        // --- 🛡️ [NEW] ระบบ Proximity Detection (เดินทับแล้วเก็บ) ---
+        [poopObjects, rewardObjects].forEach(arr => {
+            for (let i = arr.length - 1; i >= 0; i--) {
+                const item = arr[i];
+                if (petModel.position.distanceTo(item.mesh.position) < 0.75) {
+                    targetItemToCollect = item.mesh;
+                    collectItemAtPet();
+                    targetItemToCollect = null;
+                }
+            }
+        });
     }
 
     // --- ✨ ฟังก์ชันพื้นฐานของเกม (ต้องมี) ---
@@ -633,7 +641,14 @@ function updatePoops(delta) {
 function updateRewards(t, delta) {
     for (let i = rewardObjects.length - 1; i >= 0; i--) {
         const r = rewardObjects[i];
-        r.elapsed += delta; r.mesh.rotation.y += 0.05; r.mesh.position.y = r.startY + Math.sin(t*4)*0.05;
+        r.elapsed += delta; 
+        
+        // --- ✨ อนิเมชั่นเหรียญพรีเมียม (Spin & Float) ---
+        if (r.mesh) {
+            r.mesh.rotation.y += delta * 3.5; // หมุนเร็วขึ้นให้พรีเมียม
+            r.mesh.position.y = r.startY + Math.sin(t * 5) * 0.15; // ขยับขึ้นลงชัดๆ
+        }
+
         if (r.elapsed >= engineConfig.reward_lifetime) { 
             scene.remove(r.mesh); 
             disposeObject(r.mesh); 
@@ -646,8 +661,8 @@ function updateIndicators() {
     const container = document.getElementById('poop-indicators'); if (!container || !camera) return;
     let dropIcon = (currentTemplate === 'car') ? '🛢️' : (currentTemplate === 'plant' ? '🍂' : '💩');
     const tasks = [];
-    poopObjects.forEach(p => tasks.push({ mesh: p.mesh, icon: p.type === 'gold' ? '✨' : dropIcon }));
-    rewardObjects.forEach(r => tasks.push({ mesh: r.mesh, icon: '🪙' }));
+    poopObjects.forEach(p => tasks.push({ mesh: p.mesh, icon: p.type === 'gold' ? '✨' : dropIcon, tier: p.type }));
+    rewardObjects.forEach(r => tasks.push({ mesh: r.mesh, icon: '🪙', tier: r.type }));
 
     const edgeTasks = [];
     tasks.forEach(t => {
@@ -674,11 +689,12 @@ function updateIndicators() {
     edgeTasks.forEach(t => {
         // บีบวงโคจรให้แคบลง (0.68) เพื่อไม่ให้ทับ HUD ด้านบนและล่าง
         const x = Math.cos(t.angle) * 0.68, y = Math.sin(t.angle) * 0.68;
-        renderIndicator(t.mesh, t.icon, container, x, y, t.angle);
+        renderIndicator(t, container, x, y, t.angle);
     });
 }
 
-function renderIndicator(mesh, icon, container, x, y, angle) {
+function renderIndicator(t, container, x, y, angle) {
+    const { mesh, icon } = t;
     let el = indicatorElements.get(mesh);
     if (!el) {
         el = document.createElement('div'); el.className = 'indicator-base'; 
@@ -692,18 +708,26 @@ function renderIndicator(mesh, icon, container, x, y, angle) {
         container.appendChild(el); indicatorElements.set(mesh, el);
     }
     
-    // กำหนดสีตาม Template และความหายาก
     const tpl = currentTemplate || 'pet';
-    const isRare = icon === '✨' || icon === '🪙';
+    let navColor = '#ff00ff';
+    const tier = t.tier || 'normal';
     
-    // ถ้าเป็นของหายาก ให้ใช้ไอคอนพื้นฐานแต่ใส่ขอบทอง (ตามคำแนะนำ User)
+    // กำหนดไอคอนตาม Template (สำหรับขยะแรร์ ✨)
     let displayIcon = icon;
-    if (isRare && icon === '✨') {
+    if (tier === 'gold' && icon === '✨') {
         displayIcon = (tpl === 'car' ? '🛢️' : (tpl === 'plant' ? '🍂' : '💩'));
     }
+    
+    if (icon === '🪙') {
+        // Rewards (Silver/Gold/Diamond)
+        navColor = { silver: '#bdc3c7', gold: '#fbbf24', diamond: '#00f2ff' }[tier] || '#fbbf24';
+    } else {
+        // Poops/Drops (Normal/Gold)
+        if (tier === 'gold') navColor = '#fbbf24';
+        else navColor = (tpl === 'car' ? '#8b5cf6' : (tpl === 'plant' ? '#10b981' : '#ec4899'));
+    }
 
-    const navColor = isRare ? '#fbbf24' : (tpl === 'car' ? '#8b5cf6' : (tpl === 'plant' ? '#10b981' : '#ec4899'));
-    const glow = isRare ? `0 0 15px ${navColor}` : 'none';
+    const glow = (tier === 'gold' || tier === 'diamond' || tier === 'rare') ? `0 0 15px ${navColor}` : 'none';
     
     // ปรับปรุงขนาดและลูกศร
     el.innerHTML = `
@@ -791,7 +815,8 @@ export function createPoopMesh(x, z, type) {
 
 function spawnExhaustSmoke() {
     if (!petModel || currentTemplate !== 'car' || !petModel.children[0]) return;
-    const off = window._currentSkinOffset || {x:0, y:0.2, z:-0.5}, scale = 1; // scale is already handled by localToWorld
+    const off = currentDropOffset || {x:0, y:0.2, z:-0.5}, scale = 1; 
+// scale is already handled by localToWorld
     
     // ใช้ localToWorld เพื่อให้พิกัดตรงกับสิ่งที่เห็นใน Model-viewer เป๊ะๆ
     const v = new THREE.Vector3(off.x, off.y, off.z);
@@ -810,7 +835,7 @@ export function spawnPoop(type = 'normal', fromSync = false, syncId = null, x = 
     const mesh = createPoopMesh(px, pz, type); 
     mesh.userData.syncId = sid;
     scene.add(mesh);
-    poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, type }); 
+    poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, tier: type }); 
 
     if (!fromSync && window._actionChannel) {
         window._actionChannel.postMessage({ type: 'SPAWN_POOP', x: px, z: pz, syncId: sid, itemType: type });
@@ -820,15 +845,44 @@ export function spawnPoop(type = 'normal', fromSync = false, syncId = null, x = 
 
 export function setPoopCallbacks(c, e) { onPoopCollected = c; onPoopExpired = e; }
 export function setRewardCallback(c) { onRewardCollected = c; }
-export function spawnReward(type, value, syncId = null, x = null, z = null, fromSync = false) {
+export function spawnReward(type = 'silver', value = 0, syncId = null, x = null, z = null, fromSync = false) {
+    if (rewardObjects.length >= engineConfig.max_rewards) return false;
+    
+    // ตั้งค่าสีตามระดับ
+    const config = {
+        silver:  { color: 0xbdc3c7, emissive: 0x7f8c8d, light: 0xbdc3c7, intensity: 1.5 },
+        gold:    { color: 0xffd700, emissive: 0xffaa00, light: 0xffaa00, intensity: 3.5 },
+        diamond: { color: 0x00f2ff, emissive: 0x00d4ff, light: 0x00f2ff, intensity: 8.0 }
+    }[type] || { color: 0xffd700, emissive: 0xffaa00, light: 0xffaa00, intensity: 3 };
+
     const group = new THREE.Group();
-    group.add(new THREE.Mesh(
-        new THREE.CylinderGeometry(0.32, 0.32, 0.06, 24), 
-        new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.1, emissive: 0xffaa00, emissiveIntensity: 0.4 })
-    ));
-    const light = new THREE.PointLight(0xffaa00, 3, 3);
+    const mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.32, 0.32, 0.08, 24), 
+        new THREE.MeshStandardMaterial({ 
+            color: config.color, 
+            metalness: 0.95, 
+            roughness: 0.05, 
+            emissive: config.emissive, 
+            emissiveIntensity: 0.6 
+        })
+    );
+    // จับเหรียญตั้งขึ้น (Rotate to stand on edge)
+    mesh.rotation.x = Math.PI / 2;
+    group.add(mesh);
+    
+    const light = new THREE.PointLight(config.light, config.intensity, 4);
     light.position.y = 0.5;
     group.add(light);
+    
+    // เอฟเฟกต์พิเศษสำหรับ Diamond
+    if (type === 'diamond') {
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(0.5, 0.02, 8, 32),
+            new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.5 })
+        );
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
+    }
     
     const sid = syncId || 'R' + Date.now() + Math.random();
     const rx = x !== null ? x : (Math.random()-0.5)*12;
@@ -837,7 +891,7 @@ export function spawnReward(type, value, syncId = null, x = null, z = null, from
     group.position.set(rx, -0.9, rz);
     group.userData.syncId = sid;
     scene.add(group); 
-    rewardObjects.push({ mesh: group, type, value, startY: -0.9, elapsed: 0 }); 
+    rewardObjects.push({ mesh: group, tier: type, value, startY: -0.9, elapsed: 0 }); 
 
     if (!fromSync && window._actionChannel) {
         window._actionChannel.postMessage({ type: 'SPAWN_REWARD', x: rx, z: rz, syncId: sid, itemType: type, value });
@@ -871,7 +925,10 @@ export function updateEnvironment(sky, ground) {
 export function updateEngineConfig(c) { 
     if (!c) return;
     Object.assign(engineConfig, c);
-    if (c.drop_offset) window._currentSkinOffset = c.drop_offset;
+    if (c.drop_offset) {
+        currentDropOffset = c.drop_offset;
+        window._currentSkinOffset = c.drop_offset;
+    }
 }
 export function updateTemplate(type, path = '', rotationY = 0) { currentTemplate = type; createPetObject(path, rotationY); }
 export function triggerLevelUpEffect() {
@@ -917,7 +974,7 @@ export function triggerLevelUpEffect() {
     refreshPetAura(level);
 }
 
-export function refreshPetAura(level) {
+export function refreshPetAura(level, isFever = false) {
     if (!petModel) return;
     petModel.traverse(c => {
         if (c.isMesh && c.material) {
@@ -926,9 +983,14 @@ export function refreshPetAura(level) {
                 c.material = c.material.clone();
                 c.material._isCloned = true;
             }
-            if (level >= 50) {
+            
+            // 🌟 ลำดับความสำคัญ: Fever > Level Aura
+            if (isFever) {
+                c.material.emissive = new THREE.Color(0xffaa00);
+                c.material.emissiveIntensity = 0.8;
+            } else if (level >= 50) {
                 c.material.emissive = new THREE.Color(0xffd700);
-                c.material.emissiveIntensity = 0.5;
+                c.material.emissiveIntensity = 0.4;
             } else if (level >= 20) {
                 c.material.emissive = new THREE.Color(0xa855f7);
                 c.material.emissiveIntensity = 0.3;
@@ -955,7 +1017,7 @@ function collectItemAtPet() {
             if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
             
             if (arr === poopObjects) onPoopCollected(item.type); 
-            else onRewardCollected(item.type, item.value); 
+            else if (onRewardCollected) onRewardCollected(item.type, item.value, sid); 
         }
     });
 }

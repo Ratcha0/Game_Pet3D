@@ -14,6 +14,21 @@ body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',
 .no-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scroll::-webkit-scrollbar { display: none; }
 
+/* Custom Professional Scrollbar (Hidden but scrollable) */
+.custom-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+.custom-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+/* Global scrollbar removal for a clean native look */
+::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
 /* PIN Lock Screen Animations */
 .pin-dot { transition: all 0.2s; }
 .pin-active { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; border-color: #8b5cf6; }
