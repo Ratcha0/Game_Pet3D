@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบจัดการ — LikeGotchi Admin</title>
-    <script type="module">
-        import '/src/styles.css';
-    </script>
+    <link rel="stylesheet" href="/src/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <!-- 📦 Google Model-Viewer Script (Required for 3D Gallery) -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
     <style>
+        /* 🛡️ FOUC Guard: ซ่อนหน้าจอจนกว่าจะพร้อม */
+        html { visibility: hidden; opacity: 0; transition: opacity 0.5s ease; background: #060a14; }
+        html.ready { visibility: visible; opacity: 1; }
+
         body { background:#060a14; overflow: hidden; height: 100vh; }
         .glass { background:rgba(17,24,39,0.7); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.05); }
         .collapsible-header { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; transition: background 0.3s ease; }
@@ -40,7 +42,9 @@
 
     <!-- Sidebar Icons -->
     <aside class="w-16 bg-surface/50 border-r border-white/5 flex flex-col items-center py-6 gap-6 shrink-0 h-screen">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-lg shadow-lg">👑</div>
+        <div class="w-12 h-12 rounded-full bg-black flex items-center justify-center shadow-lg overflow-hidden border border-white/10">
+            <img src="/src/logo/Likegotchi_Logo_HD.png" width="48" height="48" class="w-full h-full object-cover scale-[1.15]" alt="Logo">
+        </div>
         <div class="h-px w-6 bg-white/5"></div>
         <button onclick="switchView('settings')" id="nav-settings" title="ตั่งค่าเกม" class="nav-btn w-10 h-10 rounded-xl bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-xs font-black cursor-pointer transition-all active:scale-90 active">SET</button>
         <button onclick="switchView('history')" id="nav-history" title="ประวัติซีซั่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">LOG</button>
@@ -51,7 +55,7 @@
     <div class="flex-1 flex flex-col h-screen min-w-0 bg-bg-deep">
         <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 bg-bg-deep/80 backdrop-blur-xl z-[100]">
             <div>
-                <h1 class="text-2xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-white to-white/40 leading-none">Pet Simulator <span class="text-neon-purple">Admin</span></h1>
+                <h1 class="text-2xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-white to-white/40 leading-none">LikeGotchi <span class="text-neon-purple">Admin</span></h1>
                 <p class="text-[8px] text-white/40 mt-1 uppercase tracking-widest font-bold">ระบบปรับแต่งสมดุลและกิจกรรมทั้งหมด</p>
             </div>
             <div class="flex gap-2">
@@ -575,5 +579,11 @@
 
     <script src="https://unpkg.com/twemoji@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
     <script type="module" src="/src/controllers/admin.js"></script>
+    <script>
+        // ปล่อยให้หน้าจอแสดงผลเมื่อทุกอย่างโหลดเสร็จ
+        window.addEventListener('DOMContentLoaded', () => {
+            document.documentElement.classList.add('ready');
+        });
+    </script>
 </body>
 </html>

@@ -984,17 +984,13 @@ export function refreshPetAura(level, isFever = false) {
                 c.material._isCloned = true;
             }
             
-            // 🌟 ลำดับความสำคัญ: Fever > Level Aura
+            // ลบการเปลี่ยนสีถาวรออก เพื่อให้สีผิวสกินเดิมชัดเจนที่สุด
             if (isFever) {
+                // Fever Mode: ให้กระพริบออร่าสีทองเบาๆ
                 c.material.emissive = new THREE.Color(0xffaa00);
-                c.material.emissiveIntensity = 0.8;
-            } else if (level >= 50) {
-                c.material.emissive = new THREE.Color(0xffd700);
-                c.material.emissiveIntensity = 0.4;
-            } else if (level >= 20) {
-                c.material.emissive = new THREE.Color(0xa855f7);
-                c.material.emissiveIntensity = 0.3;
+                c.material.emissiveIntensity = 0.5;
             } else {
+                // ปกติ: ไม่เปลี่ยนสีตัวละคร (ให้คงสีต้นฉบับไว้ 100%)
                 c.material.emissive = new THREE.Color(0x000000);
                 c.material.emissiveIntensity = 0;
             }
