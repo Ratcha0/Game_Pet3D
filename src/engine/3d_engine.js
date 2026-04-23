@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 let scene, camera, renderer, petModel, particles, groundMesh, debugDropPoint;
 let ambientLight, sunLight, purpleLight, pinkLight, mixer;
+const gltfLoader = new GLTFLoader();
 let currentTemplate = 'pet';
 let currentDropOffset = { x: 0, y: 0.1, z: -0.2 };
 let currentAction = null;
@@ -139,6 +140,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
 
     const preset = LIGHT_PRESETS[envConfig.sky] || LIGHT_PRESETS.day;
     scene = new THREE.Scene();
+    window._scene = scene; // 🔥 เก็บไว้ใน window เพื่อให้เรียกใช้ได้พิกัดเดียวกันเสมอ
     scene.background = new THREE.Color(SKY_COLORS[envConfig.sky] || SKY_COLORS.day);
     scene.fog = new THREE.FogExp2(SKY_COLORS[envConfig.sky] || SKY_COLORS.day, preset.fog);
 
@@ -506,6 +508,8 @@ function animate() {
     window._lastTime = now;
 
     if (mixer) mixer.update(delta);
+    if (window._worldBoss && window._worldBoss.userData.mixer) window._worldBoss.userData.mixer.update(delta);
+    updateProjectiles(delta);
     updateDynamicParticles();
     
     if (petModel) {
@@ -515,7 +519,10 @@ function animate() {
                 let baseSpeed = (currentTemplate === 'car') ? 0.085 : (currentTemplate === 'plant' ? 0.06 : 0.05);
                 const stam = window.STATE?.stamina || 100;
                 const stamFactor = stam < 20 ? 0.6 : (stam < 50 ? 0.85 : 1.0);
-                const finalSpeed = baseSpeed * stamFactor;
+                
+                // --- 👹 Boss Skill Speed Support ---
+                const speedMult = window._bossSpeedMult || 1.0;
+                const finalSpeed = baseSpeed * stamFactor * speedMult;
 
                 _dir.normalize().multiplyScalar(finalSpeed); petModel.position.add(_dir);
                 const targetRot = Math.atan2(_dir.x, _dir.z);
@@ -562,6 +569,16 @@ function animate() {
                 }
             }
         });
+
+        // 🪨 Rock Detection
+        if (window._worldRocks) {
+            for (let i = window._worldRocks.length - 1; i >= 0; i--) {
+                const rock = window._worldRocks[i];
+                if (petModel.position.distanceTo(rock.position) < 0.8) {
+                    if (window.collectRock) window.collectRock(rock.userData.id);
+                }
+            }
+        }
     }
 
     // --- ✨ ฟังก์ชันพื้นฐานของเกม (ต้องมี) ---
@@ -664,6 +681,17 @@ function updateIndicators() {
     poopObjects.forEach(p => tasks.push({ mesh: p.mesh, icon: p.type === 'gold' ? '✨' : dropIcon, tier: p.type }));
     rewardObjects.forEach(r => tasks.push({ mesh: r.mesh, icon: '🪙', tier: r.type }));
 
+    // 👹 Boss Indicator (Show on Radar)
+    if (window._worldBoss) {
+        tasks.push({ mesh: window._worldBoss, icon: '👹', tier: 'boss' });
+    }
+    // 🪨 Rock Indicators (Show on Radar)
+    if (window._worldRocks) {
+        window._worldRocks.forEach(rock => {
+            tasks.push({ mesh: rock, icon: '🪨', tier: 'rock' });
+        });
+    }
+
     const edgeTasks = [];
     tasks.forEach(t => {
         const pObj = poopObjects.find(p => p.mesh === t.mesh);
@@ -690,6 +718,14 @@ function updateIndicators() {
         // บีบวงโคจรให้แคบลง (0.68) เพื่อไม่ให้ทับ HUD ด้านบนและล่าง
         const x = Math.cos(t.angle) * 0.68, y = Math.sin(t.angle) * 0.68;
         renderIndicator(t, container, x, y, t.angle);
+    });
+
+    // 🧹 Cleanup: ลบไอคอนของวัตถุที่ไม่อยู่บนแมพแล้ว
+    indicatorElements.forEach((el, mesh) => {
+        if (!tasks.find(t => t.mesh === mesh)) {
+            if (el.parentNode) el.parentNode.removeChild(el);
+            indicatorElements.delete(mesh);
+        }
     });
 }
 
@@ -721,6 +757,10 @@ function renderIndicator(t, container, x, y, angle) {
     if (icon === '🪙') {
         // Rewards (Silver/Gold/Diamond)
         navColor = { silver: '#bdc3c7', gold: '#fbbf24', diamond: '#00f2ff' }[tier] || '#fbbf24';
+    } else if (tier === 'boss') {
+        navColor = '#f43f5e'; // Rose Red for Boss
+    } else if (tier === 'rock') {
+        navColor = '#f59e0b'; // Orange for Rocks
     } else {
         // Poops/Drops (Normal/Gold)
         if (tier === 'gold') navColor = '#fbbf24';
@@ -1018,3 +1058,177 @@ function collectItemAtPet() {
     });
 }
 function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }
+
+// --- 😈 WORLD BOSS ENGINE ---
+window._worldRocks = [];
+window._projectiles = [];
+
+export function updateBossModel(config) {
+    if (!config || !config.active) {
+        if (window._worldBoss) {
+            const ob = window._worldBoss;
+            if (ob.parent) ob.parent.remove(ob);
+            window._worldBoss = null;
+        }
+        return;
+    }
+
+    if (window._worldBoss && window._worldBoss.userData.path === config.model_path) {
+        window._worldBoss.scale.setScalar(20);
+        return;
+    }
+
+    if (window._worldBoss) {
+        const ob = window._worldBoss;
+        if (ob.parent) ob.parent.remove(ob);
+        window._worldBoss = null;
+    }
+
+    if (!config.model_path || window._isBossLoading) return;
+
+    console.log("🎬 Loading Boss Model:", config.model_path);
+    window._isBossLoading = true;
+
+    gltfLoader.load(config.model_path, (gltf) => {
+        console.log("✅ Boss Model Loaded:", config.model_path);
+        window._isBossLoading = false;
+
+        const boss = gltf.scene;
+        boss.userData.path = config.model_path; // Store path to prevent redundant reloads
+        boss.scale.setScalar(20); 
+        boss.position.set(0, 0, 0); 
+        boss.rotation.y = Math.PI; 
+        
+        boss.traverse(node => {
+            if (node.isMesh) {
+                node.frustumCulled = false;
+                node.castShadow = true;
+                node.receiveShadow = true;
+                if (node.material) {
+                    node.material.side = THREE.DoubleSide;
+                }
+            }
+        });
+
+        const mixer = new THREE.AnimationMixer(boss);
+        if (gltf.animations.length > 0) {
+            const action = mixer.clipAction(gltf.animations[0]);
+            action.play();
+            action.timeScale = config.anim_speed || 1.0;
+        }
+        boss.userData.mixer = mixer;
+        window._worldBoss = boss;
+        
+        const activeScene = window._scene || scene;
+        if (activeScene) {
+            activeScene.add(boss);
+            console.log("🦅 PHOENIX BOSS DEPLOYED AT CENTER:", activeScene.uuid);
+        }
+    }, undefined, (err) => {
+        console.error("❌ Boss Load Error:", err);
+        window._isBossLoading = false;
+    });
+}
+
+export function spawnWorldRock(id, pos) {
+    const geo = new THREE.DodecahedronGeometry(0.15, 0);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.9, metalness: 0.2 });
+    const rock = new THREE.Mesh(geo, mat);
+    rock.position.set(pos.x, -1.2, pos.z);
+    rock.userData = { id, type: 'rock' };
+    scene.add(rock);
+    window._worldRocks.push(rock);
+}
+
+export function clearWorldRocks() {
+    if (window._worldRocks && scene) {
+        window._worldRocks.forEach(rock => {
+            scene.remove(rock);
+            if (rock.geometry) rock.geometry.dispose();
+            if (rock.material) rock.material.dispose();
+            // Dispose indicators if registered
+            const indicator = indicatorElements?.get(rock);
+            if (indicator) {
+                indicator.remove();
+                indicatorElements.delete(rock);
+            }
+        });
+        window._worldRocks = [];
+    }
+}
+
+export function throwRockAtBoss(startPos, onHit) {
+    const geo = new THREE.DodecahedronGeometry(0.12, 0);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x444444, emissive: 0xff3300, emissiveIntensity: 0.8 });
+    const rock = new THREE.Mesh(geo, mat);
+    rock.position.copy(startPos);
+    
+    const targetPos = new THREE.Vector3(0, 1.5, 0); 
+    const direction = new THREE.Vector3().subVectors(targetPos, startPos).normalize();
+    
+    scene.add(rock);
+    window._projectiles.push({
+        mesh: rock,
+        velocity: direction.multiplyScalar(0.25),
+        onHit
+    });
+}
+
+export function collectWorldRockAtPet(syncId) {
+    const idx = (window._worldRocks || []).findIndex(r => r.userData.id === syncId);
+    if (idx !== -1) {
+        const rock = window._worldRocks.splice(idx, 1)[0];
+        scene.remove(rock);
+        return true;
+    }
+    return false;
+}
+
+export function _getPetPosition() {
+    return (window._petModel) ? window._petModel.position.clone() : new THREE.Vector3(0, -1.2, 0);
+}
+
+export function updateProjectiles(delta) {
+    if (!window._projectiles) return;
+    for (let i = window._projectiles.length - 1; i >= 0; i--) {
+        const p = window._projectiles[i];
+        p.mesh.position.add(p.velocity);
+        
+        const dist = p.mesh.position.distanceTo(new THREE.Vector3(0, 1.5, 0));
+        if (dist < 1.0) {
+            if (p.onHit) p.onHit();
+            // createExplosion(p.mesh.position, 0xff4400); // We'll add this next correctly
+            scene.remove(p.mesh);
+            window._projectiles.splice(i, 1);
+        } else if (p.mesh.position.length() > 50) {
+            scene.remove(p.mesh);
+            window._projectiles.splice(i, 1);
+        }
+    }
+}
+
+window.createExplosion = (pos, color) => {
+    const particleCount = 12;
+    const geo = new THREE.SphereGeometry(0.04, 4, 4);
+    const mat = new THREE.MeshBasicMaterial({ color });
+    for (let i = 0; i < particleCount; i++) {
+        const p = new THREE.Mesh(geo, mat);
+        p.position.copy(pos);
+        scene.add(p);
+        const vel = new THREE.Vector3((Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3);
+        const startTime = performance.now();
+        const animPart = () => {
+            const elapsed = performance.now() - startTime;
+            const progress = elapsed / 1000;
+            if (progress < 1) {
+                p.position.add(vel);
+                p.scale.setScalar(1 - progress);
+                requestAnimationFrame(animPart);
+            } else {
+                scene.remove(p);
+                disposeObject(p);
+            }
+        };
+        animPart();
+    }
+};

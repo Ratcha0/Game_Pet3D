@@ -46,9 +46,10 @@
             <img src="/src/logo/Likegotchi_Logo_HD.png" width="48" height="48" class="w-full h-full object-cover scale-[1.15]" alt="Logo">
         </div>
         <div class="h-px w-6 bg-white/5"></div>
-        <button onclick="switchView('settings')" id="nav-settings" title="ตั่งค่าเกม" class="nav-btn w-10 h-10 rounded-xl bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-xs font-black cursor-pointer transition-all active:scale-90 active">SET</button>
-        <button onclick="switchView('history')" id="nav-history" title="ประวัติซีซั่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">LOG</button>
-        <button onclick="switchView('users')" id="nav-users" title="จัดการผู้เล่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">USR</button>
+        <button onclick="switchView('settings')" id="nav-settings" title="ตั้งค่าเกม" class="nav-btn w-10 h-10 rounded-xl bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center text-[10px] font-black cursor-pointer transition-all active:scale-90 active">ตั้งค่า</button>
+        <button onclick="switchView('history')" id="nav-history" title="ประวัติการเล่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[10px] font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">ประวัติ</button>
+        <button onclick="switchView('users')" id="nav-users" title="จัดการผู้เล่น" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[10px] font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">ผู้เล่น</button>
+        <button onclick="switchView('boss')" id="nav-boss" title="จัดการบอส" class="nav-btn w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[10px] font-black cursor-pointer transition-all hover:bg-white/10 active:scale-90 text-white/40">บอส</button>
     </aside>
 
     <!-- Center Panel (Header + Scrollable Content) -->
@@ -72,21 +73,21 @@
                 <section class="glass rounded-2xl overflow-hidden border border-neon-purple/30 mb-6 relative" id="sec-season">
                     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-purple to-neon-pink"></div>
                     <div class="collapsible-header" onclick="toggleSection('sec-season')">
-                        <div class="flex items-center gap-3">📅 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">ตั้งค่าซีซั่น (Season Configuration)</div></div>
-                        <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
+                         <div class="flex items-center gap-3">📅 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">ตั้งค่าซีซั่น</div></div>
+                         <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                     </div>
                     <div class="collapsible-content">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <label class="text-neon-purple text-[10px] font-black uppercase tracking-widest mb-2 block">ลำดับซีซั่น (Season Number)</label>
+                                <label class="text-neon-purple text-[10px] font-black uppercase tracking-widest mb-2 block">ลำดับซีซั่น</label>
                                 <input type="number" id="input-season-num" data-global="season_number" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold" placeholder="1">
                             </div>
                             <div>
-                                <label class="text-neon-pink text-[10px] font-black uppercase tracking-widest mb-2 block">ชื่อซีซั่น (Season Name)</label>
+                                <label class="text-neon-pink text-[10px] font-black uppercase tracking-widest mb-2 block">ชื่อซีซั่น</label>
                                 <input type="text" data-global="season_name" placeholder="ระบุชื่อซีซั่นที่นี่..." class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold">
                             </div>
                             <div>
-                                <label class="text-neon-gold text-[10px] font-black uppercase tracking-widest mb-2 block">ระยะเวลาการเล่น (Duration)</label>
+                                <label class="text-neon-gold text-[10px] font-black uppercase tracking-widest mb-2 block">ระยะเวลาการเล่น</label>
                                 <select data-global="season_duration" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold">
                                     <option value="7">7 วัน (แบบสั้น)</option>
                                     <option value="15">15 วัน (ปกติ)</option>
@@ -103,7 +104,7 @@
                             <button onclick="finishSeason()" class="group px-8 py-4 bg-gradient-to-r from-rose-600/20 to-orange-600/20 hover:from-rose-600/40 hover:to-orange-600/40 border border-rose-500/30 rounded-2xl transition-all active:scale-95 flex items-center gap-4">
                                 <span class="text-2xl group-hover:rotate-12 transition-transform">🚀</span>
                                 <div class="text-left">
-                                    <div class="text-[10px] font-black text-rose-400 uppercase tracking-widest">Finish Season</div>
+                                    <div class="text-[10px] font-black text-rose-400 uppercase tracking-widest">จบซีซั่นปัจจุบัน</div>
                                     <div class="text-white font-black text-xs">จบซีซั่นและเริ่มซีซั่นใหม่</div>
                                 </div>
                             </button>
@@ -114,22 +115,22 @@
                 <!-- Section 0: Difficulty Presets -->
                 <section class="glass rounded-2xl overflow-hidden border border-neon-gold/20" id="sec-difficulty">
                     <div class="collapsible-header" onclick="toggleSection('sec-difficulty')">
-                        <div class="flex items-center gap-3">🔥 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ตั้งค่าระดับความยาก (Presets)</div></div>
+                        <div class="flex items-center gap-3">🔥 <div class="text-[10px] font-bold text-neon-gold uppercase tracking-[0.3em]">ตั้งค่าระดับความยาก</div></div>
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content">
                         <div class="grid grid-cols-3 gap-3">
                             <button onclick="loadPreset('easy')" id="diff-easy" class="diff-btn p-4 rounded-xl bg-white/5 text-center highlight-white/10">
                                 <div class="text-xl mb-1">🌿</div>
-                                <div class="text-[10px] font-black uppercase text-emerald-400">แบบง่าย (Easy)</div>
+                                <div class="text-[10px] font-black uppercase text-emerald-400">แบบง่าย</div>
                             </button>
                             <button onclick="loadPreset('normal')" id="diff-normal" class="diff-btn p-4 rounded-xl bg-white/5 text-center highlight-white/10">
                                 <div class="text-xl mb-1">⚖️</div>
-                                <div class="text-[10px] font-black uppercase text-cyan-400">ปานกลาง (Normal)</div>
+                                <div class="text-[10px] font-black uppercase text-cyan-400">ปานกลาง</div>
                             </button>
                             <button onclick="loadPreset('hard')" id="diff-hard" class="diff-btn p-4 rounded-xl bg-white/5 text-center highlight-white/10">
                                 <div class="text-xl mb-1">🔥</div>
-                                <div class="text-[10px] font-black uppercase text-rose-400">แบบยาก (Hard)</div>
+                                <div class="text-[10px] font-black uppercase text-rose-400">แบบยาก</div>
                             </button>
                         </div>
                     </div>
@@ -144,7 +145,7 @@
                     <div class="collapsible-content">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="flex flex-col gap-2">
-                                <label>เลือกเท็มเพลต (Template)</label>
+                                <label>เลือกประเภทตัวละคร</label>
                                 <div class="grid grid-cols-3 gap-2">
                                     <button onclick="setTemplate('pet')" id="btn-tpl-pet" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🐶 สัตว์เลี้ยง</button>
                                     <button onclick="setTemplate('car')" id="btn-tpl-car" class="tpl-btn p-3 rounded-xl bg-white/5 text-[10px] font-black uppercase">🚗 ยานพาหนะ</button>
@@ -297,7 +298,7 @@
                                 <div><label>โอกาสดรอป (%)</label><input type="number" data-path="rewards.gold_rate" class="matrix-input"></div>
                             </div>
                             <div class="p-5 bg-neon-cyan/5 rounded-2xl border border-neon-cyan/10 space-y-4">
-                                <div class="font-black text-neon-cyan text-[10px] uppercase tracking-widest border-b border-neon-cyan/10 pb-2">💎 Diamond (ตำนาน)</div>
+                                <div class="font-black text-neon-cyan text-[10px] uppercase tracking-widest border-b border-neon-cyan/10 pb-2">💎 Diamond (ระดับตำนาน)</div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div><label>Min</label><input type="number" data-path="rewards.diamond_min" class="matrix-input"></div>
                                     <div><label>Max</label><input type="number" data-path="rewards.diamond_max" class="matrix-input"></div>
@@ -384,7 +385,7 @@
                 <!-- Section 5: Daily Quests -->
                 <section class="glass rounded-2xl overflow-hidden border border-neon-pink/10" id="sec-quests">
                     <div class="collapsible-header" onclick="toggleSection('sec-quests')">
-                        <div class="flex items-center gap-3">📋 <div class="text-[10px] font-bold text-neon-pink uppercase tracking-[0.3em]">ภารกิจรายวัน (Daily Quests)</div></div>
+                        <div class="flex items-center gap-3">📋 <div class="text-[10px] font-bold text-neon-pink uppercase tracking-[0.3em]">ภารกิจรายวัน</div></div>
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content">
@@ -400,7 +401,7 @@
                 <!-- Section 6: Shop Economy -->
                 <section class="glass rounded-2xl overflow-hidden border border-neon-cyan/30" id="sec-shop">
                     <div class="collapsible-header" onclick="toggleSection('sec-shop')">
-                        <div class="flex items-center gap-3">🛒 <div class="text-[10px] font-bold text-neon-cyan uppercase tracking-[0.3em]">ระบบเศรษฐกิจและร้านค้า (Shop Economy)</div></div>
+                        <div class="flex items-center gap-3">🛒 <div class="text-[10px] font-bold text-neon-cyan uppercase tracking-[0.3em]">ระบบเศรษฐกิจและร้านค้า</div></div>
                         <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                     <div class="collapsible-content">
@@ -484,7 +485,7 @@
                         <div class="flex items-center gap-4">
                             <span class="text-4xl">🏆</span>
                             <div>
-                                <h2 class="text-2xl sm:text-3xl font-black text-white italic tracking-tighter uppercase whitespace-nowrap">ประวัติซีซั่น (Season Logs)</h2>
+                                <h2 class="text-2xl sm:text-3xl font-black text-white italic tracking-tighter uppercase whitespace-nowrap">ประวัติซีซั่น</h2>
                                 <p class="text-[9px] text-white/30 uppercase tracking-[0.2em] mt-1">ประวัติอันดับและคะแนนสูงสุดของผู้เล่น</p>
                             </div>
                         </div>
@@ -559,18 +560,145 @@
                 </div>
             </div>
         </main>
+
+        <!-- VIEW: WORLD BOSS -->
+        <main id="view-boss" class="hidden flex-1 overflow-y-auto p-8 pt-16 space-y-6 bg-bg-deep">
+            <div class="max-w-4xl mx-auto w-full pb-20">
+                <section class="glass rounded-2xl overflow-hidden border border-rose-500/30 mb-6 relative" id="sec-boss-main">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-orange-500"></div>
+                    <div class="collapsible-header" onclick="toggleSection('sec-boss-main')">
+                        <div class="flex items-center gap-3">👹 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">สถานะบอสโลก (World Boss Status)</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="flex items-center justify-between p-6 bg-black/40 rounded-2xl border border-white/5 mb-6">
+                            <div class="flex items-center gap-4">
+                                <div id="boss-status-indicator" class="w-4 h-4 rounded-full bg-slate-500 animate-pulse"></div>
+                                <div>
+                                    <div id="boss-status-text" class="text-xl font-black text-white uppercase italic leading-none">OFFLINE</div>
+                                    <div class="text-[8px] text-white/30 font-bold uppercase tracking-widest mt-1">บอสยังไม่ถูกอัญเชิญ</div>
+                                </div>
+                            </div>
+                            <button onclick="toggleBossSpawn()" id="btn-boss-spawn" class="px-8 py-3 rounded-xl bg-rose-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all glow shadow-[0_0_20px_rgba(225,29,72,0.3)]">อัญเชิญบอส (SPAWN)</button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-black/40 p-5 rounded-2xl border border-white/5">
+                                <div class="text-[8px] text-white/30 font-bold uppercase tracking-widest mb-2">เลือดปัจจุบัน (Current HP)</div>
+                                <div id="boss-cur-hp-disp" class="text-2xl font-black text-rose-400 font-mono">0</div>
+                            </div>
+                            <div class="bg-black/40 p-5 rounded-2xl border border-white/5">
+                                <div class="text-[8px] text-white/30 font-bold uppercase tracking-widest mb-2">เลือดสูงสุด (Max HP)</div>
+                                <input type="number" id="boss-max-hp-input" class="bg-transparent border-none text-2xl font-black text-white font-mono w-full outline-none focus:ring-1 ring-white/10 rounded" value="1000000">
+                            </div>
+                        </div>
+
+                        <!-- 🕒 SCHEDULE MANAGEMENT ZONE -->
+                        <div class="p-6 bg-indigo-500/5 rounded-3xl border border-indigo-500/20">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xl">📅</span>
+                                    <div>
+                                        <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">ตารางเวลาเกิดอัตโนมัติ</div>
+                                        <div class="text-[8px] text-white/30 uppercase font-bold tracking-tighter mt-1">(Scheduled Spawning)</div>
+                                    </div>
+                                </div>
+                                <button onclick="addScheduleSlot()" class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-600/30 rounded-xl text-[9px] font-black uppercase transition-all">+ เพิ่มช่วงเวลา</button>
+                            </div>
+                            
+                            <div id="boss-schedule-list" class="space-y-2">
+                                <!-- Schedule slots injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="glass rounded-2xl overflow-hidden border border-white/10 mb-6" id="sec-boss-reward">
+                    <div class="collapsible-header" onclick="toggleSection('sec-boss-reward')">
+                        <div class="flex items-center gap-3">🎁 <div class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">ของรางวัลและความสวยงาม</div></div>
+                        <svg class="chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content">
+                        <!-- 📽️ BOSS PREVIEW AREA (MODEL-VIEWER) -->
+                        <div id="boss-preview-container" class="aspect-video w-full bg-black/60 rounded-3xl mb-6 relative overflow-hidden border border-white/10 shadow-inner group">
+                            <model-viewer 
+                                id="boss-preview-viewer"
+                                src="/models/phoenix_bird.glb" 
+                                camera-controls 
+                                auto-rotate
+                                interaction-prompt="none"
+                                shadow-intensity="1" 
+                                exposure="1.2"
+                                loading="lazy"
+                                style="width:100%; height:100%; background: radial-gradient(circle, rgba(225,29,72,0.1) 0%, transparent 70%);">
+                            </model-viewer>
+                            <div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 to-transparent"></div>
+                            <div class="absolute bottom-5 left-5 flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
+                                <div class="text-[8px] text-white/50 font-bold uppercase tracking-[0.2em] shadow-sm">Boss Asset Preview</div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label>รางวัลเหรียญ (Tokens)</label>
+                                <input type="number" id="boss-reward-tokens" class="bg-black/40 border border-white/5 w-full p-4 rounded-xl font-bold">
+                            </div>
+                            <div>
+                                <label>รางวัล XP</label>
+                                <input type="number" id="boss-reward-xp" class="bg-black/40 border border-white/5 w-full p-4 rounded-xl font-bold">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6 pb-6 border-b border-white/5 mb-6">
+                            <div>
+                                <label>Model Path (.glb)</label>
+                                <input type="text" id="boss-model-path" oninput="updateBossPreview()" class="bg-black/40 border border-white/5 w-full p-4 rounded-xl font-mono text-xs">
+                            </div>
+                            <div>
+                                <label>ความเร็วแอนิเมชั่น</label>
+                                <input type="range" id="boss-anim-speed" min="0.1" max="3" step="0.1" class="w-full h-8 accent-rose-500">
+                            </div>
+                        </div>
+
+                        <!-- 🪨 ROCK MECHANICS CONFIG -->
+                        <div class="mb-6 p-6 bg-orange-500/5 rounded-2xl border border-orange-500/10">
+                            <div class="text-orange-400 font-black text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <span>🪨 ตั้งค่าระบบหิน (Rock Mechanics)</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-6">
+                                <div>
+                                    <label class="text-[9px] opacity-60">ลิมิตหินบนแมพ (Map Limit)</label>
+                                    <input type="number" id="boss-rock-spawn-limit" class="matrix-input !bg-black/40">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] opacity-60">ลิมิตหินที่เก็บได้ (Carry Limit)</label>
+                                    <input type="number" id="boss-rock-carry-limit" class="matrix-input !bg-black/40">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] opacity-60">ดีเลย์การเกิด (วินาที)</label>
+                                    <input type="number" step="0.1" id="boss-rock-spawn-delay" class="matrix-input !bg-black/40">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-8 pt-6 border-t border-white/5 flex justify-end">
+                            <button onclick="resetBossHP()" class="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/60 hover:bg-white/10 transition-all">รีเซ็ตเลือดบอสใหม่</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
     </div>
 
     <!-- Right Preview Area -->
     <aside class="w-[850px] bg-[#050810] border-l border-white/5 flex items-start justify-center gap-8 p-10 shrink-0 overflow-y-auto h-screen">
         <div class="flex flex-col items-center mt-20 shrink-0">
-            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">WIDGET VIEW</div>
+            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">มุมมองวิดเจ็ต</div>
             <div class="border border-white/5 shadow-2xl rounded-lg overflow-hidden ring-1 ring-white/10">
                 <iframe id="frame-h" src="./index.html?admin=true&view=widget" style="width:316px; height:182px;"></iframe>
             </div>
         </div>
         <div class="flex flex-col items-center shrink-0">
-            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">MOBILE VIEW</div>
+            <div class="text-[9px] font-black text-white/20 uppercase tracking-[0.5em] mb-4">มุมมองมือถือ</div>
             <div class="border border-white/5 shadow-2xl rounded-sm overflow-hidden ring-4 ring-[#1a1a2e]">
                 <iframe id="frame-v" src="./index.html?admin=true&view=mobile" style="width:332px; height:700px;"></iframe>
             </div>

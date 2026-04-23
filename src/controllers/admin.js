@@ -24,11 +24,13 @@ const createDefaultSettings = (template, diff) => {
     const isEasy = diff === 'easy';
     
     // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
+    // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
     const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0.055 : 0.065);
-    const baseScale = template === 'plant' ? 1.2 : 1.0;
+    const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
 
     return {
         // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
+        // ปรับให้โหมดยากได้แต้มเยอะกว่าชัดเจนเพื่อจูงใจการไต่อันดับ
         activities: {
             feed:   { r: isEasy ? 15 : (isHard ? 8 : 12), s: isEasy ? 3 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
             clean:  { r: isEasy ? 18 : (isHard ? 7 : 14), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
@@ -51,7 +53,11 @@ const createDefaultSettings = (template, diff) => {
             target_play: isEasy ? 1 : (isHard ? 3 : 2),
             reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4),
             base_tokens: isEasy ? 300 : (isHard ? 400 : 430),
-            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150)
+            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150),
+            // Special Quest Targets
+            target_scoop: isEasy ? 3 : (isHard ? 15 : 8),
+            target_fever: isEasy ? 1 : (isHard ? 4 : 2),
+            target_spend: isEasy ? 500 : (isHard ? 2000 : 1000)
         },
         // 4. ร้านค้า (Shop Economy)
         shop: {
@@ -107,9 +113,20 @@ let ADMIN_STATE = {
     ground: 'grass',
     custom_model: '',
     custom_rotation_y: 0,
-    season_number: 1,
-    season_name: 'Beta Season',
     season_duration: 15,
+    world_boss: {
+        active: false,
+        hp: 1000000,
+        max_hp: 1000000,
+        reward_tokens: 5000,
+        reward_xp: 2500,
+        model_path: '/models/phoenix_bird.glb',
+        anim_speed: 1.0,
+        rock_spawn_limit: 3,
+        rock_carry_limit: 2,
+        rock_spawn_delay: 1.0,
+        schedules: [] // เก็บรายการ: { day: 1, time: "20:00", duration: 30 }
+    },
     available_skins: [
         { id: 'cat-toon', template: 'pet', name: 'Classic Cat', desc: 'แมวหน้าบูดคู่บุญ', icon: '🐱', cost: 0, model: '/toon_cat_free.glb', colorCls: 'neon-gold', scale: 1.0, drop_type: 'poop', drop_offset: {x: 0, y: 0, z: -0.2} },
         { id: 'plant-stylized', template: 'plant', name: 'Classic Tree', desc: 'ต้นไม้แห้งๆ', icon: '🌳', cost: 0, model: '/stylized_tree.glb', colorCls: 'emerald', scale: 1.0, drop_type: 'leaves', drop_offset: {x: 0, y: 0, z: 0} },
@@ -466,14 +483,16 @@ window.switchView = (view) => {
     const vs = $('view-settings');
     const vh = $('view-history');
     const vu = $('view-users');
+    const vb = $('view-boss');
     const ns = $('nav-settings');
     const nh = $('nav-history');
     const nu = $('nav-users');
+    const nb = $('nav-boss');
     const preview = document.querySelector('aside.w-\\[850px\\]');
 
     // Reset all
-    [vs, vh, vu].forEach(v => v?.classList.add('hidden'));
-    [ns, nh, nu].forEach(n => {
+    [vs, vh, vu, vb].forEach(v => v?.classList.add('hidden'));
+    [ns, nh, nu, nb].forEach(n => {
         n?.classList.remove('active', 'bg-neon-purple/10', 'border-neon-purple/20');
         n?.classList.add('text-white/40', 'bg-white/5', 'border-white/5');
     });
@@ -496,6 +515,12 @@ window.switchView = (view) => {
         nu.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
         if(preview) preview.classList.add('hidden'); // ซ่อนพรีวิวมือถือเพื่อใช้พื้นที่ฝั่งขวาแทน
         window.refreshUserLists();
+    } else if (view === 'boss') {
+        vb.classList.remove('hidden');
+        nb.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
+        nb.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
+        if(preview) preview.classList.add('hidden');
+        window.renderBossConfig();
     }
 };
 
@@ -630,6 +655,130 @@ window.renderHistoryRankings = async () => {
             }).join('')}
         </div>
     `;
+};
+
+// --- WORLD BOSS LOGIC ---
+window.renderBossConfig = () => {
+    const wb = ADMIN_STATE.world_boss;
+    if (!wb) return;
+
+    const bst = $('boss-status-text');
+    const bsi = $('boss-status-indicator');
+    const bsp = $('btn-boss-spawn');
+    
+    if (bst) bst.innerText = wb.active ? 'ACTIVE' : 'OFFLINE';
+    if (bsi) bsi.className = `w-4 h-4 rounded-full ${wb.active ? 'bg-rose-500 shadow-[0_0_15px_#f43f5e]' : 'bg-slate-500'} animate-pulse`;
+    if (bsp) {
+        bsp.innerText = wb.active ? 'ซ่อนบอส (DESPAWN)' : 'อัญเชิญบอส (SPAWN)';
+        bsp.className = `px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all glow ${wb.active ? 'bg-slate-700 text-white' : 'bg-rose-600 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]'}`;
+    }
+
+    if ($('boss-cur-hp-disp')) $('boss-cur-hp-disp').innerText = (wb.hp || 0).toLocaleString();
+    if ($('boss-max-hp-input')) $('boss-max-hp-input').value = wb.max_hp || 1000000;
+    if ($('boss-reward-tokens')) $('boss-reward-tokens').value = wb.reward_tokens || 5000;
+    if ($('boss-reward-xp')) $('boss-reward-xp').value = wb.reward_xp || 2500;
+    if ($('boss-model-path')) $('boss-model-path').value = wb.model_path || '/models/phoenix_bird.glb';
+    if ($('boss-anim-speed')) $('boss-anim-speed').value = wb.anim_speed || 1.0;
+    
+    // New Rock Mechanics
+    if ($('boss-rock-spawn-limit')) $('boss-rock-spawn-limit').value = wb.rock_spawn_limit ?? 3;
+    if ($('boss-rock-carry-limit')) $('boss-rock-carry-limit').value = wb.rock_carry_limit ?? 2;
+    if ($('boss-rock-spawn-delay')) $('boss-rock-spawn-delay').value = wb.rock_spawn_delay ?? 1.0;
+
+    window.renderScheduleList();
+
+    // อัปเดตตัวพรีวิว 3D
+    const viewer = $('boss-preview-viewer');
+    if (viewer) {
+        const path = wb.model_path || '/models/phoenix_bird.glb';
+        viewer.src = path.startsWith('/') ? path : '/' + path;
+    }
+};
+
+window.updateBossPreview = () => {
+    const path = $('boss-model-path')?.value;
+    const viewer = $('boss-preview-viewer');
+    if (viewer && path) {
+        viewer.src = path.startsWith('/') ? path : '/' + path;
+    }
+};
+
+window.toggleBossSpawn = async () => {
+    if(!ADMIN_STATE.world_boss) ADMIN_STATE.world_boss = { active: false, hp: 1000000, max_hp: 1000000 };
+    ADMIN_STATE.world_boss.active = !ADMIN_STATE.world_boss.active;
+    if (ADMIN_STATE.world_boss.active) {
+        ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
+    }
+    await window.saveBossConfig();
+};
+
+window.resetBossHP = async () => {
+    if(!ADMIN_STATE.world_boss) return;
+    ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
+    await window.saveBossConfig();
+};
+
+window.saveBossConfig = async () => {
+    if(!ADMIN_STATE.world_boss) return;
+    ADMIN_STATE.world_boss.max_hp = parseInt($('boss-max-hp-input')?.value || 1000000);
+    ADMIN_STATE.world_boss.reward_tokens = parseInt($('boss-reward-tokens')?.value || 5000);
+    ADMIN_STATE.world_boss.reward_xp = parseInt($('boss-reward-xp')?.value || 2500);
+    ADMIN_STATE.world_boss.model_path = $('boss-model-path')?.value || '/models/phoenix_bird.glb';
+    ADMIN_STATE.world_boss.anim_speed = parseFloat($('boss-anim-speed')?.value || 1.0);
+    
+    // New Rock Mechanics
+    ADMIN_STATE.world_boss.rock_spawn_limit = parseInt($('boss-rock-spawn-limit')?.value ?? 3);
+    ADMIN_STATE.world_boss.rock_carry_limit = parseInt($('boss-rock-carry-limit')?.value ?? 2);
+    ADMIN_STATE.world_boss.rock_spawn_delay = parseFloat($('boss-rock-spawn-delay')?.value ?? 1.0);
+
+    const { error } = await saveGameConfig(ADMIN_STATE);
+    if (!error) {
+        window.renderBossConfig();
+        window.spawn?.('บันทึกการตั้งค่าบอสเรียบร้อย!', 'text-emerald-400 font-bold');
+    }
+};
+
+window.renderScheduleList = () => {
+    const list = $('boss-schedule-list');
+    if (!list) return;
+
+    const schedules = ADMIN_STATE.world_boss.schedules || [];
+    const dayNames = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+
+    list.innerHTML = schedules.map((slot, index) => `
+        <div class="flex items-center gap-2 bg-black/20 p-2 rounded-xl border border-white/5">
+            <select onchange="updateScheduleSlot(${index}, 'day', this.value)" class="!w-24 !py-1 !text-[10px]">
+                ${dayNames.map((n, i) => `<option value="${i}" ${slot.day == i ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+            <input type="time" value="${slot.time}" onchange="updateScheduleSlot(${index}, 'time', this.value)" class="!w-24 !py-1 !text-[10px]">
+            <div class="flex-1 flex items-center gap-2">
+                <input type="number" value="${slot.duration}" onchange="updateScheduleSlot(${index}, 'duration', this.value)" class="!py-1 !text-[10px] w-16 text-center">
+                <span class="text-[8px] text-white/30 uppercase font-black">นาที</span>
+            </div>
+            <button onclick="deleteScheduleSlot(${index})" class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500/20 transition-all">🗑️</button>
+        </div>
+    `).join('') || '<div class="text-center py-4 text-white/10 text-[10px] uppercase font-black tracking-widest italic">ยังไม่มีตารางเวลา</div>';
+};
+
+window.addScheduleSlot = () => {
+    if (!ADMIN_STATE.world_boss.schedules) ADMIN_STATE.world_boss.schedules = [];
+    ADMIN_STATE.world_boss.schedules.push({ day: 1, time: "20:00", duration: 30 });
+    window.renderScheduleList();
+    window.saveBossConfig();
+};
+
+window.updateScheduleSlot = (index, field, value) => {
+    const slot = ADMIN_STATE.world_boss.schedules[index];
+    if (slot) {
+        slot[field] = (field === 'day' || field === 'duration') ? parseInt(value) : value;
+        window.saveBossConfig();
+    }
+};
+
+window.deleteScheduleSlot = (index) => {
+    ADMIN_STATE.world_boss.schedules.splice(index, 1);
+    window.renderScheduleList();
+    window.saveBossConfig();
 };
 
 (async () => {

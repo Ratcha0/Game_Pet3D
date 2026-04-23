@@ -102,7 +102,7 @@ export function initShop() {
                                 environment-image="neutral" style="background-color: transparent;">
                             </model-viewer>
                             
-                            <div id="skin-badge-${s.id}" class="absolute top-1 right-1 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce z-10 shadow-lg" style="display: none;">ON</div>
+                            <div id="skin-badge-${s.id}" class="absolute top-1 right-1 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce z-10 shadow-lg" style="display: none;">ใช้งานอยู่</div>
                         </div>
                         <h4 class="text-[10px] sm:text-xs font-black text-white uppercase tracking-wider mb-1 line-clamp-2 leading-tight">${s.name}</h4>
                         <span class="text-[8px] sm:text-[9px] text-white/50 mb-3 line-clamp-1">${s.desc}</span>

@@ -24,13 +24,13 @@ function updatePinUI() {
     const pinIcon = $('pin-icon');
 
     if (msg) {
-        if (msg.innerText.indexOf('SUCCESS') === -1 && msg.innerText.indexOf('INCORRECT') === -1) {
+        if (msg.innerText.indexOf('สำเร็จ') === -1 && msg.innerText.indexOf('ผิด') === -1) {
             if (isNew) {
-                if (pinTitle) pinTitle.innerText = "Set New PIN";
+                if (pinTitle) pinTitle.innerText = "ตั้งรหัสผ่านใหม่";
                 if (pinIcon) pinIcon.innerText = "✨";
                 msg.innerHTML = `ยินดีต้อนรับคุณ <span class="text-neon-purple">${STATE.username}</span><br>กรุณาตั้งรหัสผ่าน 4 หลักสำหรับไอดีนี้`;
             } else {
-                if (pinTitle) pinTitle.innerText = "Security Lock";
+                if (pinTitle) pinTitle.innerText = "ระบบความปลอดภัย";
                 if (pinIcon) pinIcon.innerText = "🔒";
                 msg.innerHTML = `ยินดีต้อนรับกลับคุณ <span class="text-neon-pink">${STATE.username}</span><br>กรุณาใส่รหัสผ่านเพื่อเข้าสู่ระบบ`;
             }
@@ -111,7 +111,7 @@ function verifyPin() {
         saveState(); // บันทึกดึงขึ้น Database ทันที
         
         dots.forEach(d => d.classList.add('pin-success'));
-        $('pin-msg').innerText = "PIN CREATED! UNLOCKING...";
+        $('pin-msg').innerText = "สร้างรหัสสำเร็จ! กำลังเข้าสู่ระบบ...";
         $('pin-msg').classList.remove('text-white/50', 'text-red-400');
         $('pin-msg').classList.add('text-green-400');
         
@@ -120,13 +120,13 @@ function verifyPin() {
         // --- 2. โหมดปลดล็อคปกติ ---
         if (currentPin === STATE.pin_code) {
             dots.forEach(d => d.classList.add('pin-success'));
-            $('pin-msg').innerText = "SUCCESS! UNLOCKING...";
+            $('pin-msg').innerText = "รหัสถูกต้อง! กำลังเข้าสู่ระบบ...";
             $('pin-msg').classList.remove('text-white/50', 'text-red-400');
             $('pin-msg').classList.add('text-green-400');
             setTimeout(unlockScreen, 600);
         } else {
             dots.forEach(d => d.classList.add('pin-error'));
-            $('pin-msg').innerText = "INCORRECT PIN. TRY AGAIN.";
+            $('pin-msg').innerText = "รหัสผิด! กรุณาลองใหม่...";
             $('pin-msg').classList.remove('text-white/50', 'text-green-400');
             $('pin-msg').classList.add('text-red-400');
             setTimeout(() => {

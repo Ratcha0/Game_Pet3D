@@ -1,5 +1,6 @@
 import '../styles.css';
-import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI, spawnReward, setRewardCallback, updateEngineConfig, updatePetScale, triggerLevelUpEffect, setWorldSeed, showEmoticon, refreshPetAura } from '../engine/3d_engine.js';
+import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI, spawnReward, setRewardCallback, updateEngineConfig, updatePetScale, triggerLevelUpEffect, setWorldSeed, showEmoticon, refreshPetAura, spawnWorldRock, clearWorldRocks, throwRockAtBoss, collectWorldRockAtPet, _getPetPosition, updateBossModel } from '../engine/3d_engine.js';
+import { initBossController } from './boss_controller.js';
 import { logScoreAction, fetchLeaderboard } from '../services/supabase.js';
 
 import { 
@@ -15,8 +16,10 @@ const $ = id => document.getElementById(id);
 const urlParams = new URLSearchParams(window.location.search);
 const viewType = urlParams.get('view') || 'mobile';
 const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'admin-preview';
+if (isAdminPreview) document.body.classList.add('is-admin-preview');
 
 (async function() {
+window.STATE = STATE; // Expose to window for inline scripts and debugging
 window.spawn = function(msg, cls = "text-white") {
     const a=$('spawn-area'); if(!a) return;
     const e=document.createElement('div');
@@ -202,6 +205,7 @@ function updateBuffUI() {
                         </svg>
                         <span class="text-[10px] sm:text-base z-10">${b.icon}</span>
                         <div class="absolute -bottom-0.5 right-0.5 z-20 text-[7px] sm:text-[8px] font-black text-white drop-shadow-md">${timeLeft}m</div>
+                            <div id="skin-badge-${b.key}" class="absolute top-1 right-1 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce z-10 shadow-lg" style="display: none;">ใช้งานอยู่</div>
                     </div>
                 </div>
             `;
@@ -264,7 +268,7 @@ function updateQuestUI() {
     const specLabel = $('q-label-special');
     const specIcon = $('q-icon-special');
 
-    if(specLabel) specLabel.innerText = `Challenge: ${q.special.label}`;
+    if(specLabel) specLabel.innerText = `${q.special.label}`;
     if(specIcon) specIcon.innerText = q.special.icon;
     if(specBar) specBar.style.width = `${Math.min(100, (q.special.current/q.special.target)*100)}%`;
     if(specVal) specVal.innerText = `${q.special.current}/${q.special.target}`;
@@ -1146,7 +1150,8 @@ function updateLoading(progress) {
 
         
         // ส่ง Log ขึ้น Cloud
-        logScoreAction(currentUserId, `COLLECT_${type.toUpperCase()}`, score, tokens);
+        const logType = type ? type.toUpperCase() : 'UNKNOWN';
+        logScoreAction(currentUserId, `COLLECT_${logType}`, score, tokens);
 
         spawn(msg, 'text-neon-gold pulse');
         updateUI();
@@ -1191,6 +1196,7 @@ function updateLoading(progress) {
         const diff = STATE.config.difficulty_mode || 'normal';
         const matrix = (STATE.config.matrix[tpl] && STATE.config.matrix[tpl][diff]) ? STATE.config.matrix[tpl][diff] : {};
         const mech = matrix.mechanics || { sp_min:60, sp_max:180 };
+        const rew = matrix.rewards || {};
         
         // รางวัลพิเศษใช้ความถี่เดียวกับไอเทมจิปาถะ หรืออาจจะคูณ 1.5 เพื่อให้เกิดยากกว่านิดหน่อย
         const delay = (mech.sp_min * 1.5 + Math.random() * (mech.sp_max - mech.sp_min)) * 1000;
@@ -1250,61 +1256,63 @@ function updateLoading(progress) {
         }
     }
 
-    if (viewType !== 'widget') {
-        setInterval(()=>{
-            if (!isGameActive) return; 
-            
-            const tpl = STATE.config.template || 'pet';
-            const diff = STATE.config.difficulty_mode || 'normal';
-            const matrix = (STATE.config.matrix[tpl] && STATE.config.matrix[tpl][diff]) ? STATE.config.matrix[tpl][diff] : {};
-            const mRaw = matrix.mechanics || {};
-            
-            if (Math.random() < 0.2) updatePetSentience();
+    // --- ⚙️ START THE GAME LOOP ---
+    setInterval(()=>{
+        if (!isGameActive) return; 
+        
+        // 🧪 ดึงข้อมูล Config ล่าสุดมาคำนวณ
+        const tpl = STATE.config.template || 'pet';
+        const diff = STATE.config.difficulty_mode || 'normal';
+        const active = getActiveConfig();
+        const mech = active.mechanics || {};
+        
+        // mRaw เพื่อความเสถียรในการดึงแบบด่วน (Legacy Support)
+        const matrix = (STATE.config.matrix[tpl] && STATE.config.matrix[tpl][diff]) ? STATE.config.matrix[tpl][diff] : {};
+        const mRaw = matrix.mechanics || mech;
+        
+        if (Math.random() < 0.2) updatePetSentience();
 
-            STATE.maxStamina = STATE.maxStamina || 100;
-            const now = Date.now();
-            
-            // 🛡️ [NEW] เคลียร์บัฟที่หมดอายุ
-            if (STATE.buffs.score_expiry > 0 && now > STATE.buffs.score_expiry) { STATE.buffs.score_mult = 1.0; STATE.buffs.score_expiry = 0; }
-            if (STATE.buffs.decay_expiry > 0 && now > STATE.buffs.decay_expiry) { STATE.buffs.decay_mult = 1.0; STATE.buffs.decay_expiry = 0; }
-            if (STATE.buffs.luck_expiry > 0 && now > STATE.buffs.luck_expiry) { STATE.buffs.luck_mult = 1.0; STATE.buffs.luck_expiry = 0; }
-            if (STATE.buffs.regen_expiry > 0 && now > STATE.buffs.regen_expiry) { STATE.buffs.regen = 1.0; STATE.buffs.regen_expiry = 0; }
+        STATE.maxStamina = STATE.maxStamina || 100;
+        const now = Date.now();
+        
+        // 🛡️ เคลียร์บัฟที่หมดอายุ
+        if (STATE.buffs.score_expiry > 0 && now > STATE.buffs.score_expiry) { STATE.buffs.score_mult = 1.0; STATE.buffs.score_expiry = 0; }
+        if (STATE.buffs.decay_expiry > 0 && now > STATE.buffs.decay_expiry) { STATE.buffs.decay_mult = 1.0; STATE.buffs.decay_expiry = 0; }
+        if (STATE.buffs.luck_expiry > 0 && now > STATE.buffs.luck_expiry) { STATE.buffs.luck_mult = 1.0; STATE.buffs.luck_expiry = 0; }
+        if (STATE.buffs.regen_expiry > 0 && now > STATE.buffs.regen_expiry) { STATE.buffs.regen = 1.0; STATE.buffs.regen_expiry = 0; }
 
-            // --- ⚙️ OPTIMIZED GAME LOOP ---
-            const mech = getActiveConfig().mechanics || {};
-            const decayMult = (STATE.buffs.decay_mult || 1.0);
+        // --- ⚙️ LOGIC UPDATES ---
+        const decayMult = (STATE.buffs.decay_mult || 1.0);
 
-            // 1. Logic Updates (State only) - ปรับสมดุลความเร็วการลด
-            STATE.hunger = Math.max(0, STATE.hunger - ((mRaw.dec_hunger ?? 0.12) * decayMult));
-            STATE.clean = Math.max(0, STATE.clean - ((mRaw.dec_clean ?? 0.11) * decayMult));
+        // 1. Hunger & Clean Decay
+        STATE.hunger = Math.max(0, STATE.hunger - ((mRaw.dec_hunger ?? 0.08) * decayMult));
+        STATE.clean = Math.max(0, STATE.clean - ((mRaw.dec_clean ?? 0.05) * decayMult));
 
-            let happyDecay = (mRaw.dec_happy ?? 0.08) * decayMult;
-            if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 2.0; 
-            STATE.love = Math.max(0, STATE.love - happyDecay); 
+        let happyDecay = (mRaw.dec_happy ?? 0.06) * decayMult;
+        if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 2.0; 
+        STATE.love = Math.max(0, STATE.love - happyDecay); 
 
+        if (STATE.hunger > 85 && STATE.clean > 85) {
+            STATE.love = Math.min(100, STATE.love + 0.05); 
+        }
+        
+        let multiplier = 1.0;
+        const thr = mech.fever_threshold ?? 85;
+        const isPerfect = (STATE.hunger >= thr && STATE.love >= thr && STATE.clean >= thr);
+        if (isPerfect) multiplier *= (mech.fever_mult ?? 1.5);
+        if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) multiplier *= STATE.buffs.regen;
 
-            if (STATE.hunger > 85 && STATE.clean > 85) {
-                STATE.love = Math.min(100, STATE.love + 0.05); 
-            }
-            
-            let multiplier = 1.0;
-            const thr = mech.fever_threshold ?? 85;
-            const isPerfect = (STATE.hunger >= thr && STATE.love >= thr && STATE.clean >= thr);
-            if (isPerfect) multiplier *= (mech.fever_mult ?? 1.5);
-            if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) multiplier *= STATE.buffs.regen;
+        const currentRegen = mech.reg_stamina ?? 0.75;
+        if (STATE.stamina < STATE.maxStamina) {
+            STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (currentRegen * multiplier));
+        }
 
-            const currentRegen = mech.reg_stamina ?? 0.5;
-            if (STATE.stamina < STATE.maxStamina) {
-                STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (currentRegen * multiplier));
-            }
-
-            // 2. UI Updates (Trigger only once)
-            updateUI();
-            refreshPetAura(STATE.level, isPerfect);
-            
-            if (Math.random() < 0.05) saveState(); 
-        }, 1000);
-    }
+        // 2. UI Updates
+        window.updateUI();
+        refreshPetAura(STATE.level, isPerfect);
+        
+        if (Math.random() < 0.05) saveState(); 
+    }, 1000);
 
     window.addEventListener('click', () => SFX.init(), { once: true });
     window.addEventListener('touchstart', () => SFX.init(), { once: true });
@@ -1325,4 +1333,7 @@ function updateLoading(progress) {
     if (window.twemoji) {
         twemoji.parse($('game-container'));
     }
+
+    // 👹 START BOSS SYSTEM
+    initBossController(STATE, { spawnWorldRock, clearWorldRocks, throwRockAtBoss, collectWorldRockAtPet, _getPetPosition, updateBossModel });
 })();

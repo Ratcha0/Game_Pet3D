@@ -18,16 +18,14 @@ const createDefaultSettings = (template, diff) => {
             repair: { r: isEasy ? 12 : (isHard ? 6 : 10), s: isEasy ? 2 : (isHard ? 8 : 4), xp: isEasy ? 30 : (isHard ? 100 : 55) },
             play:   { r: isEasy ? 20 : (isHard ? 10 : 18), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
         },
-        // 2. รางวัลไอเทมบนแมพ (Rewards) - Config แบบ 3 ระดับใหม่
+        // 2. รางวัลไอเทมบนแมพ (Rewards) - [เหรียญ, เวลาแสดงผล]
         rewards: {
-            silver_min: isEasy ? 50 : (isHard ? 20 : 30),
-            silver_max: isEasy ? 100 : (isHard ? 50 : 80),
-            gold_min: isEasy ? 200 : (isHard ? 100 : 150),
-            gold_max: isEasy ? 500 : (isHard ? 300 : 400),
-            gold_rate: isEasy ? 30 : (isHard ? 15 : 20),
-            diamond_min: isEasy ? 1000 : (isHard ? 500 : 750),
-            diamond_max: isEasy ? 2000 : (isHard ? 1200 : 1500),
-            diamond_rate: isEasy ? 5 : (isHard ? 1 : 3)
+            legendary_tokens: isHard ? 2000 : (isEasy ? 500 : 1000),
+            legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
+            legendary_rate: isEasy ? 4 : (isHard ? 1 : 2), 
+            rare_tokens: isHard ? 500 : (isEasy ? 150 : 300),
+            rare_time: isEasy ? 20 : (isHard ? 10 : 15),
+            rare_rate: isEasy ? 25 : (isHard ? 8 : 15) 
         },
         // 3. ภารกิจรายวัน (Quests)
         // ตั้งเป้า 1M(H) / 700k(N) / 500k(E)
@@ -65,7 +63,8 @@ const createDefaultSettings = (template, diff) => {
             reward_lifetime: isEasy ? 240 : (isHard ? 80 : 150),
             max_poops: 3, max_rewards: 3,
             dec_happy_poop: isHard ? 30 : (isEasy ? 5 : 15),
-            fever_threshold: 85, fever_mult: 1.5
+            fever_threshold: isEasy ? 70 : (isHard ? 90 : 80),
+            fever_mult: isEasy ? 2.0 : (isHard ? 1.5 : 1.8)
         },
         // 6. บัฟและไอเทมเสริม (Boosters) - [ราคา, ตัวคูณ, ระยะเวลา(นาที)]
         boosters: {
@@ -121,7 +120,15 @@ export const STATE = {
         luck_mult: 1.0, luck_expiry: 0,
         regen: 1.0, regen_expiry: 0 
     },
-    inventory: { skins: [], equipped_skins: {} }
+    inventory: { skins: [], equipped_skins: {} },
+    carrying_rock: 0,
+    boss_skills: {
+        points: 0, xp: 0, lvl: 1, next: 5000,
+        damage: { lvl: 1 },
+        crit: { lvl: 1 },
+        speed: { lvl: 1 },
+        bag: { lvl: 1 }
+    }
 };
 
 export const SPECIAL_QUEST_POOL = [
@@ -151,6 +158,11 @@ export function resetStateToDefaults() {
         decay_mult: 1.0, decay_expiry: 0,
         luck_mult: 1.0, luck_expiry: 0,
         regen: 1.0, regen_expiry: 0 
+    };
+    STATE.carrying_rock = 0;
+    STATE.boss_skills = {
+        points: 0, xp: 0, lvl: 1, next: 5000,
+        damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
     };
 }
 
@@ -214,6 +226,8 @@ function mergeSaveData(d) {
     STATE.level = d.level ?? 1;
     STATE.maxExp = d.maxExp ?? 100;
     STATE.current_season = d.current_season ?? d.season_number ?? 1;
+    STATE.carrying_rock = d.carrying_rock ?? 0;
+    if (d.boss_skills) STATE.boss_skills = d.boss_skills;
     if (d.inventory) STATE.inventory = d.inventory;
     if (d.quests || d.quests_data) STATE.quests = d.quests || d.quests_data;
     if (d.buffs || d.buffs_data) STATE.buffs = d.buffs || d.buffs_data;
@@ -241,6 +255,8 @@ export function saveState(isSync = false) {
         hunger: STATE.hunger, clean: STATE.clean, stamina: STATE.stamina,
         love: STATE.love, xp: STATE.xp, level: STATE.level, maxExp: STATE.maxExp,
         current_season: STATE.current_season,
+        carrying_rock: STATE.carrying_rock || 0,
+        boss_skills: STATE.boss_skills,
         quests: STATE.quests, buffs: STATE.buffs, inventory: STATE.inventory
     };
     
@@ -306,6 +322,7 @@ export function applyConfigToState(p) {
     STATE.config.season_number = cleanP.season_number || 1;
     STATE.config.season_name = cleanP.season_name || 'Beta Season';
     STATE.config.season_duration = cleanP.season_duration || 15;
+    if (cleanP.world_boss) STATE.config.world_boss = cleanP.world_boss;
     if (cleanP.matrix) STATE.config.matrix = cleanP.matrix;
     if (cleanP.available_skins) STATE.config.available_skins = cleanP.available_skins;
 }

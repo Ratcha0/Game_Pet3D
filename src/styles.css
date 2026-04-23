@@ -5,7 +5,7 @@
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',sans-serif; }
 .phone-frame { width:100%; height:100vh; height:100dvh; position:relative; overflow:hidden; background:#080c18; }
-.hud { position:absolute; inset:0; z-index:10; pointer-events:none; display:flex; flex-direction:column; width: 100%; height: 100%; overflow: hidden; padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 16px) 0; }
+.hud { position:absolute; inset:0; z-index:20; pointer-events:none; display:flex; flex-direction:column; width: 100%; height: 100%; overflow: hidden; padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 16px) 0; }
 .hud-content { width: 100%; display: flex; flex-direction: column; height: 100%; position: relative; }
 .glass { background:rgba(15, 23, 42, 0.95); border:1px solid rgba(255,255,255,0.08); }
 .glow { box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
@@ -96,66 +96,17 @@ img.emoji {
     #login-step-2 #pin-keypad button { font-size: 0.9rem !important; padding: 0.5rem !important; }
 }
 
-/* โหมดจอจิ๋วขีดสุด (Ultra Small / Widget Mode) */
+/* ลบโหมดจอจิ๋วเก่าที่ทำให้ UI แตกกระจายออก */
 @media (max-width: 400px), (max-height: 550px) {
     #bottom-hud { 
-        position: relative !important; 
         width: 100% !important; 
-        height: 35px !important; 
-        display: block !important; 
-    }
-    .profile-box { transform: scale(0.85) !important; transform-origin: top left !important; }
-    .wallet-box { transform: scale(0.85) !important; transform-origin: top right !important; }
-    header { padding: 1 !important; width: 100% !important; }
-    #spawn-area { position: absolute !important; top: 70px !important; left: 52% !important; transform: translateX(-50%) scale(0.7) !important; transform-origin: top center !important; }
-    .hud { padding-top: 0 !important; padding-bottom: 0 !important; }
-    
-    .stats-panel, .action-panel {
-        position: absolute !important;
-        bottom: 0 !important;
-        margin: 0 !important;
-        gap: 4px !important;
-        width: max-content !important; 
-        max-width: none !important;
-        height: 52px !important; 
-        padding: 4px 10px !important;
-        z-index: 10;
         display: flex !important;
+        flex-direction: column !important;
         align-items: center !important;
-        justify-content: center !important;
-        overflow: visible !important;
     }
     .stats-panel { 
-        left: 0% !important; 
-        transform-origin: bottom left !important; 
-        transform: scale(0.9) !important; 
-        flex-direction: row !important; 
-    }
-    .action-panel { 
-        right: 0% !important; 
-        transform-origin: bottom right !important; 
-        transform: scale(0.9) !important; 
-    }
-
-    /* พิเศษสำหรับจอเล็กลงไปอีก (Nano Mode < 300px) */
-    @media (max-width: 300px) {
-        .profile-box, .wallet-box { transform: scale(0.55) !important; }
-        .stats-panel { transform: scale(0.55) !important; }
-        .action-panel { transform: scale(0.55) !important; }
-
-        /* ซ่อนข้อความเพื่อให้กล่องเล็กลง */
-        .label-text { display: none !important; }
-        .stats-panel h1, .action-panel h1 { display: none !important; }
-    }
-
-    /* ย่อส่วนหน้าจอเล็กมาก */
-    @media (max-width: 280px) {
-        .stats-panel { transform: scale(0.42) !important; }
-        .action-panel { transform: scale(0.42) !important; }
-    }
-    @media (max-width: 250px) {
-        .stats-panel { transform: scale(0.35) !important; }
-        .action-panel { transform: scale(0.35) !important; }
+        width: 100% !important;
+        transform: scale(1) !important;
     }
 }
 
@@ -169,34 +120,27 @@ img.emoji {
 @media screen and (max-width: 850px) {
     .profile-box { transform: scale(0.8); transform-origin: top left; }
     .wallet-box { transform: scale(0.8); transform-origin: top right; }
-    .stats-panel, .action-panel { max-width: 380px !important; transform: scale(0.85); }
+    .stats-panel { width: 100% !important; max-width: none !important; border-radius: 1.5rem !important; }
     #spawn-area { transform: scale(0.7) translateY(-20px); opacity: 0.9; }
     header { padding-left: 8px !important; padding-right: 8px !important; }
 }
 
 /* จริงๆ แนวนอน (Orientation Landscape) */
 @media screen and (orientation: landscape) {
-    .hud { padding: 4px 4px !important; } /* ลด padding ด้านข้างให้ชิดขอบจอมากขึ้น */
+    .hud { padding: 8px !important; }
     #bottom-hud { 
         position: absolute !important; bottom: 0 !important; left: 0 !important; 
-        width: 100% !important; display: flex !important; flex-direction: row !important; 
-        justify-content: space-between !important; align-items: flex-end !important;
-        padding: 0 20px 16px 20px !important;
-        transform: none !important;
+        width: 100% !important; display: flex !important; flex-direction: column !important; 
+        align-items: center !important;
+        padding: 0 0 16px 0 !important;
         z-index: 100 !important;
     }
-    #spawn-area { 
-        position: absolute !important; top: 10px !important; left: 50% !important; 
-        transform: translateX(-50%) scale(0.55) !important; transform-origin: top center !important;
+    .stats-panel { 
+        width: 85% !important;
+        max-width: 800px !important;
+        transform: scale(0.8) !important; 
+        transform-origin: bottom center !important;
     }
-    .stats-panel, .action-panel { 
-        max-width: 250px !important; 
-        transform: scale(0.75) !important; 
-        margin: 0 !important;
-    }
-    .stats-panel { transform-origin: bottom left !important; }
-    .action-panel { transform-origin: bottom right !important; }
-    .glass { background: rgba(15, 23, 42, 0.6) !important; }
 
     /* Red Alert Pulse */
     @keyframes pulse-red {
@@ -429,7 +373,10 @@ img.emoji {
 }
 /* --- 🧭 Radar Indicators --- */
 #poop-indicators {
+    position: absolute;
+    inset: 0;
     pointer-events: none;
+    z-index: 10;
 }
 .indicator-base {
     position: absolute;
@@ -440,8 +387,8 @@ img.emoji {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 85;
-    pointer-events: auto; /* ให้กดได้เพื่อเดินไปหา */
+    z-index: 10;
+    pointer-events: auto;
 }
 .indicator-inner {
     width: 2.2rem;
@@ -468,4 +415,241 @@ img.emoji {
     top: -24px;
     left: 50%;
     transform: translateX(-50%);
+}
+
+/* 👹 Unified 2-Row Console (WIDE & PREMIUM) */
+.stats-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 900px !important;
+    align-items: center !important;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-sizing: border-box;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.8);
+    background: rgba(15, 23, 42, 0.95) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem !important;
+    border-radius: 2rem;
+    pointer-events: auto !important;
+}
+
+/* --- 🖥️ Big Screen Mode --- */
+@media (min-width: 768px) {
+    .stats-panel {
+        max-width: 850px;
+        padding: 2rem !important;
+        margin-bottom: 20px;
+        border-radius: 3rem !important;
+    }
+}
+
+/* --- 🎯 Boss Skill Panel Enhancements --- */
+.skill-level-dots {
+    display: flex;
+    gap: 2.5px;
+    margin-top: 5px;
+}
+.skill-dot {
+    width: 3.5px;
+    height: 3.5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.3s;
+}
+.skill-dot.active {
+    background: #fbbf24;
+    box-shadow: 0 0 5px #fbbf24;
+    transform: scale(1.2);
+}
+
+.boss-skill-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 50px;
+}
+.boss-skill-item:active { transform: scale(0.9); }
+
+.skill-circle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(30, 40, 60, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.skill-label {
+    font-size: 8px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+}
+
+/* --- 🍖 Action Buttons Polish --- */
+.action-trigger {
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.action-trigger:hover { transform: translateY(-2px) scale(1.05); }
+.action-trigger:active { transform: scale(0.95); }
+
+/* Boss Skill Panel positioning logic handled via utility classes */
+#world-boss-hud {
+    position: fixed;
+    top: 75px; /* ใต้กรอบโปรไฟล์ */
+    left: 10px;
+    z-index: 1000;
+    width: auto;
+    max-width: 200px;
+}
+
+#btn-throw-rock {
+    position: fixed !important;
+    bottom: 260px;
+    right: 10px;
+    z-index: 99999999 !important; /* สูงที่สุดในระบบ */
+    pointer-events: auto !important;
+}
+
+/* Global Console: Collapsed state */
+.stats-panel.collapsed {
+    max-height: 0px !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    pointer-events: none !important;
+    transform: translateY(20px);
+}
+
+.skill-toggle-arrow {
+    display: inline-block;
+    transition: transform 0.3s;
+}
+
+
+/* Mini Mode Positioning */
+#hud-toggle-area.mini-mode {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    margin: 0;
+}
+
+#hud-toggle-area.mini-mode > div {
+    background: rgba(0, 0, 0, 0.8) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* New Combined Rule for Landscape / Short Screens / Admin Preview */
+@media (max-height: 520px), .is-admin-preview {
+    /* Top Left HUB (Profile + Boss HP) */
+    #top-left-hud {
+        position: fixed !important;
+        top: 10px !important;
+        left: 10px !important;
+        transform: scale(0.65) !important;
+        transform-origin: top left !important;
+        z-index: 100 !important;
+    }
+
+    /* Top Right HUD (Coins + Shop + Quest) */
+    #top-right-hud {
+        position: fixed !important;
+        top: 10px !important;
+        right: 10px !important;
+        transform: scale(0.75) !important;
+        transform-origin: top right !important;
+        z-index: 100 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-end !important;
+        gap: 5px !important;
+    }
+
+
+    /* Console Container */
+    #bottom-hud {
+        position: fixed !important;
+        bottom: 1px !important;
+        left: 0px !important;
+        width: auto !important;
+        height: auto !important;
+        max-height: 100vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-end !important;
+        align-items: flex-start !important;
+        padding: 0 !important;
+        z-index: 200 !important;
+    }
+
+    #unified-hud-console {
+        position: relative !important;
+        align-items: flex-start !important;
+        padding: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Main Panel Scaling */
+    .stats-panel {
+        transform: scale(0.6) !important;
+        transform-origin: bottom left !important;
+        max-width: 400px !important;
+        margin: 0 !important;
+        padding: 8px !important;
+    }
+
+    /* Simple Collapsed State: Hide */
+    .stats-panel.collapsed {
+        max-height: 0px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Boss HUD repositioning for short screens */
+    #world-boss-hud {
+        position: fixed !important;
+        top: 10px !important;
+        right: 140px !important;
+        left: auto !important;
+        max-width: 140px !important;
+        transform: scale(0.7) !important;
+        transform-origin: top right !important;
+    }
+
+    /* Force toggle to stick right above the console panel content */
+    #hud-toggle-area {
+        transform: scale(0.6) !important;
+        transform-origin: bottom left !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        bottom: 85px !important; /* Positioned right above the console box */
+        left: 0px !important;
+        z-index: 210 !important;
+    }
 }

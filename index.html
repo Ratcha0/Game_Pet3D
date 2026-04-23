@@ -36,139 +36,212 @@
         <div class="hud">
             <div class="hud-content">
                 
-                <!-- TOP DISTRIBUTED -->
-                <header class="flex justify-between items-start px-2 sm:px-5 pt-2 sm:pt-4 pointer-events-none transition-all w-full">
-                    <!-- Left: Profile & XP & Score -->
-                    <div class="profile-box glass flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 sm:py-3 rounded-2xl border border-white/5 glow pointer-events-auto hud-breathe relative">
-                        <div id="hud-user-icon" class="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center text-base sm:text-lg shadow-lg leading-none">🐱</div>
-                        <div class="leading-tight">
-                            <div class="flex items-center gap-1.5">
-                                <h1 class="font-black text-[10px] sm:text-xs text-white/90 uppercase tracking-tight flex items-center">
-                                    <span id="hud-username" class="truncate max-w-[70px] sm:max-w-[100px] inline-block align-bottom">LIKEGOTCHI</span> 
-                                    <button onclick="editPetName()" class="ml-0.5 opacity-50 hover:opacity-100 transition-opacity pointer-events-auto">✏️</button>
-                                    <span id="mood-emoji" class="ml-1 filter drop-shadow-[0_0_5px_rgba(255,255,255,0.3)] text-[10px] sm:text-base">😊</span>
-                                    <span id="mood-val" class="ml-0.5 px-1 py-0 bg-white/5 rounded-md text-[7px] sm:text-[7px] font-black text-white/80 tracking-tighter border border-white/5">85%</span>
-                                </h1>
+                <!-- TOP DISTRIBUTED HUD -->
+                <header class="flex justify-between items-start px-2 sm:px-5 pt-2 sm:pt-4 pointer-events-none w-full">
+                    <!-- Left: Profile & Info -->
+                    <div id="top-left-hud" class="pointer-events-auto">
+                        <div class="profile-box glass flex items-center gap-2 sm:gap-6 p-1.5 sm:p-4 rounded-xl sm:rounded-[2rem] border border-white/10 shadow-2xl relative overflow-hidden group">
+                            <div id="hud-user-icon" class="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg shadow-lg">🐱</div>
+                            <div class="leading-tight">
+                                <div class="flex items-center gap-1">
+                                    <h1 class="font-black text-xs sm:text-sm text-white uppercase tracking-tight">
+                                        <span id="hud-username">LIKEGOTCHI</span>
+                                        <span id="mood-emoji" class="ml-1">😊</span>
+                                    </h1>
+                                </div>
+                                <div class="flex items-center gap-1.5 mt-1">
+                                    <span class="text-[8px] sm:text-[9px] font-black text-purple-400 uppercase">Lv.<span id="hud-level">1</span></span>
+                                    <div class="w-16 sm:w-28 h-1 bg-black/40 rounded-full overflow-hidden">
+                                        <div id="bar-xp" class="h-full bg-gradient-to-r from-purple-500 to-pink-500" style="width:10%"></div>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-[8px] font-black text-amber-400">🏆 <span id="hud-score">0</span></span>
+                                        <div id="hud-xp-val" class="hidden text-[6px] text-white/30 font-bold ml-1">0/100</div>
+                                    </div>
+                                    <div class="ml-1 border-l border-white/10 pl-1 flex items-center gap-1">
+                                        <span id="season-badge" class="text-[6px] font-black text-purple-400">ซีซั่น 1</span>
+                                    </div>
+                                </div>
                             </div>
-                             <div class="flex flex-col gap-0.5 mt-0.5 sm:mt-1">
-                                 <div class="flex items-center gap-1.5 relative">
-                                     <span class="text-[7px] sm:text-[8px] font-black text-neon-purple uppercase w-5 sm:w-8 shrink-0">Lv.<span id="hud-level">5</span></span>
-                                     <!-- Buff Indicator - ย้ายมาอยู่ในลำดับ flex จะได้ไม่ล้น -->
-                                     <div id="stamina-buff-icon" class="hidden w-3 h-3 sm:w-4 sm:h-4 bg-neon-gold rounded-full flex items-center justify-center text-[6px] sm:text-[8px] text-black font-black shadow-[0_0_8px_#fbbf24] animate-pulse shrink-0">⚡</div>
-                                     <div class="flex-1 flex flex-col gap-0.5">
-                                         <div class="flex items-center gap-1.5">
-                                             <div class="w-12 sm:w-24 h-1 sm:h-1.5 bg-black/40 rounded-full overflow-hidden">
-                                                 <div id="bar-xp" class="h-full bg-gradient-to-r from-neon-purple to-neon-pink" style="width:35%"></div>
-                                             </div>
-                                             <div class="text-[7px] sm:text-[8px] font-bold text-neon-gold uppercase tracking-wider flex items-center gap-0.5">
-                                                 🏆 <span id="hud-score">2,500</span>
-                                             </div>
-                                         </div>
-                                         <div class="flex justify-start">
-                                             <span id="hud-xp-val" class="text-[6px] sm:text-[7px] font-black text-neon-pink bg-neon-pink/10 px-0.5 py-0 rounded-sm uppercase tracking-tighter border border-neon-pink/10">350/1000 XP</span>
-                                         </div>
-                                     </div>
-                                 </div>
-                             </div>
                         </div>
-
-                        <!-- 🌟 Ragnarok Style Buff Bar (Absolute under info) -->
-                        <div id="buff-bar" class="absolute left-0 -bottom-9 sm:-bottom-11 flex gap-1 pointer-events-none">
-                            <!-- Buffs injected here -->
-                        </div>
+                        
+                        <!-- Floating Text Area (FOR XP/Tokens Feedback) -->
+                        <div id="spawn-area" class="absolute inset-0 z-0 pointer-events-none"></div>
                     </div>
 
-                     <!-- Right: Wallet Display & Shop -->
-                     <div class="score-box flex flex-col items-end gap-1 sm:gap-2 pointer-events-none hud-breathe" style="animation-delay: 0.5s;">
-                         <!-- Token Display (🪙) -->
-                         <div class="glass flex items-center gap-1 px-1.5 sm:px-5 py-0.5 sm:py-2.5 rounded-md sm:rounded-2xl border border-white/5 glow pointer-events-auto">
-                             <span id="hud-tokens" class="font-black text-[10px] sm:text-lg text-neon-gold tracking-tight">500</span>
-                             <span class="text-[10px] sm:text-lg text-neon-gold drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]">🪙</span>
-                         </div>
- 
-                         <!-- Shop Button (Stable & Blue) -->
-                         <div class="relative group pointer-events-auto mt-1">
-                             <button onclick="toggleShop(false)" class="glass px-3 py-1.5 rounded-lg border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400 hover:bg-white/10 active:scale-90 transition-all relative z-10 shadow-lg shadow-cyan-500/5">
-                                 🛒 ร้านค้า
-                             </button>
-                             <!-- ขยับพื้นที่กดล่องหนให้เยื้องขึ้นบน (-top-5) ตามพฤติกรรมการกดของคุณ -->
-                             <div onclick="toggleShop(false)" class="absolute -top-5 -bottom-2 -inset-x-4 cursor-pointer z-0"></div>
-                         </div>
-                        
-                        <!-- Floating Quest Button (Right Sidebar) -->
-                        <div class="flex items-center gap-1 sm:gap-2 pointer-events-auto">
-                            <button id="music-btn" onclick="toggleMusicUI()" class="glass w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-sm sm:text-lg shadow-xl border border-white/5 hover:bg-white/20 active:scale-95 transition-all relative pointer-events-auto">
-                                🎵
-                            </button>
-                            <button onclick="toggleQuest(false)" class="glass w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-sm sm:text-lg shadow-xl border border-white/5 hover:bg-white/20 active:scale-95 transition-all animate-bounce-slow relative pointer-events-auto">
+
+
+                    <!-- Right: Wallet & Shop Actions -->
+                    <div id="top-right-hud" class="flex flex-col items-end gap-2 sm:gap-4 pointer-events-auto">
+                        <div class="glass flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 glow shadow-lg">
+                            <span id="hud-tokens" class="font-black text-sm sm:text-lg text-amber-400">500</span>
+                            <span class="text-sm sm:text-lg">🪙</span>
+                        </div>
+                             <button onclick="toggleShop(false)" class="glass px-3 py-1.5 rounded-lg border border-white/10 text-[9px] font-black uppercase text-cyan-400 hover:bg-white/10 transition-all active:scale-95">🛒 ร้านค้า</button>
+                             <button onclick="toggleQuest(false)" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95 relative">
                                 📜
-                                <div id="quest-noti-dot" class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-slate-900 flex items-center justify-center">
-                                    <div class="w-1.5 h-1.5 bg-white rounded-full animate-ping"></div>
-                                </div>
-                            </button>
+                                <div id="quest-noti-dot" class="hidden absolute top-0 right-0 w-2 h-2 bg-red-500 border border-white rounded-full"></div>
+                             </button>
+                             <button id="music-btn" onclick="SFX.toggleMusic()" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-90">🎵</button>
                         </div>
                     </div>
                 </header>
-
-                <div class="flex-1 overflow-hidden pointer-events-none"></div>
-
-                </div>
                 
-                 <div id="spawn-area" class="pointer-events-none flex justify-center w-full z-[100] mt-12 sm:mt-2">
-                 </div>
+                <!-- Middle: Boss HP HUD (Separate for Pinned Positioning) -->
+                <div id="world-boss-hud" class="hidden pointer-events-auto">
+                    <div class="glass p-2 sm:p-3 rounded-xl border border-rose-500/30 flex flex-col gap-2 shadow-2xl min-w-[150px] sm:min-w-[280px]">
+                        
+                        <!-- Row 1: Icon & Alert -->
+                        <div class="flex items-center gap-2">
+                             <div class="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-rose-500/20 flex items-center justify-center text-base sm:text-xl animate-bounce">👹</div>
+                             <h3 class="text-[9px] sm:text-[10px] font-black text-rose-400 uppercase tracking-widest">ระวัง! บอสโลกปรากฏตัว</h3>
+                        </div>
 
-                 <!-- BOTTOM DISTRIBUTED HUD -->
-                 <div id="bottom-hud" class="flex flex-col gap-1.5 px-2 sm:px-4 pb-1.5 sm:pb-4 pointer-events-none items-center">
-                     <!-- Stats Grid -->
-                     <div class="stats-panel glass glow rounded-[1.2rem] py-1.5 sm:py-3 px-3 sm:px-5 border border-white/5 max-w-[480px] w-full pointer-events-auto">
-                         <div class="grid grid-cols-4 gap-2 sm:gap-4">
-                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
-                                 <span id="icon-hunger" class="text-xs sm:text-lg">🍖</span>
-                                 <div class="w-full h-0.5 sm:h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-hunger" class="h-full bg-gradient-to-r from-orange-500 to-amber-300 transition-all" style="width:85%"></div></div>
-                                 <span id="val-hunger" class="label-text text-[5px] sm:text-[8px] font-black text-white/70 uppercase leading-none mt-0.5">หิว <span class="text-white/20 italic">85%</span></span>
-                             </div>
-                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
-                                 <span id="icon-happy" class="text-xs sm:text-lg">💖</span>
-                                 <div class="w-full h-0.5 sm:h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-happy" class="h-full bg-gradient-to-r from-pink-500 to-rose-300 transition-all" style="width:92%"></div></div>
-                                 <span id="val-happy" class="label-text text-[5px] sm:text-[8px] font-black text-white/70 uppercase leading-none mt-0.5">รัก <span class="text-white/20 italic">92%</span></span>
-                             </div>
-                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
-                                 <span id="icon-clean" class="text-xs sm:text-lg">🧼</span>
-                                 <div class="w-full h-0.5 sm:h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-clean" class="h-full bg-gradient-to-r from-cyan-500 to-teal-300 transition-all" style="width:70%"></div></div>
-                                 <span id="val-clean" class="label-text text-[5px] sm:text-[8px] font-black text-white/70 uppercase leading-none mt-0.5">สะอาด <span class="text-white/20 italic">70%</span></span>
-                             </div>
-                             <div class="flex flex-col items-center gap-0.5 sm:gap-1">
-                                 <span id="icon-stamina" class="text-xs sm:text-lg">⚡</span>
-                                 <div class="w-full h-0.5 sm:h-1 bg-black/40 rounded-full overflow-hidden"><div id="bar-stamina" class="h-full bg-gradient-to-r from-emerald-500 to-green-300 transition-all" style="width:90%"></div></div>
-                                 <span id="val-stamina" class="label-text text-[5px] sm:text-[8px] font-black text-white/70 uppercase leading-none mt-0.5">พลัง <span class="text-white/20 italic">90%</span></span>
-                             </div>
-                         </div>
-                     </div>
+                        <!-- Row 2: HP Bar -->
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 h-2 bg-black/60 rounded-full overflow-hidden border border-white/10">
+                                <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-rose-600 to-red-400 transition-all duration-500 shadow-[0_0_10px_rgba(225,29,72,0.5)]" style="width: 100%"></div>
+                            </div>
+                            <span id="boss-hp-text" class="text-[8px] sm:text-[10px] font-black text-white/50 whitespace-nowrap">1,000,000 HP</span>
+                        </div>
+                    </div>
+                </div>
 
-                    <!-- Actions Shelf -->
-                    <div class="action-panel glass glow rounded-[1.5rem] sm:rounded-[2rem] p-0.5 sm:p-1 flex items-center justify-between border border-white/5 max-w-[480px] w-full pointer-events-auto">
-                        <button onclick="doAction('feed')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
-                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-base sm:text-lg"><span id="icon-act-feed">🍗</span></div>
-                            <span id="lbl-act-feed" class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">ป้อนอาหาร</span>
-                        </button>
-                        <button onclick="doAction('play')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
-                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-base sm:text-lg"><span id="icon-act-play">🎾</span></div>
-                            <span id="lbl-act-play" class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">เล่นด้วย</span>
-                        </button>
-                        <button onclick="doAction('clean')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
-                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-base sm:text-lg"><span id="icon-act-clean">🧼</span></div>
-                            <span id="lbl-act-clean" class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">อาบน้ำ</span>
-                        </button>
-                        <button id="btn-repair" onclick="doAction('repair')" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
-                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-base sm:text-lg"><span id="icon-act-repair">💩</span></div>
-                            <span id="lbl-act-repair" class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">เก็บอึ</span>
-                        </button>
+                <div class="flex-1 pointer-events-none"></div>
 
-                        <div class="w-px h-6 sm:h-8 bg-white/5 mx-0.5"></div>
-                        <button onclick="toggleRanking()" class="act-btn flex-1 flex flex-col items-center gap-1 sm:gap-1.5 py-2">
-                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-base sm:text-lg">🏆</div>
-                            <span class="label-text text-[6px] sm:text-[7px] font-black text-white/30 uppercase tracking-widest leading-none">อันดับ</span>
-                        </button>
+                <button id="btn-throw-rock" onclick="throwRock()" class="hidden glass px-6 py-3 rounded-2xl border border-rose-500/50 text-white font-black text-xs uppercase tracking-tighter hover:bg-rose-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 glow-rose shadow-[0_0_20px_rgba(225,29,72,0.4)] pointer-events-auto">
+                    ☄️ <span class="tracking-tighter">ขว้างหิน</span>
+                </button>
+
+                <!-- BOTTOM CONSOLE -->
+                <div id="bottom-hud" class="flex flex-col gap-2 px-0 pb-0 pointer-events-none items-center w-full">
+                    <div id="unified-hud-console" class="flex flex-col items-center w-full max-w-[900px] pointer-events-none">
+                        
+                        <!-- Global HUD Toggle Area -->
+                        <div id="hud-toggle-area" class="mb-2 cursor-pointer pointer-events-auto group mt-2" onclick="toggleMainHUD()">
+                            <div class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 flex items-center gap-2 transition-all hover:bg-white/10 active:scale-95">
+                                <span class="text-[9px] font-black text-white/50 uppercase tracking-[0.2em] hud-toggle-text">ย่อหน้าจอ</span>
+                                <span class="hud-toggle-icon text-white/50 text-[10px]">▼</span>
+                            </div>
+                        </div>
+
+                        <!-- Main Panel (Consolidated Style) -->
+                        <div id="main-stats-panel" class="stats-panel glass rounded-t-[2rem] sm:rounded-t-[2.5rem] p-2 sm:p-5 border-t border-x border-white/10 w-full pointer-events-auto flex flex-col gap-2 sm:gap-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] transition-all duration-500 relative bg-[#0a0e1a]/80 backdrop-blur-xl">
+                            
+                            <!-- Boss Skills Overlay -->
+                            <div id="boss-skill-panel" class="hidden flex flex-row justify-around items-center border-b border-white/5 w-full py-1.5 overflow-x-auto no-scrollbar">
+                                <div class="boss-skill-item group relative" onclick="upgradeBossSkill('damage')">
+                                    <div class="skill-circle w-9 h-9 text-base">⚔️</div>
+                                    <div class="skill-label text-[7px]">โจมตี</div>
+                                    <!-- Progress Bar -->
+                                    <div class="w-8 h-1 bg-black/40 rounded-full mt-1 overflow-hidden">
+                                        <div id="skill-damage-exp" class="h-full bg-amber-400" style="width:0%"></div>
+                                    </div>
+                                    <div id="dots-damage" class="skill-level-dots"></div>
+                                    <span class="lvl-up-arrow hidden absolute -top-1 -right-1 text-[10px] animate-bounce">🔼</span>
+                                </div>
+                                <div class="boss-skill-item group relative" onclick="upgradeBossSkill('crit')">
+                                    <div class="skill-circle w-9 h-9 text-base">💥</div>
+                                    <div class="skill-label text-[7px]">คริติคอล</div>
+                                    <!-- Progress Bar -->
+                                    <div class="w-8 h-1 bg-black/40 rounded-full mt-1 overflow-hidden">
+                                        <div id="skill-crit-exp" class="h-full bg-rose-400" style="width:0%"></div>
+                                    </div>
+                                    <div id="dots-crit" class="skill-level-dots"></div>
+                                    <span class="lvl-up-arrow hidden absolute -top-1 -right-1 text-[10px] animate-bounce">🔼</span>
+                                </div>
+                                <div class="boss-skill-item group relative" onclick="upgradeBossSkill('speed')">
+                                    <div class="skill-circle w-9 h-9 text-base">👟</div>
+                                    <div class="skill-label text-[7px]">ความเร็ว</div>
+                                    <!-- Progress Bar -->
+                                    <div class="w-8 h-1 bg-black/40 rounded-full mt-1 overflow-hidden">
+                                        <div id="skill-speed-exp" class="h-full bg-cyan-400" style="width:0%"></div>
+                                    </div>
+                                    <div id="dots-speed" class="skill-level-dots"></div>
+                                    <span class="lvl-up-arrow hidden absolute -top-1 -right-1 text-[10px] animate-bounce">🔼</span>
+                                </div>
+                                <div class="boss-skill-item group relative" onclick="upgradeBossSkill('bag')">
+                                    <div class="skill-circle w-9 h-9 text-base">🎒</div>
+                                    <div class="skill-label text-[7px]">กระเป๋า</div>
+                                    <!-- Progress Bar -->
+                                    <div class="w-8 h-1 bg-black/40 rounded-full mt-1 overflow-hidden">
+                                        <div id="skill-bag-exp" class="h-full bg-emerald-400" style="width:0%"></div>
+                                    </div>
+                                    <div id="dots-bag" class="skill-level-dots"></div>
+                                    <span class="lvl-up-arrow hidden absolute -top-1 -right-1 text-[10px] animate-bounce">🔼</span>
+                                </div>
+                            </div>
+
+                            <!-- Stats & Action Row (Extreme Compact) -->
+                            <div class="flex flex-row items-center justify-between gap-1 w-full px-0.5 sm:px-4 mb-1">
+                                <!-- Status Group (Left) -->
+                                <div class="flex flex-row items-center justify-start gap-1 sm:gap-4 flex-1">
+                                    <div class="flex flex-col items-center gap-0.5 whitespace-nowrap">
+                                        <span id="icon-hunger" class="text-base sm:text-2xl">🍖</span>
+                                        <div class="w-6 sm:w-16 h-1 bg-black/40 rounded-full overflow-hidden leading-none">
+                                            <div id="bar-hunger" class="h-full bg-gradient-to-r from-orange-500 to-amber-300" style="width:80%"></div>
+                                        </div>
+                                        <span id="val-hunger" class="text-[5px] sm:text-[7px] font-black text-white/20 uppercase tracking-tighter">หิว 34%</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-0.5 whitespace-nowrap">
+                                        <span id="icon-happy" class="text-base sm:text-2xl">💖</span>
+                                        <div class="w-6 sm:w-16 h-1 bg-black/40 rounded-full overflow-hidden leading-none">
+                                            <div id="bar-happy" class="h-full bg-gradient-to-r from-pink-500 to-rose-300" style="width:50%"></div>
+                                        </div>
+                                        <span id="val-happy" class="text-[5px] sm:text-[7px] font-black text-white/20 uppercase tracking-tighter">รัก 63%</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-0.5 whitespace-nowrap">
+                                        <span id="icon-clean" class="text-base sm:text-2xl">🧼</span>
+                                        <div class="w-6 sm:w-16 h-1 bg-black/40 rounded-full overflow-hidden leading-none">
+                                            <div id="bar-clean" class="h-full bg-gradient-to-r from-cyan-500 to-teal-300" style="width:80%"></div>
+                                        </div>
+                                        <span id="val-clean" class="text-[5px] sm:text-[7px] font-black text-white/20 uppercase tracking-tighter">สะอาด 68%</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-0.5 whitespace-nowrap">
+                                        <span id="icon-stamina" class="text-base sm:text-2xl">⚡</span>
+                                        <div class="w-6 sm:w-16 h-1 bg-black/40 rounded-full overflow-hidden leading-none">
+                                            <div id="bar-stamina" class="h-full bg-gradient-to-r from-emerald-500 to-green-300" style="width:100%"></div>
+                                        </div>
+                                        <span id="val-stamina" class="text-[5px] sm:text-[7px] font-black text-white/20 uppercase tracking-tighter">พลัง 100%</span>
+                                    </div>
+                                    
+                                    <!-- Buff Bar Container -->
+                                    <div id="buff-bar" class="flex gap-1 ml-2 pointer-events-none"></div>
+                                </div>
+
+                                <!-- Central Divider -->
+                                <div class="w-px h-7 bg-white/10 mx-0.5 sm:mx-4 shrink-0"></div>
+
+                                <!-- Action Buttons Group (Right) -->
+                                <div class="flex flex-row items-center justify-end gap-1 flex-1">
+                                    <button onclick="doAction('feed')" class="flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 active:scale-95 transition-all group relative">
+                                        <span id="icon-act-feed" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🍖</span>
+                                        <span id="lbl-act-feed" class="text-[5px] sm:text-[8px] font-black text-white/20 uppercase mt-1">ป้อนอาหาร</span>
+                                        <span class="absolute -top-1 -right-1 bg-black/60 px-1 rounded text-[6px] text-orange-400 border border-orange-500/20">⚡6</span>
+                                    </button>
+                                    <button onclick="doAction('play')" class="flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 active:scale-95 transition-all group relative">
+                                        <span id="icon-act-play" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🎾</span>
+                                        <span id="lbl-act-play" class="text-[5px] sm:text-[8px] font-black text-white/20 uppercase mt-1">เล่นด้วย</span>
+                                        <span class="absolute -top-1 -right-1 bg-black/60 px-1 rounded text-[7px] text-pink-400 border border-pink-500/20">⚡15</span>
+                                    </button>
+                                    <button onclick="doAction('clean')" class="flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 active:scale-95 transition-all group relative">
+                                        <span id="icon-act-clean" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🧼</span>
+                                        <span id="lbl-act-clean" class="text-[5px] sm:text-[8px] font-black text-white/20 uppercase mt-1">อาบน้ำ</span>
+                                        <span class="absolute -top-1 -right-1 bg-black/60 px-1 rounded text-[7px] text-cyan-400 border border-cyan-500/20">⚡5</span>
+                                    </button>
+                                    <button id="btn-repair" onclick="doAction('repair')" class="hidden flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 active:scale-95 transition-all group relative">
+                                        <span id="icon-act-repair" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🔧</span>
+                                        <span id="lbl-act-repair" class="text-[5px] sm:text-[8px] font-black text-white/20 uppercase mt-1">ซ่อมเครื่อง</span>
+                                        <span class="absolute -top-1 -right-1 bg-black/60 px-1 rounded text-[7px] text-blue-400 border border-blue-500/20">⚡10</span>
+                                    </button>
+                                    <div class="w-px h-8 bg-white/5 mx-0.5"></div>
+                                    <button onclick="toggleRanking()" class="flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-yellow-500/5 border border-yellow-500/20 hover:bg-yellow-500/10 active:scale-95 transition-all group">
+                                        <span class="text-base sm:text-2xl group-hover:rotate-12 transition-transform">🏆</span>
+                                        <span class="text-[5px] sm:text-[8px] font-black text-yellow-500/40 uppercase mt-1">อันดับ</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -179,7 +252,6 @@
     <!-- Ranking Modal -->
     <div id="ranking-modal" class="fixed inset-0 z-[200] transition-all duration-500 flex items-center justify-center pointer-events-none opacity-0 translate-y-8 hidden">
         <div class="w-[94%] max-w-[420px] max-h-[85vh] bg-[#0c1224] rounded-[2.5rem] border border-white/20 flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] pointer-events-auto relative overflow-hidden">
-            <!-- Compact Header -->
             <div class="px-5 pt-4 pb-2 shrink-0 flex items-center justify-between border-b border-white/5 bg-white/5">
                 <div class="flex flex-col">
                     <h2 class="text-[8px] font-black text-neon-purple uppercase tracking-[0.3em]">Leaderboard</h2>
@@ -189,9 +261,8 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-4 h-4 text-white"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
             </div>
-            <!-- Ranking List -->
             <div id="ranking-list" class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar min-h-0">
-                <div class="text-white/30 text-center py-10 animate-pulse">⏳ Loading...</div>
+                <div class="text-white/30 text-center py-10 animate-pulse">⏳ กำลังโหลด...</div>
             </div>
         </div>
     </div>
@@ -199,18 +270,16 @@
     <!-- Shop Modal -->
     <div id="shop-modal" class="fixed inset-0 z-[210] transition-all duration-500 flex items-center justify-center pointer-events-none opacity-0 translate-y-8 hidden">
         <div class="w-[96%] max-w-[420px] max-h-[92vh] bg-[#0c1120] rounded-[2rem] border border-white/20 flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] pointer-events-auto relative overflow-hidden">
-            <!-- Super Compact Header -->
             <div class="px-4 pt-3 pb-2 shrink-0 flex flex-col gap-2 relative">
                 <div class="flex items-center justify-between">
                     <div class="flex flex-col">
                         <h2 class="text-[7px] font-black text-neon-purple uppercase tracking-[0.2em]">Market</h2>
-                        <h3 class="text-lg font-black text-white italic tracking-tighter uppercase leading-none">ร้านค้า</h3>
+                        <h3 class="text-lg font-black text-white italic tracking-tighter uppercase leading-none">ร้านค้าไอเทม</h3>
                     </div>
                     <button onclick="toggleShop(true)" class="w-7 h-7 bg-white/10 hover:bg-white/20 active:scale-95 rounded-full flex items-center justify-center transition-all border border-white/10">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-3.5 h-3.5 text-white"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-
                 <!-- Thin Tabs -->
                 <div class="flex gap-1 bg-black/60 p-1 rounded-lg border border-white/5 w-full">
                     <button id="btn-tab-stamina" onclick="switchShopTab('stamina')" class="flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all bg-emerald-500/20 text-emerald-400">⚡ พลัง</button>
@@ -218,60 +287,34 @@
                     <button id="btn-tab-skins" onclick="switchShopTab('skins')" class="flex-1 py-1.5 rounded-md text-[8px] font-black uppercase transition-all text-white/30 hover:bg-white/5">🎁 สกิน</button>
                 </div>
             </div>
-
-            <!-- Maximized Content Area -->
             <div class="flex-1 overflow-y-auto px-4 pb-4 min-h-0 custom-scrollbar overscroll-contain">
-                <!-- STAMINA TAB -->
                 <div id="shop-tab-stamina" class="block animate-fade-in">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 shop-item-container">
-                        <!-- Package Small -->
-                        <div onclick="buyPackage('small')" class="shop-card glass p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow relative overflow-hidden group border border-white/5">
-                            <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-2xl mb-1 shadow-inner group-hover:scale-110 transition-transform">⚡</div>
-                            <div class="flex flex-col gap-0.5 mb-2">
-                                <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">แพ็คเล็ก</span>
-                                <span class="text-xs font-black text-white">+<span id="shop-amt-small">50</span> ⚡</span>
-                            </div>
-                            <div class="cost-box bg-black/40 px-2 py-1.5 rounded-xl border border-white/10 font-black text-neon-gold text-[10px] w-full flex justify-center items-center gap-1 whitespace-nowrap">
-                                <span id="shop-cost-small">500</span> 🪙
-                            </div>
+                        <div onclick="buyPackage('small')" class="shop-card glass p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow border border-white/5">
+                            <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-2xl mb-1 group-hover:scale-110 transition-transform">⚡</div>
+                            <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">แพ็คเล็ก</span>
+                            <span class="text-xs font-black text-white">+<span id="shop-amt-small">50</span> ⚡</span>
+                            <div class="mt-2 bg-black/40 px-2 py-1.5 rounded-xl border border-white/10 font-black text-neon-gold text-[10px]"><span id="shop-cost-small">500</span> 🪙</div>
                         </div>
-                        <!-- Package Medium -->
-                        <div onclick="buyPackage('medium')" class="shop-card glass p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow relative overflow-hidden group border border-white/5">
-                            <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center text-xl mb-1 shadow-inner group-hover:scale-110 transition-transform">⚡⚡</div>
-                            <div class="flex flex-col gap-0.5 mb-2">
-                                <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">แพ็คกลาง</span>
-                                <span class="text-xs font-black text-white">+<span id="shop-amt-medium">100</span> ⚡</span>
-                            </div>
-                            <div class="cost-box bg-black/40 px-2 py-1.5 rounded-xl border border-white/10 font-black text-neon-gold text-[10px] w-full flex justify-center items-center gap-1 whitespace-nowrap">
-                                <span id="shop-cost-medium">900</span> 🪙
-                            </div>
+                        <div onclick="buyPackage('medium')" class="shop-card glass p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow border border-white/5">
+                            <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center text-xl mb-1 group-hover:scale-110 transition-transform">⚡⚡</div>
+                            <span class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">แพ็คกลาง</span>
+                            <span class="text-xs font-black text-white">+<span id="shop-amt-medium">100</span> ⚡</span>
+                            <div class="mt-2 bg-black/40 px-2 py-1.5 rounded-xl border border-white/10 font-black text-neon-gold text-[10px]"><span id="shop-cost-medium">900</span> 🪙</div>
                         </div>
-                        <!-- Package Large -->
-                        <div onclick="buyPackage('large')" class="shop-card glass p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow relative overflow-hidden group border border-white/5">
-                            <div class="w-10 h-10 bg-neon-gold/20 rounded-xl flex items-center justify-center text-sm tracking-tighter mb-1 shadow-inner group-hover:scale-110 transition-transform">⚡⚡⚡</div>
-                            <div class="flex flex-col gap-0.5 mb-2">
-                                <span class="text-[10px] font-bold text-neon-gold uppercase tracking-widest">แพ็คใหญ่</span>
-                                <span class="text-xs font-black text-white">+<span id="shop-amt-large">250</span> ⚡</span>
-                            </div>
-                            <div class="cost-box bg-black/40 px-2 py-1.5 rounded-xl border border-white/10 font-black text-neon-gold text-[10px] w-full flex justify-center items-center gap-1 whitespace-nowrap">
-                                <span id="shop-cost-large">2000</span> 🪙
-                            </div>
+                        <div onclick="buyPackage('large')" class="shop-card glass p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow border border-white/5">
+                            <div class="w-10 h-10 bg-neon-gold/20 rounded-xl flex items-center justify-center text-sm mb-1 group-hover:scale-110 transition-transform">⚡⚡⚡</div>
+                            <span class="text-[10px] font-bold text-neon-gold uppercase tracking-widest">แพ็กใหญ่</span>
+                            <span class="text-xs font-black text-white">+<span id="shop-amt-large">250</span> ⚡</span>
+                            <div class="mt-2 bg-black/40 px-2 py-1.5 rounded-xl border border-white/10 font-black text-neon-gold text-[10px]"><span id="shop-cost-large">2000</span> 🪙</div>
                         </div>
                     </div>
                 </div>
-
-                <!-- BOOSTERS TAB -->
                 <div id="shop-tab-boosters" class="hidden animate-fade-in">
-                    <div id="shop-boosters-grid" class="grid grid-cols-1 gap-2 sm:gap-3 pb-2">
-                        <!-- Content via shop.js -->
-                    </div>
+                    <div id="shop-boosters-grid" class="grid grid-cols-1 gap-2 sm:gap-3 pb-2"></div>
                 </div>
-
-                <!-- SKINS TAB -->
                 <div id="shop-tab-skins" class="hidden animate-fade-in">
-                    <div id="shop-skins-grid" class="grid grid-cols-2 gap-3 pb-2">
-                        <!-- Dynamic content via shop.js -->
-                    </div>
+                    <div id="shop-skins-grid" class="grid grid-cols-2 gap-3 pb-2"></div>
                 </div>
             </div>
         </div>
@@ -280,7 +323,6 @@
     <!-- Quest Modal -->
     <div id="quest-modal" class="fixed inset-0 z-[220] transition-all duration-500 flex items-center justify-center pointer-events-none opacity-0 translate-y-8 hidden">
         <div class="w-[94%] max-w-[420px] max-h-[85vh] bg-[#0c1328] rounded-[2.5rem] border border-white/20 flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] pointer-events-auto relative overflow-hidden">
-            <!-- Compact Header -->
             <div class="px-5 pt-4 pb-2 shrink-0 flex items-center justify-between border-b border-white/5 bg-white/5">
                 <div class="flex flex-col">
                     <h2 class="text-[8px] font-black text-neon-purple uppercase tracking-[0.3em]">Daily Missions</h2>
@@ -290,55 +332,52 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-4 h-4 text-white"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
             </div>
-            
             <div class="flex-1 overflow-y-auto px-5 pt-4 space-y-3 min-h-0 custom-scrollbar overscroll-contain">
-                <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-4">
-                    <div id="q-icon-feed" class="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-xl">🍖</div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-end mb-1">
-                            <span id="q-lbl-feed" class="text-xs font-black text-white/80">ให้อาหารน้อง</span>
-                            <span id="q-val-feed" class="text-[10px] font-black text-orange-400">0/3</span>
+                <div id="quest-list" class="space-y-3">
+                    <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-4">
+                        <div id="q-icon-feed" class="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-xl">🍖</div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-end mb-1">
+                                <span id="q-lbl-feed" class="text-xs font-black text-white/80">ให้อาหารน้อง</span>
+                                <span id="q-val-feed" class="text-[10px] font-black text-orange-400">0/3</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                <div id="q-bar-feed" class="h-full bg-orange-500 transition-all" style="width: 0%"></div>
+                            </div>
                         </div>
-                        <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                            <div id="q-bar-feed" class="h-full bg-orange-500 transition-all" style="width: 0%"></div>
+                    </div>
+                    <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-4">
+                        <div id="q-icon-clean" class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-xl">🧼</div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-end mb-1">
+                                <span id="q-lbl-clean" class="text-xs font-black text-white/80">ทำความสะอาด</span>
+                                <span id="q-val-clean" class="text-[10px] font-black text-cyan-400">0/2</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                <div id="q-bar-clean" class="h-full bg-cyan-500 transition-all" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-4">
+                        <div id="q-icon-play" class="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center text-xl">🎾</div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-end mb-1">
+                                <span id="q-lbl-play" class="text-xs font-black text-white/80">เล่นสนุกกับน้อง</span>
+                                <span id="q-val-play" class="text-[10px] font-black text-pink-400">0/1</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                <div id="q-bar-play" class="h-full bg-pink-500 transition-all" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-4">
-                    <div id="q-icon-clean" class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-xl">🧼</div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-end mb-1">
-                            <span id="q-lbl-clean" class="text-xs font-black text-white/80">ทำความสะอาด</span>
-                            <span id="q-val-clean" class="text-[10px] font-black text-cyan-400">0/2</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                            <div id="q-bar-clean" class="h-full bg-cyan-500 transition-all" style="width: 0%"></div>
-                        </div>
+                <div class="mt-4 pt-4 border-t border-white/5">
+                    <div class="flex justify-between items-end mb-2">
+                        <span id="q-label-special" class="text-[10px] font-black text-amber-400 uppercase tracking-widest animate-pulse">ภารกิจพิเศษ: นักเก็บอึ</span>
+                        <span id="q-val-special" class="text-[10px] font-black text-white">0/5</span>
                     </div>
-                </div>
-                <div class="glass p-3 rounded-2xl border border-white/5 flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center text-xl">🎾</div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-end mb-1">
-                            <span class="text-xs font-black text-white/80">เล่นสนุกกับน้อง</span>
-                            <span id="q-val-play" class="text-[10px] font-black text-pink-400">0/1</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
-                            <div id="q-bar-play" class="h-full bg-pink-500 transition-all" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-                <!-- SPECIAL QUEST -->
-                <div class="bg-gradient-to-r from-neon-gold/10 to-transparent p-3 rounded-2xl border border-neon-gold/20 flex items-center gap-4 relative overflow-hidden group">
-                    <div id="q-icon-special" class="w-10 h-10 rounded-xl bg-neon-gold/20 flex items-center justify-center text-xl">🏆</div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-end mb-1">
-                            <span id="q-label-special" class="text-xs font-black text-neon-gold uppercase tracking-widest italic truncate">Challenge...</span>
-                            <span id="q-val-special" class="text-[10px] font-black text-white">0/10</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5">
-                            <div id="q-bar-special" class="h-full bg-gradient-to-r from-neon-gold to-yellow-200 transition-all" style="width: 0%"></div>
-                        </div>
+                    <div class="w-full h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5">
+                        <div id="q-bar-special" class="h-full bg-gradient-to-r from-neon-gold to-yellow-200 transition-all" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
@@ -410,7 +449,7 @@
                     <div class="w-16 h-16 mx-auto bg-white/5 border-2 border-white/10 rounded-full flex items-center justify-center mb-6 shadow-inner overflow-hidden">
                         <img src="/src/logo/Likegotchi_Logo_HD.png" class="w-full h-full object-cover scale-[1.2]" id="pin-icon" style="image-rendering: auto;" alt="PIN Logo">
                     </div>
-                    <h2 class="text-white font-black tracking-widest uppercase mb-2" id="pin-title">Security Lock</h2>
+                    <h2 class="text-white font-black tracking-widest uppercase mb-2" id="pin-title">ล็อคความปลอดภัย</h2>
                     <p id="pin-msg" class="text-white/50 text-[10px] sm:text-xs uppercase tracking-widest font-bold px-4">กรุณาใส่รหัสผ่าน 4 หลักเพื่อเข้าสู่ระบบ</p>
                     
                     <!-- Pin Dots -->
@@ -449,5 +488,9 @@
         window.deletePin = () => window._deletePin && window._deletePin();
         window.clearPin = () => window._clearPin && window._clearPin();
     </script>
+    <!-- Reopen Button (Floating for Minimized Mode) -->
+    <button id="reopen-btn" onclick="toggleMinimize()" class="hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-[0_0_20px_rgba(79,70,229,0.6)] flex items-center justify-center text-2xl z-[9999] hover:scale-110 active:scale-95 transition-all border-2 border-white/20">
+        🎮
+    </button>
 </body>
 </html>
