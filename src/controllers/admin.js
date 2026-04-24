@@ -41,12 +41,15 @@ const createDefaultSettings = (template, diff) => {
         rewards: {
             silver_min: isHard ? 10 : (isEasy ? 50 : 20),
             silver_max: isHard ? 50 : (isEasy ? 150 : 100),
+            silver_xp: isHard ? 20 : (isEasy ? 60 : 40),
             gold_min: isHard ? 100 : (isEasy ? 300 : 200),
             gold_max: isHard ? 300 : (isEasy ? 600 : 400),
             gold_rate: isEasy ? 25 : (isHard ? 8 : 15),
+            gold_xp: isHard ? 100 : (isEasy ? 300 : 200),
             diamond_min: isHard ? 500 : (isEasy ? 1000 : 800),
             diamond_max: isHard ? 1000 : (isEasy ? 2500 : 1500),
-            diamond_rate: isEasy ? 5 : (isHard ? 1 : 2)
+            diamond_rate: isEasy ? 5 : (isHard ? 1 : 2),
+            diamond_xp: isHard ? 500 : (isEasy ? 1500 : 1000)
         },
         // 3. ภารกิจรายวัน (Quests)
         quests: {
@@ -56,6 +59,7 @@ const createDefaultSettings = (template, diff) => {
             reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4),
             base_tokens: isEasy ? 300 : (isHard ? 400 : 430),
             base_score: isEasy ? 4000 : (isHard ? 6000 : 7150),
+            base_xp: isEasy ? 1000 : (isHard ? 3000 : 2000),
             // Special Quest Targets
             target_scoop: isEasy ? 3 : (isHard ? 15 : 8),
             target_fever: isEasy ? 1 : (isHard ? 4 : 2),
@@ -145,6 +149,8 @@ let ADMIN_STATE = {
     }
 };
 
+let IS_CLOUDSYNC_READY = false; // 🔥 Safety Guard
+
 let miniEngines = [];
 
 // Helper สำหรับหาค่าใน Object แบบลึก (e.g. "mechanics.dec_hunger")
@@ -195,45 +201,90 @@ function highlightUI() {
     });
 }
 
-window.renderLoginRewards = () => {
+window.renderLoginRewards = (newDuration = null) => {
     const grid = $('login-rewards-grid');
     if (!grid) return;
 
+    if (newDuration !== null) {
+        ADMIN_STATE.season_duration = parseInt(newDuration) || 0;
+    }
+
     const config = ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode];
-    const duration = parseInt(ADMIN_STATE.season_duration || 7);
+    const duration = Math.max(0, parseInt(ADMIN_STATE.season_duration) || 0);
+    
+    // ถ้าไม่มีวันเลย ให้เคลียร์หน้าจอแล้วจบงาน
+    if (duration <= 0) {
+        grid.innerHTML = '<div class="col-span-full py-10 text-center text-white/20 uppercase font-black italic">กรุณาระบุจำนวนวันซีซั่นด้านบน</div>';
+        return;
+    }
     
     // Ensure login_rewards array matches duration
     if (!config.login_rewards) config.login_rewards = [];
-    while (config.login_rewards.length < duration) {
-        const d = config.login_rewards.length + 1;
-        config.login_rewards.push({ 
-            day: d, 
-            reward_type: 'gold', 
-            reward_value: 100 + (d * 50) 
-        });
+    
+    // จัดการขนาดของ Array ให้ตรงกับจำนวนวันที่เลือก
+    if (config.login_rewards.length < duration) {
+        while (config.login_rewards.length < duration) {
+            const d = config.login_rewards.length + 1;
+            config.login_rewards.push({ 
+                day: d, 
+                reward_type: 'gold', 
+                reward_value: 100 + (d * 50) 
+            });
+        }
+    } else if (config.login_rewards.length > duration) {
+        config.login_rewards = config.login_rewards.slice(0, duration);
     }
-    // Truncate if duration is smaller (optional, but keep it for sync)
-    // config.login_rewards = config.login_rewards.slice(0, duration);
 
-    grid.innerHTML = config.login_rewards.slice(0, duration).map((r, i) => {
+    grid.innerHTML = config.login_rewards.map((r, i) => {
         const isJackpot = (i + 1) % 7 === 0;
         const colorClass = isJackpot ? 'border-neon-gold ring-1 ring-neon-gold/50 bg-neon-gold/10' : 'border-white/5 bg-black/40';
         const labelClass = isJackpot ? 'text-neon-gold font-black' : 'text-white/30 font-black';
 
+        // กำหนดหน่วยตามประเภทรางวัล
+        const units = {
+            gold: '<span class="text-[9px] text-amber-400 ml-1">🪙</span>',
+            score: '<span class="text-[9px] text-cyan-400 ml-1">🏆</span>',
+            decay: '<span class="text-[9px] text-emerald-400 ml-1">⏳ นาที</span>',
+            luck: '<span class="text-[9px] text-pink-400 ml-1">⏳ นาที</span>'
+        };
+        const unit = units[r.reward_type] || '';
+
         return `
-            <div class="${colorClass} p-3 rounded-2xl border flex flex-col gap-2 relative overflow-hidden transition-all hover:scale-105 duration-300">
-                ${isJackpot ? '<div class="absolute -top-1 -right-1 bg-neon-gold text-black text-[6px] font-black px-1.5 py-0.5 rounded-bl uppercase">Jackpot</div>' : ''}
-                <div class="text-[8px] uppercase border-b border-white/5 pb-1 mb-1 ${labelClass}">วันที่ ${i+1}</div>
-                <select data-path="login_rewards.${i}.reward_type" class="matrix-input !py-1.5 !text-[9px] !px-1 !bg-white/10 text-white [&>option]:bg-[#1a1c2e] [&>option]:text-white">
-                    <option value="gold" ${r.reward_type==='gold'?'selected':''}>💰 ทอง</option>
-                    <option value="score" ${r.reward_type==='score'?'selected':''}>📊 คูณแต้ม</option>
-                    <option value="decay" ${r.reward_type==='decay'?'selected':''}>🛡️ กันหิว</option>
-                    <option value="luck" ${r.reward_type==='luck'?'selected':''}>🍀 ดวงดี</option>
-                </select>
-                <input type="number" value="${r.reward_value}" data-path="login_rewards.${i}.reward_value" class="matrix-input !py-1.5 !text-[10px] text-center text-neon-gold font-bold" placeholder="จำนวน">
+            <div class="${colorClass} p-4 rounded-3xl border flex flex-col gap-3 relative overflow-hidden transition-all hover:scale-105 duration-300 min-w-[110px]">
+                ${isJackpot ? '<div class="absolute -top-1 -right-1 bg-neon-gold text-black text-[7px] font-black px-2 py-1 rounded-bl uppercase shadow-lg shadow-neon-gold/20">JACKPOT</div>' : ''}
+                <div class="text-[9px] uppercase border-b border-white/5 pb-2 mb-1 ${labelClass} tracking-widest">วันที่ ${i+1}</div>
+                
+                <div class="space-y-1">
+                    <label class="text-[7px] opacity-30 uppercase block">ประเภทรางวัล</label>
+                    <select onchange="updateMatrixField('login_rewards.${i}.reward_type', this.value); renderLoginRewards()" class="matrix-input !py-2 !text-[10px] !px-2 !bg-white/5 text-white rounded-xl border-none focus:ring-1 focus:ring-neon-cyan w-full">
+                        <option value="gold" ${r.reward_type==='gold'?'selected':''}>💰 ทอง</option>
+                        <option value="decay" ${r.reward_type==='decay'?'selected':''}>🛡️ กันหิว (บัพ)</option>
+                        <option value="luck" ${r.reward_type==='luck'?'selected':''}>🍀 ดวงดี (บัพ)</option>
+                    </select>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[7px] opacity-30 uppercase block">จำนวนรางวัล</label>
+                    <div class="flex items-center bg-black/40 rounded-xl px-3 border border-white/5 focus-within:border-neon-pink/50 transition-colors">
+                        <input type="number" value="${r.reward_value}" onchange="updateMatrixField('login_rewards.${i}.reward_value', this.value)" class="w-full !p-0 !py-2 !text-[12px] bg-transparent text-white font-black border-none focus:ring-0" placeholder="0">
+                        ${unit}
+                    </div>
+                </div>
             </div>
         `;
     }).join('');
+}
+
+// Helper สำหรับอัปเดตข้อมูลใน Matrix แบบเจาะจง
+window.updateMatrixField = (path, value) => {
+    const config = ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode];
+    
+    // แปลงให้เป็นตัวเลขถ้าเป็นค่าความแรง/จำนวนรางวัล
+    let finalVal = value;
+    if (!isNaN(value) && value !== '') finalVal = parseFloat(value);
+
+    setDeepValue(config, path, finalVal);
+    saveLocal();
 }
 
 function syncInputsWithMatrix() {
@@ -342,31 +393,36 @@ window.loadPreset = (m) => {
 };
 
 window.saveAll = async () => {
-    saveLocal();
-    
+    if (!IS_CLOUDSYNC_READY) {
+        window.spawn("⚠️ กรุณารอให้ระบบโหลดข้อมูลปัจจุบันเสร็จก่อนบันทึก", "text-rose-400");
+        return;
+    }
+
     const btn = document.querySelector('.btn-save');
     const originalText = btn ? btn.innerHTML : '';
     if(btn) {
         btn.innerHTML = '⏳ กำลังบันทึก...';
         btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
     }
 
     window.spawn("💾 กำลังส่งข้อมูลขึ้น Cloud...", "text-neon-cyan animate-pulse");
     
+    // 🔥 [REMOVED] เราจะไม่ดึงเลขซีซั่นมาทับแล้ว เพราะเราต้องการให้การกด "จรวด" แล้วตามด้วย "บันทึก" ทำงานได้ถูกต้อง
+    // เลขซีซั่นจะเปลี่ยนก็ต่อเมื่อคุณจงใจแก้ที่ช่อง Input หรือกดปุ่มจรวดเท่านั้น
+    
+    saveLocal();
     const { error } = await saveGameConfig(ADMIN_STATE);
     
     if (btn) {
         btn.innerHTML = originalText;
         btn.disabled = false;
-        btn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
 
     if (error) {
         window.spawn("❌ บันทึกขึ้น Cloud ไม่สำเร็จ!", "text-rose-500 font-bold");
         console.error(error);
     } else {
-        window.spawn("✅ บันทึกข้อมูลสำเร็จเรียบร้อย!", "text-emerald-400 font-black");
+        window.spawn("✅ บันทึกข้อมูลสำเร็จ (ไม่กระทบกับเลเวลผู้เล่น)", "text-emerald-400 font-black");
     }
 };
 
@@ -515,27 +571,22 @@ window.finishSeason = async () => {
     const currentS = parseInt(ADMIN_STATE.season_number || 1);
     const nextS = currentS + 1;
     
-    const confirmMsg = `⚠️ คำเตือน: คุณกำลังจะจบซีซั่นที่ ${currentS} และเริ่มซีซั่นที่ ${nextS}?\n\nการกระทำนี้จะทำให้ผู้เล่นทุกคนถูกรีเซ็ตคะแนนและเลเวลเมื่อเขาเข้าเกมครั้งหน้า คุณบันทึกข้อมูลชื่อซีซั่นใหม่เรียบร้อยแล้วใช่หรือไม่?`;
+    const confirmMsg = `⚠️ เตรียมเริ่มซีซั่นใหม่?\n\nระบบจะปรับเลขซีซั่นเป็น ${nextS} ในหน้าจอนี้\n(คุณต้องกดปุ่ม "บันทึกค่าทั้งหมด" อีกครั้งเพื่อยืนยันการรีเซ็ตเลเวลผู้เล่นทุกคน)`;
     
     if (confirm(confirmMsg)) {
-        // 1. อัปเดตเลขซีซั่นใน State
+        // 1. อัปเดตเลขซีซั่นใน State (เฉพาะในเครื่องก่อน)
         ADMIN_STATE.season_number = nextS;
         
-        // 2. อัปเดต UI
+        // 2. อัปเดต UI ให้เห็นเลขใหม่
         const input = $('input-season-num');
-        if (input) input.value = nextS;
-        
-        // 3. บันทึกขึ้น Cloud ทันที (เพื่อประกาศจบซีซั่น)
-        window.spawn?.(`🚀 กำลังประกาศเริ่มซีซั่น ${nextS}...`, "text-yellow-400");
-        
-        const { error } = await saveGameConfig(ADMIN_STATE);
-        if (!error) {
-            window.spawn?.(`✅ ซีซั่น ${nextS} เริ่มต้นขึ้นแล้ว!`, "text-green-400 font-bold");
-            saveLocal(); // บันทักลง Local ด้วย
-            if (window.initSeasonDropdown) window.initSeasonDropdown(); // รีเฟรช Dropdown ในหน้า Log
-        } else {
-             window.spawn?.(`❌ เกิดข้อผิดพลาดในการจบซีซั่น`, "text-red-400");
+        if (input) {
+            input.value = nextS;
+            input.classList.add('animate-bounce', 'text-yellow-400');
+            setTimeout(() => input.classList.remove('animate-bounce'), 2000);
         }
+        
+        window.spawn?.(`🚀 เตรียมเริ่มซีซั่น ${nextS} แล้ว!อย่าลืมกด "บันทึกค่าทั้งหมด"`, "text-yellow-400 font-black");
+        saveLocal();
     }
 };
 
@@ -844,12 +895,20 @@ window.deleteScheduleSlot = (index) => {
 
 (async () => {
     loadLocal();
-    const { data, error } = await loadGameConfig();
-    if (data && data.config) {
-        deepMerge(ADMIN_STATE, data.config);
-    }
     highlightUI();
     syncInputsWithMatrix();
     renderGallery();
+    switchView('settings');
+    
+    const { data, error } = await loadGameConfig();
+    if (data && data.config) {
+        deepMerge(ADMIN_STATE, data.config);
+        highlightUI();
+        syncInputsWithMatrix();
+        renderGallery();
+        console.log("☁️ Cloud Config Sync: SUCCESS", ADMIN_STATE);
+    }
+    
+    IS_CLOUDSYNC_READY = true; // ✅ Ready to Save
     if(window.twemoji) twemoji.parse(document.body);
 })();

@@ -943,18 +943,30 @@ export function spawnReward(type = 'silver', value = 0, syncId = null, x = null,
     }[type] || { color: 0xffd700, emissive: 0xffaa00, light: 0xffaa00, intensity: 3 };
 
     const group = new THREE.Group();
+    
+    // 💡 เลือกรูปทรงตามระดับ (เพชร = รูปทรงอัญมณี / ทอง,เงิน = เหรียญ)
+    const geometry = type === 'diamond' 
+        ? new THREE.OctahedronGeometry(0.35, 0) // ทรงเพชรเหลี่ยม
+        : new THREE.CylinderGeometry(0.32, 0.32, 0.08, 24); // ทรงเหรียญ
+
     const mesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.32, 0.32, 0.08, 24), 
+        geometry,
         new THREE.MeshStandardMaterial({ 
             color: config.color, 
             metalness: 0.95, 
             roughness: 0.05, 
             emissive: config.emissive, 
-            emissiveIntensity: 0.6 
+            emissiveIntensity: 0.8 // เพิ่มความวาว
         })
     );
-    // จับเหรียญตั้งขึ้น (Rotate to stand on edge)
-    mesh.rotation.x = Math.PI / 2;
+    
+    // ตั้งค่าองศาการวาง (ถ้าเป็นเหรียญให้จับตั้ง ถ้าเป็นเพชรให้เอียงมุมสวยๆ)
+    if (type === 'diamond') {
+        mesh.rotation.set(0.5, 0.5, 0); 
+    } else {
+        mesh.rotation.x = Math.PI / 2;
+    }
+    
     group.add(mesh);
     
     const light = new THREE.PointLight(config.light, config.intensity, 4);
@@ -1158,13 +1170,14 @@ export function updateBossModel(config) {
         window._isBossLoading = false;
 
         const boss = gltf.scene;
-        boss.userData.path = config.model_path; // Store path to prevent redundant reloads
-        boss.scale.setScalar(20); 
-        boss.position.set(0, 0, 0); 
+        boss.userData.path = config.model_path; 
+        boss.scale.setScalar(45); // 🦅 ใหญ่ขึ้นสะใจ
+        boss.position.set(0, 1.5, -5); // 🛰️ ขยับขึ้นและเยื้องไปข้างหน้าเพื่อให้เห็นชัด
         boss.rotation.y = Math.PI; 
         
         boss.traverse(node => {
             if (node.isMesh) {
+                node.visible = true; // 👁️ Force visibility
                 node.frustumCulled = false;
                 node.castShadow = true;
                 node.receiveShadow = true;
@@ -1263,11 +1276,13 @@ export function updateProjectiles(delta) {
         const dist = p.mesh.position.distanceTo(new THREE.Vector3(0, 1.5, 0));
         if (dist < 1.0) {
             if (p.onHit) p.onHit();
-            // createExplosion(p.mesh.position, 0xff4400); // We'll add this next correctly
+            createExplosion(p.mesh.position, 0xff4400); 
             scene.remove(p.mesh);
+            disposeObject(p.mesh); // 🔥 [BUGFIX] Dispose memory to prevent leak
             window._projectiles.splice(i, 1);
         } else if (p.mesh.position.length() > 50) {
             scene.remove(p.mesh);
+            disposeObject(p.mesh); // 🔥 [BUGFIX] Dispose memory to prevent leak
             window._projectiles.splice(i, 1);
         }
     }

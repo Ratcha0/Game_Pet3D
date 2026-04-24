@@ -143,11 +143,15 @@ function unlockScreen() {
         screen.classList.add('opacity-0');
         screen.classList.add('scale-110');
         screen.style.pointerEvents = 'none';
-        setTimeout(() => screen.remove(), 500); 
-        spawnAlert('🔓 ปลดล็อคระบบสำเร็จ!', 'text-emerald-400');
         
         // เริ่มต้นชีวิตสัตว์เลี้ยง (Start Lifecycles)
         isGameActive = true;
+        
+        // 🔥 [BUGFIX] รีเฟรชโมเดลสัตว์เลี้ยงทันทีที่ปลดล็อค เพื่อให้สกินที่ใส่อยู่แสดงผลถูกต้อง
+        if (window.refreshPetModel) window.refreshPetModel();
+        
+        setTimeout(() => screen.remove(), 500); 
+        spawnAlert('🔓 ปลดล็อคระบบสำเร็จ!', 'text-emerald-400');
     }
 }
 

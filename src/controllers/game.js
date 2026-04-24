@@ -19,11 +19,14 @@ const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'adm
 if (isAdminPreview) document.body.classList.add('is-admin-preview');
 
 (async function() {
-window.STATE = STATE; // Expose to window for inline scripts and debugging
-window.spawn = function(msg, cls = "text-white") {
+    // 🔥 [CRITICAL] โหลด Config ล่าสุดจาก Cloud
+    await loadGameConfigCloud();
+    
+    window.STATE = STATE; // Expose to window for inline scripts and debugging
+window.spawn = function(msg, cls = "text-white text-[10px] sm:text-xs") {
     const a=$('spawn-area'); if(!a) return;
     const e=document.createElement('div');
-    e.className = `px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-white font-black text-xs shadow-2xl pointer-events-none animate-float-up ${cls}`;
+    e.className = `px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-white font-black shadow-2xl pointer-events-none animate-float-up ${cls}`;
     e.style.position = 'absolute';
     e.style.left = `${40 + Math.random() * 20}%`;
     e.style.top = `${40 + Math.random() * 20}%`;
@@ -53,9 +56,19 @@ window.updateUI = function() {
         const un=$('hud-username'); if(un) un.innerText=STATE.username;
         const t=$('hud-tokens'); if(t) t.innerText=Math.floor(STATE.tokens).toLocaleString();
         const s=$('hud-score'); if(s) s.innerText=Math.floor(STATE.score).toLocaleString();
-        const l=$('hud-level'); if(l) l.innerText=STATE.level;
-        const xpBar=$('bar-xp'); if(xpBar) xpBar.style.width=`${(STATE.xp/STATE.maxExp)*100}%`;
-        const xpVal=$('hud-xp-val'); if(xpVal) xpVal.innerText=`${Math.floor(STATE.xp)}/${Math.floor(STATE.maxExp)} XP`;
+        
+        // 📈 XP Progress Bar & Levels
+        const lvlBtn = $('hud-level-btn');
+        const xpBar = $('bar-xp');
+        const xpVal = $('hud-xp-val');
+        
+        const safeLvl = isNaN(STATE.level) ? 1 : STATE.level;
+        const safeXP = isNaN(STATE.xp) ? 0 : STATE.xp;
+        const safeMax = isNaN(STATE.maxExp) || STATE.maxExp < 1 ? 200 : STATE.maxExp;
+
+        if (lvlBtn) lvlBtn.innerText = `LV.${safeLvl}`;
+        if (xpBar) xpBar.style.width = `${Math.min(100, (safeXP / safeMax) * 100)}%`;
+        if (xpVal) xpVal.innerText = `${Math.floor(safeXP)}/${Math.floor(safeMax)} XP`;
 
         // Update Shop display from config
         const active = getActiveConfig();
@@ -176,6 +189,14 @@ window.updateUI = function() {
 
     if (window.updateBossThrowUI) window.updateBossThrowUI();
 
+    // 🗓️ [USER REQUEST] จุดแจ้งเตือนสีแดง สำหรับรางวัลเช็คอิน
+    const loginDot = $('login-noti-dot');
+    if (loginDot) {
+        const today = new Date().toDateString();
+        const canClaim = STATE.last_login_date !== today;
+        loginDot.classList.toggle('hidden', !canClaim);
+    }
+
     updateQuestUI();
     updateBuffUI();
     } catch (e) {
@@ -258,7 +279,7 @@ function updateQuestUI() {
     const q = STATE.quests;
     if(!q) return;
     const tiers = ['feed','clean','play'];
-    let allDone = true;
+    let mainDone = true;
     
     // Template-aware quest labels
     const qLabels = {
@@ -271,27 +292,20 @@ function updateQuestUI() {
     tiers.forEach(t => {
         const bar = $(`q-bar-${t}`); if(bar) bar.style.width = `${Math.min(100, (q[t]/q[`${t}_max`])*100)}%`;
         const val = $(`q-val-${t}`); if(val) val.innerText = `${q[t]}/${q[`${t}_max`]}`;
-        
-        // Update Label & Icon
-        const labelEl = $(`q-lbl-${t}`); if(labelEl) labelEl.innerText = ql[t.charAt(0)];
-        const iconEl = $(`q-icon-${t}`); if(iconEl) iconEl.innerText = ql[t.charAt(0)+'i'];
-
-        if(q[t] < q[`${t}_max`]) allDone = false;
+        if(q[t] < q[`${t}_max`]) mainDone = false;
     });
 
-    // Special Quest
+    // Special Quest Logic
     const specBar = $('q-bar-special');
     const specVal = $('q-val-special');
     const specLabel = $('q-label-special');
-    const specIcon = $('q-icon-special');
-
     if(specLabel) specLabel.innerText = `${q.special.label}`;
-    if(specIcon) specIcon.innerText = q.special.icon;
     if(specBar) specBar.style.width = `${Math.min(100, (q.special.current/q.special.target)*100)}%`;
     if(specVal) specVal.innerText = `${q.special.current}/${q.special.target}`;
-    if(q.special.current < q.special.target) allDone = false;
+    
+    const specialDone = q.special.current >= q.special.target;
 
-    // Show Buff Icon next to stamina if active
+    // Buff Icons
     const buffIcon = $('stamina-buff-icon');
     if(buffIcon) {
         const isActive = STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry;
@@ -299,38 +313,68 @@ function updateQuestUI() {
     }
 
     const btn = $('btn-claim-quest');
+    const specBtn = $('btn-claim-special');
     const dot = $('quest-noti-dot');
+
+    // 🏆 Handling Main Reward
     if(btn) {
         if(q.claimed) {
             btn.innerText = '✅ รับของขวัญวันนี้แล้ว';
             btn.disabled = true;
             btn.className = 'w-full py-4 rounded-2xl bg-white/5 text-white/20 font-black uppercase text-xs cursor-not-allowed';
-            if(dot) dot.classList.add('hidden');
-        } else if(allDone) {
+        } else if(mainDone) {
             btn.innerText = '🎁 เปิดรับของขวัญ (เหรียญ + ฟื้นพลังเร็ว)';
             btn.disabled = false;
             btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-r from-neon-gold to-orange-500 text-black font-black uppercase text-sm shadow-[0_0_20px_rgba(251,191,36,0.4)] animate-pulse';
-            if(dot) {
-                dot.classList.remove('hidden');
-                dot.querySelector('.animate-ping')?.classList.remove('hidden');
-            }
         } else {
             const lockLabels = { pet: '🔒 ดูแลน้องให้ครบตามเป้าหมาย', car: '🔒 ดูแลรถให้ครบตามเป้าหมาย', plant: '🔒 ดูแลต้นไม้ให้ครบตามเป้าหมาย' };
-            const curTpl = STATE.config.template || 'pet';
-            btn.innerText = lockLabels[curTpl] || lockLabels.pet;
+            btn.innerText = lockLabels[STATE.config.template || 'pet'];
             btn.disabled = true;
             btn.className = 'w-full py-4 rounded-2xl bg-white/10 text-white/40 font-black uppercase text-xs cursor-not-allowed';
-            if(dot) {
-                dot.classList.add('hidden'); // Only show when ALL quests are done and ready to claim
-            }
         }
     }
-    // Targeted parsing only if necessary (usually only for quests)
-    const questModal = $('quest-modal');
-    if (questModal && !questModal.classList.contains('translate-y-full') && window.twemoji) {
-        twemoji.parse(questModal);
+
+    // ✨ Handling Special Reward
+    if (specBtn) {
+        if (q.special_claimed) {
+            specBtn.innerText = '✅ รับโบนัสพิเศษแล้ว';
+            specBtn.disabled = true;
+            specBtn.classList.remove('hidden');
+            specBtn.className = 'w-full py-2.5 rounded-xl bg-white/5 text-white/20 font-black uppercase text-[10px] cursor-not-allowed';
+        } else if (specialDone) {
+            specBtn.innerText = '✨ รับโบนัสพิเศษ (+150🪙)';
+            specBtn.disabled = false;
+            specBtn.classList.remove('hidden', 'bg-amber-500/10');
+            specBtn.className = 'w-full py-2.5 rounded-xl bg-amber-500 text-black font-black uppercase text-[10px] shadow-[0_0_15px_rgba(245,158,11,0.4)] animate-pulse';
+        } else {
+            specBtn.classList.add('hidden');
+        }
+    }
+
+    // 🔴 Global Notification Dot
+    const hasAnyToClaim = (!q.claimed && mainDone) || (!q.special_claimed && specialDone);
+    if(dot) {
+        dot.classList.toggle('hidden', !hasAnyToClaim);
+        dot.querySelector('.animate-ping')?.classList.toggle('hidden', !hasAnyToClaim);
     }
 }
+
+window.claimSpecialQuestReward = () => {
+    if(STATE.quests.special_claimed) return;
+    const q = STATE.quests;
+    if(q.special.current < q.special.target) return;
+
+    const bonus = 150; 
+    STATE.tokens += bonus;
+    STATE.quests.special_claimed = true;
+
+    spawn(`✨ มหัศจรรย์! รับโบนัสเควสเสริม +${bonus}🪙`, 'text-neon-gold pulse');
+    SFX.playCoin();
+    logScoreAction(currentUserId, 'QUEST_SPECIAL', 0, bonus, `รับรางวัลเควสเสริม: ${q.special.label}`);
+    
+    updateUI();
+    saveState();
+};
 
 // --- MUSIC TOGGLE UI ---
 window.toggleMusicUI = () => {
@@ -415,11 +459,11 @@ window.doAction = (type) => {
     SFX.init(); // ประกันว่า AudioContext จะทำงานเมื่อมีการคลิกครั้งแรก
     
     const active = getActiveConfig();
-    const actRaw = active.activities[type] || {};
+    const actRaw = active.activities?.[type] || {};
     const act = {
-        r: actRaw.r || 15,
-        s: actRaw.s || 10,
-        xp: actRaw.xp || 5
+        r:  (actRaw.r !== undefined) ? parseFloat(actRaw.r) : 15,
+        s:  (actRaw.s !== undefined) ? parseFloat(actRaw.s) : 10,
+        xp: (actRaw.xp !== undefined) ? parseFloat(actRaw.xp) : 5
     };
     const cost = act.s;
 
@@ -481,7 +525,7 @@ window.doAction = (type) => {
             }
 
             const feedXP = Math.floor(act.xp * xpMult);
-            STATE.xp += feedXP; 
+            STATE.xp = (isNaN(STATE.xp) ? 0 : STATE.xp) + feedXP; 
             if(STATE.quests.feed < STATE.quests.feed_max) STATE.quests.feed++;
             spawn(`${feedMsg[tpl] || feedMsg.pet} +${feedXP}XP (x${xpMult.toFixed(1)})`); 
             vibrate(20);
@@ -500,14 +544,14 @@ window.doAction = (type) => {
             }
 
             const cleanXP = Math.floor(act.xp * xpMult);
-            STATE.xp += cleanXP; 
+            STATE.xp = (isNaN(STATE.xp) ? 0 : STATE.xp) + cleanXP; 
             if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
             spawn(`${cleanMsg[tpl] || cleanMsg.pet} +${cleanXP}XP (x${xpMult.toFixed(1)})`); 
             vibrate(15);
             break;
 
         case 'repair': 
-            onPoopCollectedManual(collectedType); 
+            window.onPoopCollectedManual('normal'); 
             if(STATE.quests.clean < STATE.quests.clean_max) STATE.quests.clean++;
             vibrate(25);
             break;
@@ -525,7 +569,7 @@ window.doAction = (type) => {
             STATE.love = Math.min(100, STATE.love + playJoy);
 
             const playXP = Math.floor(act.xp * xpMult);
-            STATE.xp += playXP; 
+            STATE.xp = (isNaN(STATE.xp) ? 0 : STATE.xp) + playXP; 
             if(STATE.quests.play < STATE.quests.play_max) STATE.quests.play++;
 
             showEmoticon('🎾', 2000);
@@ -572,48 +616,54 @@ window.doTouch = () => {
 
 // --- ฟังก์ชันรวมศูนย์สำหรับคำนวณรางวัลเมื่อเก็บกวาดอึ (เรียกจากทั้งคลิก 3D และปุ่ม UI) ---
 window.onPoopCollectedManual = (type = 'normal', isRemote = false) => {
+    // 🔒 [AUDIT SECURITY] ถ้าเป็นการซิงค์พิกัดจากหน้าจออื่น ห้ามบวกคะแนน/รางวัลซ้ำซ้อน
+    if (isRemote) {
+        updateUI(); 
+        return;
+    }
+
     const active = getActiveConfig();
     const mech = active.mechanics || { rst_repair:10, rxp_repair:12, rscore_scoop: 20 };
     const rew = active.rewards || {};
-    
-    // ย้ายการบวกไปที่ท้ายฟังก์ชันเพื่อความถูกต้องของลอจิกเดียวครับ
     
     // --- QUEST PROGRESS ---
     incrementSpecialQuest('scoop');
 
     // --- GACHA: RARE DROP (Luck Booster applied) ---
     const luckMult = (STATE.buffs.luck_mult || 1.0);
-    const rareRate = ((mech.rare_rate ?? 10) * luckMult) / 100;
+    const rareRate = (Math.max(0, mech.rare_rate ?? 10) * luckMult) / 100;
     const isRare = (type === 'gold') || (Math.random() < rareRate);
-    const rareMult = mech.rare_xp_mult ?? 3;
-    const gainedXP = isRare ? mech.rxp_repair * rareMult : mech.rxp_repair;
-    STATE.xp += gainedXP;
-
-    // Apply Score Booster
+    
+    const repairAct = active.activities?.repair || { r: 25, xp: 30 };
     const scoreMult = (STATE.buffs.score_mult || 1.0);
     const actionScore = (isRare ? (rew.rare_tokens * 1.6) : 50) * scoreMult; 
     STATE.score += Math.floor(actionScore);
+
+    const gainedXP = isRare ? (repairAct.xp * (mech.rare_xp_mult ?? 3)) : repairAct.xp;
+    STATE.xp = (isNaN(STATE.xp) ? 0 : STATE.xp) + gainedXP;
 
     if (isRare) {
         if (type === 'gold') SFX.playJingle();
         else SFX.playCoin();
 
-        const tMin = mech.rare_token_min ?? 20;
-        const tMax = mech.rare_token_max ?? 50;
-        const jackpotTokens = Math.floor(tMin + Math.random() * (tMax - tMin));
+        const tMin = rew.rare_token_min ?? (rew.gold_min ?? 100);
+        const tMax = rew.rare_token_max ?? (rew.gold_max ?? 300);
+        const jackpotTokens = Math.floor(tMin + Math.random() * (Math.max(1, tMax - tMin)));
         STATE.tokens += jackpotTokens;
         
         const tpl = STATE.config.template || 'pet';
-        const rareName = { pet: 'อึทองคำ', car: 'น้ำมันพิเศษ', plant: 'ใบไม้สีทอง' };
         const rareLoc = { pet: 'ในกองอึ', car: 'ในคราบน้ำมัน', plant: 'ตามกองใบไม้' };
+        const rareName = { pet: 'อึทองคำ', car: 'น้ำมันพิเศษ', plant: 'ใบไม้สีทอง' };
         
         logScoreAction(currentUserId, 'SCOOP_RARE', actionScore, jackpotTokens, `เจอของแรร์${rareLoc[tpl]}`);
         
         const msg = (type === 'gold') ? `✨ สุดยอด! เก็บ${rareName[tpl]}สำเร็จ! (+${jackpotTokens}🪙)` : `🎁 ทาดา! ซ่อนของแรร์ไว้ (+${jackpotTokens} Token)`;
         spawn(msg, 'text-neon-gold pulse');
     } else {
-        // 🔥 [BUGFIX] แจกเหรียญพื้นฐานสำหรับของธรรมดา
-        const normalTokens = Math.floor(15 + Math.random() * 10);
+        // ดึงค่าเหรียญปกติจากการเก็บกวาด (ใช้ silver_min/max เป็นเกณฑ์อ้างอิง)
+        const tMin = rew.silver_min ?? 15;
+        const tMax = rew.silver_max ?? 35;
+        const normalTokens = Math.floor(tMin + Math.random() * (Math.max(1, tMax - tMin)));
         STATE.tokens += normalTokens;
         logScoreAction(currentUserId, 'SCOOP_POOP', actionScore, normalTokens, 'เก็บกวาดทั่วไป');
         
@@ -622,16 +672,9 @@ window.onPoopCollectedManual = (type = 'normal', isRemote = false) => {
         if (!isRemote) spawn(`${scoopMsg[tpl] || scoopMsg.pet} +${normalTokens}🪙 +${gainedXP}XP +${actionScore}🏆`);
     }
 
-    // 🔒 [Hyper-Audit Security] ถ้าเป็นการซิงค์จากหน้าจออื่น ห้ามบวกเงิน/XP ซ้ำ
-    if (isRemote) {
-        updateUI(); 
-        return;
-    }
-
-    // 🔥 [BUGFIX] เพิ่มค่าความสะอาดจากการเก็บกวาดตามค่าสมดุลใหม่ (เฉพาะคนเก็บจริง)
-    const repairAct = active.activities?.repair || { r: 25 };
-    STATE.clean = Math.min(100, STATE.clean + repairAct.r);
-    STATE.love = Math.min(100, STATE.love + 5); 
+    // 🔥 [STRICT SYNC] อัปเดตค่าความสะอาดและอารมณ์ตาม Matrix
+    STATE.clean = Math.min(100, STATE.clean + (repairAct.r || 25));
+    STATE.love = Math.min(100, STATE.love + (repairAct.l || 5)); 
 
     checkLevelUp();
     updateUI(); saveState();
@@ -708,46 +751,49 @@ function triggerLevelUpUI(level) {
 }
 
 function checkLevelUp() {
+    let levelsGained = 0;
+    let totalScoreBonus = 0;
+    let totalTokenBonus = 0;
+    const startLevel = STATE.level;
+
     while (STATE.xp >= STATE.maxExp && STATE.level < 100) {
-        SFX.playAsset('level');
+        levelsGained++;
         STATE.level++;
         STATE.xp -= STATE.maxExp;
         
-        // --- 🛡️ UNIT-TESTED XP FORMULA ---
-        // Ensuring consistency across all level-up triggers
         STATE.maxExp = Math.floor(200 + (STATE.level * STATE.level * 1.25));
+        totalScoreBonus += 5000 + (STATE.level * 1000); 
+        totalTokenBonus += 500 + (STATE.level * 50); 
         
-        const bonusScore = 5000 + (STATE.level * 1000); 
-        const bonusTokens = 500 + (STATE.level * 50); 
-        
-        STATE.score += bonusScore;
-        STATE.tokens += bonusTokens;
-        
-        // --- 🌟 Achievements & Evolution Milestones ---
-        if (STATE.level === 10 || STATE.level === 25 || STATE.level === 50) {
-            spawn('🌟 มหัศจรรย์! น้องเกิดการวิวัฒนาการออร่าแล้ว!', 'text-neon-gold scale-125');
-            for(let i=0; i<3; i++) setTimeout(() => triggerLevelUpEffect(), i * 600);
-        }
-
-        // บันทึก Log การอัปเลเวล
-        logScoreAction(currentUserId, 'LEVEL_UP', bonusScore, bonusTokens, `เลเวลเพิ่มเป็น ${STATE.level}`);
-
-        // สั่งแสดง UI แบบพรีเมียม
-        triggerLevelUpUI(STATE.level);
-        
-        spawn(`🆙 ตอนนี้เลเวล ${STATE.level} แล้ว! 🎉`);
-        spawn(`🎁 รับรางวัลเลเวลใหม่ +${bonusScore.toLocaleString()} 🏆 และ +${bonusTokens} 🪙`);
-        showEmoticon('🆙', 5000);
-        
-        // ให้โบนัสค่าสถานะเล็กน้อย
+        // ให้โบนัสค่าสถานะสะสม
         STATE.hunger = Math.min(100, STATE.hunger + 30);
         STATE.love = Math.min(100, STATE.love + 20);
         STATE.clean = Math.min(100, STATE.clean + 30);
         STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + 50);
+    }
+
+    if (levelsGained > 0) {
+        SFX.playAsset('level');
+        STATE.score += totalScoreBonus;
+        STATE.tokens += totalTokenBonus;
+        
+        // เช็คการวิวัฒนาการ (เฉพาะเลเวลที่สำคัญ)
+        const hitMilestone = [10, 25, 50].some(m => startLevel < m && STATE.level >= m);
+        if (hitMilestone) {
+            spawn('🌟 มหัศจรรย์! น้องเกิดการวิวัฒนาการออร่าแล้ว!', 'text-neon-gold scale-125');
+        }
+
+        logScoreAction(currentUserId, 'LEVEL_UP', totalScoreBonus, totalTokenBonus, `เลเวลเพิ่มขึ้น ${levelsGained} ระดับ เป็น ${STATE.level}`);
+        triggerLevelUpUI(STATE.level);
+        
+        spawn(`🆙 ตอนนี้เลเวล ${STATE.level} แล้ว! (+${totalScoreBonus.toLocaleString()}🏆 +${totalTokenBonus}🪙)`);
+        showEmoticon('🆙', 5000);
 
         updatePetScale(STATE.level);
-        triggerLevelUpEffect(); // 🎉 ระเบิดพลุพาร์ทิเคิลฉลอง!
+        triggerLevelUpEffect(); 
+        updateUI(); saveState();
     }
+
     if (STATE.level >= 100) {
         STATE.level = 100;
         STATE.xp = Math.min(STATE.xp, STATE.maxExp - 1);
@@ -848,15 +894,17 @@ window.claimQuestReward = () => {
     const tiers = ['feed','clean','play'];
     let allDone = true;
     tiers.forEach(t => { if(STATE.quests[t] < STATE.quests[`${t}_max`]) allDone = false; });
-    if(STATE.quests.special.current < STATE.quests.special.target) allDone = false;
+    // 🔥 [DECOUPLED] ให้เควสหลักรับรางวัลได้เลย ไม่ต้องรอเควสพิเศษ (User Request)
+    // if(STATE.quests.special.current < STATE.quests.special.target) allDone = false; 
+    
     
     if(!allDone) { spawn('🔒 เควสยังไม่ครบ!'); return; }
 
     const active = getActiveConfig();
-    const mult = active.quests.reward_mult || 1.0;
-    const base_tokens = Math.floor(active.quests.base_tokens * mult);
-    const base_score = Math.floor(active.quests.base_score * mult);
-    const base_xp = Math.floor(2500 * mult);
+    const mult = (active.quests?.reward_mult !== undefined) ? parseFloat(active.quests.reward_mult) : 1.0;
+    const base_tokens = Math.floor(((active.quests?.base_tokens !== undefined) ? parseFloat(active.quests.base_tokens) : 500) * mult);
+    const base_score = Math.floor(((active.quests?.base_score !== undefined) ? parseFloat(active.quests.base_score) : 50000) * mult);
+    const base_xp = Math.floor(((active.quests?.base_xp !== undefined) ? parseFloat(active.quests.base_xp) : 2500) * mult);
 
     const now = Date.now();
     const scoreMult = (STATE.buffs.score_mult || 1.0);
@@ -869,6 +917,7 @@ window.claimQuestReward = () => {
     STATE.tokens += gainedTokens;
     STATE.score += gainedScore;
     STATE.xp += gainedXP;
+    checkLevelUp(); // 🔥 [BUGFIX] แลกของขวัญแล้วต้องเช็กเลเวลทันที
     STATE.quests.claimed = true;
     
     // Regen buff also scales slightly with difficulty to help recovery
@@ -886,17 +935,16 @@ function isHardMode() { return STATE.config.difficulty_mode === 'hard'; }
 function isEasyMode() { return STATE.config.difficulty_mode === 'easy'; }
 
 function resetDailyQuests() {
-    const last = localStorage.getItem('pw3d_last_quest');
     const now = new Date().toDateString();
-    if (last !== now) {
+    if (STATE.last_quest_date !== now) {
         const active = getActiveConfig();
         const randIndex = Math.floor(Math.random() * SPECIAL_QUEST_POOL.length);
         const picked = SPECIAL_QUEST_POOL[randIndex];
         
         let target = 5;
-        if(picked.type === 'scoop') target = active.quests.target_scoop || 10;
-        if(picked.type === 'fever') target = active.quests.target_fever || 2;
-        if(picked.type === 'pure_love') target = 10; // ลดจาก 100 -> 10 ให้ทำสำเร็จจริงได้ใน 1 วัน
+        if(picked.type === 'scoop') target = active.quests.target_scoop || 5;
+        if(picked.type === 'fever') target = active.quests.target_fever || 1;
+        if(picked.type === 'pure_love') target = active.quests.target_pure_love || 10;
         if(picked.type === 'spend') target = active.quests.target_spend || 1000;
 
         // ปรับแต่ง Label และ Icon ของ Special Quest ให้ตรงตาม Template
@@ -912,9 +960,9 @@ function resetDailyQuests() {
         }
 
         STATE.quests = {
-            feed: 0, feed_max: active.quests.target_feed || 3,
-            clean: 0, clean_max: active.quests.target_clean || 2,
-            play: 0, play_max: active.quests.target_play || 1,
+            feed: 0, feed_max: (active.quests?.target_feed !== undefined) ? parseInt(active.quests.target_feed) : 3,
+            clean: 0, clean_max: (active.quests?.target_clean !== undefined) ? parseInt(active.quests.target_clean) : 2,
+            play: 0, play_max: (active.quests?.target_play !== undefined) ? parseInt(active.quests.target_play) : 1,
             special: { 
                 type: picked.type, 
                 label: customLabel, 
@@ -924,55 +972,13 @@ function resetDailyQuests() {
             },
             claimed: false
         };
-        localStorage.setItem('pw3d_last_quest', now);
+        STATE.last_quest_date = now;
         updateUI(); saveState();
     }
 }
 
 function checkLoginReward() {
-    const today = new Date().toDateString();
-    if (STATE.last_login_date === today) return; 
-
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toDateString();
-
-    if (STATE.last_login_date === yesterdayStr) {
-        STATE.login_streak = (STATE.login_streak || 0) + 1;
-    } else if (STATE.last_login_date !== today) {
-        STATE.login_streak = 1;
-    }
-
-    if (STATE.last_login_date === today) return;
-
-    if (STATE.login_streak > 7) STATE.login_streak = 1;
-    STATE.last_login_date = today;
-    
-    const config = getActiveConfig();
-    const rewards = config.login_rewards || [];
-    const reward = rewards.find(r => r.day === STATE.login_streak);
-    
-    if (reward) {
-        let rewardText = "";
-        if (reward.reward_type === 'gold') {
-            STATE.tokens += reward.reward_value;
-            rewardText = `${reward.reward_value} 🪙`;
-        } else {
-            if (window.applyBuff) window.applyBuff(reward.reward_type, reward.reward_value);
-            const buffLabel = reward.reward_type === 'score' ? 'คูณแต้ม' : (reward.reward_type === 'decay' ? 'กันหิว' : 'ดวงดี');
-            rewardText = `บัฟ${buffLabel} (${reward.reward_value} นาที)`;
-        }
-        
-        logScoreAction(currentUserId, 'LOGIN_REWARD', 0, (reward.reward_type === 'gold' ? reward.reward_value : 0), `รางวัลเช็คอินวันที่ ${STATE.login_streak} (${reward.reward_type})`);
-        
-        setTimeout(() => {
-            if (window.spawn) {
-                spawn(`📆 เช็คอินวันที่ ${STATE.login_streak}: รับ ${rewardText}`, 'text-neon-gold scale-125');
-                SFX.playAsset('bell');
-            }
-        }, 1500);
-    }
-    saveState();
+    // 🔥 [USER REQUEST] ไม่ต้องเปิดหน้าต่างอัตโนมัติ ให้ผู้เล่นกดเข้าเองจากจุดแดง
 }
     
 window.toggleLoginReward = (close) => {
@@ -1001,58 +1007,110 @@ window.toggleLoginReward = (close) => {
     const config = getActiveConfig();
     const rewards = config.login_rewards || [];
     const streak = STATE.login_streak || 0;
+    const duration = STATE.config?.season_duration || 7;
 
-    rewards.forEach(r => {
-        const dayEl = $(`login-day-${r.day}`);
-        const checkEl = $(`login-check-${r.day}`);
-        const amtEl = $(`login-amt-${r.day}`);
-        const buffEl = $(`login-buff-${r.day}`);
+    const subtitle = $('login-reward-subtitle');
+    if (subtitle) subtitle.innerText = `${duration}-DAY SEASON REWARDS`;
 
-        // อัปเดตข้อมูลตามประเภทรางวัล
-        if (amtEl) {
-            if (r.reward_type === 'gold') {
-                amtEl.innerText = r.reward_value.toLocaleString();
-                const iconSlot = dayEl.querySelector('.text-xl, .text-3xl, .text-2xl');
-                if (iconSlot) iconSlot.innerText = (r.day === 7) ? '💰' : '🪙';
-            } else {
-                amtEl.innerText = `${r.reward_value} MIN`;
-                const iconSlot = dayEl.querySelector('.text-xl, .text-3xl, .text-2xl');
-                if (iconSlot) {
-                    if (r.reward_type === 'score') iconSlot.innerText = '📊';
-                    if (r.reward_type === 'decay') iconSlot.innerText = '🛡️';
-                    if (r.reward_type === 'luck') iconSlot.innerText = '🍀';
-                }
-            }
-        }
-        
-        if (buffEl) {
-            buffEl.innerText = (r.reward_type === 'gold') ? 'TOKENS' : 'ACTIVE BUFF';
-            buffEl.classList.remove('hidden');
-        }
-
-        if (dayEl) {
-            // Reset styles
-            dayEl.classList.remove('bg-indigo-500/20', 'border-indigo-500/40', 'glow-indigo', 'opacity-50');
+    const grid = $('login-rewards-grid');
+    if (grid) {
+        grid.innerHTML = rewards.map((r, i) => {
+            const isClaimed = r.day <= streak;
+            const isNext = r.day === streak + 1;
+            const isJackpot = r.day % 7 === 0;
             
-            if (r.day <= streak) {
-                // Already claimed
-                if (checkEl) checkEl.classList.remove('hidden');
-                dayEl.classList.add('opacity-70');
-            } else if (r.day === streak + 1) {
-                // Next reward
-                dayEl.classList.add('bg-indigo-500/20', 'border-indigo-500/40', 'glow-indigo');
-                if (checkEl) checkEl.classList.add('hidden');
-            } else {
-                // Future rewards
-                if (checkEl) checkEl.classList.add('hidden');
-            }
-        }
-    });
+            let icon = '🪙';
+            if (r.reward_type === 'gold') icon = isJackpot ? '💰' : '🪙';
+            else if (r.reward_type === 'score') icon = '📊';
+            else if (r.reward_type === 'decay') icon = '🛡️';
+            else if (r.reward_type === 'luck') icon = '🍀';
+
+            const rewardVal = r.reward_type === 'gold' ? r.reward_value.toLocaleString() : `${r.reward_value} MIN`;
+            const rewardLabel = r.reward_type === 'gold' ? 'TOKENS' : 'ACTIVE BUFF';
+
+            return `
+                <div class="login-day-card relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${isJackpot ? 'col-span-2 flex-row gap-3 h-28' : 'h-28'} 
+                    ${isClaimed ? 'bg-white/5 border-white/5 opacity-50' : (isNext ? 'bg-indigo-500/20 border-indigo-500/40 glow-indigo' : 'bg-white/5 border-white/5')}">
+                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">${isJackpot ? 'Jackpot' : ''} Day ${r.day}</span>
+                    <span class="${isJackpot ? 'text-3xl' : 'text-xl'} mb-1 mt-2">${icon}</span>
+                    <div class="flex flex-col items-center">
+                        <span class="${isJackpot ? 'text-lg' : 'text-[10px]'} font-black text-white">${rewardVal}</span>
+                        <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5">${rewardLabel}</span>
+                    </div>
+                    <div class="${isClaimed ? '' : 'hidden'} absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]">
+                        <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 
     const statusMsg = $('login-status-msg');
+    const claimBtn = $('login-claim-btn');
+    const today = new Date().toDateString();
+    const canClaim = STATE.last_login_date !== today;
+
     if (statusMsg) {
-        statusMsg.innerText = streak >= 7 ? 'คุณรับรางวัลครบสัปดาห์นี้แล้ว!' : `คุณเช็คอินต่อเนื่อง ${streak} วันแล้ว`;
+        if (canClaim) {
+            statusMsg.innerText = `🎁 วันนี้คุณมีรางวัลรออยู่! (ต่อเนื่อง ${streak} วัน)`;
+            statusMsg.classList.add('text-emerald-400');
+            statusMsg.classList.remove('text-white/40');
+        } else {
+            statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${streak} เรียบร้อยแล้ว`;
+            statusMsg.classList.remove('text-emerald-400');
+            statusMsg.classList.add('text-white/40');
+        }
     }
+
+    if (claimBtn) {
+        claimBtn.style.display = canClaim ? 'block' : 'none';
+    }
+};
+
+window.claimDailyReward = () => {
+    const today = new Date().toDateString();
+    if (STATE.last_login_date === today) return;
+
+    // 1. คำนวณ Streak
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+
+    if (STATE.last_login_date === yesterdayStr) {
+        STATE.login_streak = (STATE.login_streak || 0) + 1;
+    } else {
+        STATE.login_streak = 1;
+    }
+
+    const seasonDuration = STATE.config?.season_duration || 7;
+    if (STATE.login_streak > seasonDuration) STATE.login_streak = 1;
+    STATE.last_login_date = today;
+
+    // 2. รับรางวัลตาม Config
+    const config = getActiveConfig();
+    const rewards = config.login_rewards || [];
+    const reward = rewards.find(r => r.day === STATE.login_streak);
+
+    if (reward) {
+        let rewardText = "";
+        if (reward.reward_type === 'gold') {
+            STATE.tokens += reward.reward_value;
+            rewardText = `${reward.reward_value.toLocaleString()} 🪙`;
+        } else {
+            if (window.applyBuff) window.applyBuff(reward.reward_type, reward.reward_value);
+            const buffLabel = reward.reward_type === 'score' ? 'คูณแต้ม' : (reward.reward_type === 'decay' ? 'กันหิว' : 'ดวงดี');
+            rewardText = `บัฟ${buffLabel} (${reward.reward_value} นาที)`;
+        }
+
+        logScoreAction(currentUserId, 'LOGIN_REWARD', 0, (reward.reward_type === 'gold' ? reward.reward_value : 0), `รางวัลเช็คอินวันที่ ${STATE.login_streak} (${reward.reward_type})`);
+        spawn(`🎉 รับรางวัลเช็คอินแล้ว: ${rewardText}`, 'text-neon-gold scale-125');
+        SFX.playAsset('bell');
+        showEmoticon('🎁', 3000);
+    }
+
+    updateUI();
+    saveState();
+    window.toggleLoginReward(true); // ปิดหน้าต่างหลังรับรางวัล
 };
 
 window.currentRankingTab = 'live';
@@ -1225,35 +1283,58 @@ function updateLoading(progress) {
     await initAuth();
     updateLoading(40);
     
-    const urlParams = new URLSearchParams(window.location.search);
+    // Reusing urlParams from top scope
     const userId = sessionUser || urlParams.get('userId');
 
     loadAdminConfigLocal();
     updateLoading(60);
     setWorldSeed(userId || 'GUEST_USER');
     
-    const tpl = STATE.config.template || 'pet';
-    let finalModel = STATE.config.custom_model;
-    
-    if (STATE.inventory) {
-        if (STATE.inventory.equipped_skins && STATE.inventory.equipped_skins[tpl]) {
-            finalModel = STATE.inventory.equipped_skins[tpl];
-        } else if (STATE.inventory.equipped_skin) {
-            finalModel = STATE.inventory.equipped_skin;
-            delete STATE.inventory.equipped_skin; 
+    window.refreshPetModel = () => {
+        const tpl = STATE.config.template || 'pet';
+        let finalModel = STATE.config.custom_model || '';
+        
+        if (STATE.inventory && STATE.inventory.equipped_skins) {
+            if (STATE.inventory.equipped_skins[tpl]) {
+                finalModel = STATE.inventory.equipped_skins[tpl];
+            }
         }
-    }
+        
+        // Fallback ถ้าไม่มีโมเดลเลย ให้พยายามใช้ค่าจากสกินเริ่มต้น
+        if (!finalModel) {
+            const skins = STATE.config.available_skins || [];
+            if (skins.length > 0) finalModel = skins[0].model;
+        }
 
+        const skins = STATE.config.available_skins || [];
+        const equippedSkin = skins.find(s => s.model === finalModel);
+        const finalRotation = equippedSkin ? (equippedSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
+
+        console.log("🔄 Refreshing Pet Model:", finalModel);
+        updateTemplate(tpl, finalModel, finalRotation);
+        if (equippedSkin) updateEngineConfig({ drop_offset: equippedSkin.drop_offset });
+    };
+
+    // --- Initial Setup calculation ---
+    const tpl = STATE.config.template || 'pet';
+    let initModel = STATE.config.custom_model || '';
+    if (STATE.inventory && STATE.inventory.equipped_skins && STATE.inventory.equipped_skins[tpl]) {
+        initModel = STATE.inventory.equipped_skins[tpl];
+    }
+    if (!initModel) {
+        const skins = STATE.config.available_skins || [];
+        if (skins.length > 0) initModel = skins[0].model;
+    }
     const skins = STATE.config.available_skins || [];
-    const equippedSkin = skins.find(s => s.model === finalModel);
-    const finalRotation = equippedSkin ? (equippedSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
+    const equippedSkin = skins.find(s => s.model === initModel);
+    const initRotation = equippedSkin ? (equippedSkin.rotationY || 0) : (STATE.config.custom_rotation_y || 0);
 
     updateLoading(100);
 
     init3D('three-canvas', STATE.config.template, { 
         sky:STATE.config.sky, ground:STATE.config.ground, 
-        customModel: finalModel,
-        customRotationY: finalRotation
+        customModel: initModel,
+        customRotationY: initRotation
     });
 
     // ส่งค่า Config ของการดรอปของและฟิสิกส์เข้าไปใน Engine
@@ -1295,24 +1376,24 @@ function updateLoading(progress) {
         let msg = '';
         
         if (type === 'diamond' || type === 'legend') {
-            const min = rew.diamond_min || 1000;
-            const max = rew.diamond_max || 2500;
-            tokens = Math.floor(min + Math.random() * (max - min)); 
-            xp = 500;
+            const min = (rew.diamond_min !== undefined) ? parseFloat(rew.diamond_min) : 1000;
+            const max = (rew.diamond_max !== undefined) ? parseFloat(rew.diamond_max) : 2500;
+            tokens = Math.floor(min + Math.random() * (Math.max(1, max - min))); 
+            xp = (rew.diamond_xp !== undefined) ? parseFloat(rew.diamond_xp) : 500;
             score = tokens * 2;
             msg = `💎 สมบัติระดับเพชร! +${tokens.toLocaleString()}🪙 (+${score.toLocaleString()}🏆)`;
         } else if (type === 'gold' || type === 'rare') {
-            const min = rew.gold_min || 150;
-            const max = rew.gold_max || 300;
-            tokens = Math.floor(min + Math.random() * (max - min));
-            xp = 180;
+            const min = (rew.gold_min !== undefined) ? parseFloat(rew.gold_min) : 150;
+            const max = (rew.gold_max !== undefined) ? parseFloat(rew.gold_max) : 300;
+            tokens = Math.floor(min + Math.random() * (Math.max(1, max - min)));
+            xp = (rew.gold_xp !== undefined) ? parseFloat(rew.gold_xp) : 180;
             score = tokens * 1.8;
             msg = `🥇 เหรียญทองคำ! +${tokens}🪙 (+${score}🏆)`;
         } else {
-            const min = rew.silver_min || 15;
-            const max = rew.silver_max || 35;
-            tokens = Math.floor(min + Math.random() * (max - min));
-            xp = 35;
+            const min = (rew.silver_min !== undefined) ? parseFloat(rew.silver_min) : 15;
+            const max = (rew.silver_max !== undefined) ? parseFloat(rew.silver_max) : 35;
+            tokens = Math.floor(min + Math.random() * (Math.max(1, max - min)));
+            xp = (rew.silver_xp !== undefined) ? parseFloat(rew.silver_xp) : 35;
             score = tokens * 5;
             msg = `🥈 เหรียญเงิน! +${tokens}🪙 (+${score}🏆)`;
         }
@@ -1320,6 +1401,7 @@ function updateLoading(progress) {
         
         STATE.tokens += tokens;
         STATE.xp += xp;
+        checkLevelUp(); // 🔥 [BUGFIX] เก็บของบนพื้นแล้วต้องเช็กเลเวลทันที
         STATE.score += score;
         
         if (type === 'diamond' || type === 'gold') SFX.playJingle();
@@ -1346,7 +1428,8 @@ function updateLoading(progress) {
         const baseDelay = Math.max(5000, delayInSeconds * 1000); 
         
         setTimeout(() => {
-            let rareRate = (mech.rare_rate ?? 12) / 100;
+            // 🎯 ดึงค่าตรงๆ จาก Dashboard (ถ้าไม่ได้ตั้งไว้ให้เป็น 0%)
+            let rareRate = (parseFloat(mech.rare_rate) || 0) / 100;
             
             // 💖 Happiness Bonus: ยิ่งมีความสุข โอกาสเจอของแรร์ยิ่งสูง
             const love = STATE.love || 0;
@@ -1379,20 +1462,25 @@ function updateLoading(progress) {
         const delay = (mech.sp_min * 1.5 + Math.random() * (mech.sp_max - mech.sp_min)) * 1000;
         
         setTimeout(() => {
-            let rGold = (rew.gold_rate || rew.rare_rate || 25) / 100;
-            let rDiamond = (rew.diamond_rate || rew.legendary_rate || 5) / 100;
+            // 🎯 ดึงค่าตรงๆ จากหน้า Dashboard (ถ้าไม่ได้ตั้งไว้ให้เป็น 0%)
+            let rGold = (parseFloat(rew.gold_rate) || 0) / 100;
+            let rDiamond = (parseFloat(rew.diamond_rate) || 0) / 100;
             
-            // 💖 Luck Bonus from Happiness
+            // 💖 Luck Bonus from Happiness (โบนัสเลี้ยงดี ดวงดีขึ้น)
             const love = STATE.love || 0;
             const luckMult = (love > 90) ? 2.0 : (love > 70 ? 1.3 : 1.0);
             rGold *= luckMult;
             rDiamond *= luckMult;
 
-
             const roll = Math.random();
             let rType = 'silver';
-            if (roll < rDiamond) rType = 'diamond';
-            else if (roll < rDiamond + rGold) rType = 'gold';
+            
+            // 🛡️ เช็คว่าดรอปอะไร (เพชร > ทอง > เงิน)
+            if (roll < rDiamond) {
+                rType = 'diamond';
+            } else if (roll < (rDiamond + rGold)) {
+                rType = 'gold';
+            }
 
             if (spawnReward(rType)) {
 
@@ -1462,39 +1550,47 @@ function updateLoading(progress) {
         const decayMult = (STATE.buffs.decay_mult || 1.0);
 
         // 1. Hunger & Clean Decay
-        STATE.hunger = Math.max(0, STATE.hunger - ((mRaw.dec_hunger ?? 0.08) * decayMult));
-        STATE.clean = Math.max(0, STATE.clean - ((mRaw.dec_clean ?? 0.05) * decayMult));
+        const d_hunger = (mRaw.dec_hunger !== undefined) ? parseFloat(mRaw.dec_hunger) : 0.08;
+        const d_clean  = (mRaw.dec_clean !== undefined) ? parseFloat(mRaw.dec_clean) : 0.05;
+        const d_happy  = (mRaw.dec_happy !== undefined) ? parseFloat(mRaw.dec_happy) : 0.06;
 
-        let happyDecay = (mRaw.dec_happy ?? 0.06) * decayMult;
+        STATE.hunger = Math.max(0, STATE.hunger - (d_hunger * decayMult));
+        STATE.clean = Math.max(0, STATE.clean - (d_clean * decayMult));
+
+        let happyDecay = d_happy * decayMult;
         if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 2.0; 
         STATE.love = Math.max(0, STATE.love - happyDecay); 
 
         if (STATE.hunger > 85 && STATE.clean > 85) {
-            STATE.love = Math.min(100, STATE.love + 0.15); // เร่งให้เร็วขึ้น 3 เท่า (1% ทุก ~6.6 วินาที)
+            STATE.love = Math.min(100, STATE.love + 0.15); 
         }
         
-        // 🌟 Passive Emoticons (ทำให้น้องดูมีชีวิตชีวา)
-        const thr = mech.fever_threshold ?? 85;
+        // 🌟 Passive Emoticons
+        const thr = (mRaw.fever_threshold !== undefined) ? parseFloat(mRaw.fever_threshold) : 85;
         const isPerfect = (STATE.hunger >= thr && STATE.love >= thr && STATE.clean >= thr);
 
-        if (Math.random() < 0.05) { // โอกาส 5% ทุกวินาที
+        if (Math.random() < 0.05) { 
             const tpl = STATE.config.template || 'pet';
             if (isPerfect) {
                 const happyEmos = { pet:['❤️','😊','✨','🐾'], car:['✨','🏎️','🔥','💎'], plant:['🌸','☀️','🌿','🎵'] }[tpl] || ['❤️','😊'];
-                showEmoticon(happyEmos[Math.floor(Math.random()*happyEmos.length)], 2000);
+                showEmoticon(happyEmos[Math.floor(Math.random() * happyEmos.length)], 2000);
             } else if (STATE.hunger < 30 || STATE.clean < 30) {
                 const sadEmos = { pet:['😢','🍽️','🧼'], car:['⛽','🛠️','⚠️'], plant:['🥀','💧','☁️'] }[tpl] || ['😢'];
-                showEmoticon(sadEmos[Math.floor(Math.random()*sadEmos.length)], 2000);
+                showEmoticon(sadEmos[Math.floor(Math.random() * sadEmos.length)], 2000);
             }
         }
 
-        let multiplier = 1.0;
-        if (isPerfect) multiplier *= (mech.fever_mult ?? 1.5);
-        if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) multiplier *= STATE.buffs.regen;
+        // ⚡ Stamina Regen
+        let regenMultiplier = 1.0;
+        const f_mult = (mRaw.fever_mult !== undefined) ? parseFloat(mRaw.fever_mult) : 1.5;
+        if (isPerfect) regenMultiplier *= f_mult;
+        if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) regenMultiplier *= STATE.buffs.regen;
 
-        const currentRegen = mech.reg_stamina ?? 0.75;
+        const baseRegen = (mRaw.reg_stamina !== undefined) ? parseFloat(mRaw.reg_stamina) : 0.75;
+        STATE.maxStamina = (mRaw.max_stamina !== undefined) ? parseFloat(mRaw.max_stamina) : 100;
+
         if (STATE.stamina < STATE.maxStamina) {
-            STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (currentRegen * multiplier));
+            STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (baseRegen * regenMultiplier));
         }
 
         // 2. UI Updates
@@ -1514,11 +1610,7 @@ function updateLoading(progress) {
     });
     window.addEventListener('beforeunload', () => saveState(false, true)); // 🔥 Immediate Save on Close
 
-    // --- 🚀 START THE ENGINE 🚀 ---
-    await loadState();
-    await initAuth(); 
-    checkLoginReward();
-    
+    checkLoginReward(); 
     updateUI(); 
     
     // 🔥 [BUGFIX] ซิงค์ค่า Engine ให้ตรงกับ Config ล่าสุด (เช่น จำนวนไอเทมสูงสุด, ระยะเวลา)

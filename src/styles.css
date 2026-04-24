@@ -555,7 +555,7 @@ img.emoji {
     margin: 0;
 }
 
-#hud-toggle-area.mini-mode > div {
+#hud-toggle-area.mini-mode > div:first-child {
     background: rgba(0, 0, 0, 0.8) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
     padding: 8px 12px !important;

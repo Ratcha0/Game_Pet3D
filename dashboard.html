@@ -89,14 +89,10 @@
                                 <label class="text-neon-pink text-[10px] font-black uppercase tracking-widest mb-2 block">ชื่อซีซั่น</label>
                                 <input type="text" data-global="season_name" placeholder="ระบุชื่อซีซั่นที่นี่..." class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold">
                             </div>
-                            <div>
-                                <label class="text-neon-gold text-[10px] font-black uppercase tracking-widest mb-2 block">ระยะเวลาการเล่น</label>
-                                <select data-global="season_duration" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold">
-                                    <option value="7">7 วัน (แบบสั้น)</option>
-                                    <option value="15">15 วัน (ปกติ)</option>
-                                    <option value="30">30 วัน (แบบยาว)</option>
-                                </select>
-                            </div>
+                        <div>
+                            <label class="text-neon-gold text-[10px] font-black uppercase tracking-widest mb-2 block">ระยะเวลาซีซั่น (วัน)</label>
+                            <input type="number" data-global="season_duration" oninput="ADMIN_STATE.season_duration=this.value; renderLoginRewards()" class="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white font-bold" placeholder="7">
+                        </div>
                         </div>
 
                         <!-- 🚀 New Action Button: Finish Season -->
@@ -281,6 +277,10 @@
                                     <div><label class="text-[9px] opacity-40 uppercase">Min</label><input type="number" data-path="rewards.silver_min" class="matrix-input"></div>
                                     <div><label class="text-[9px] opacity-40 uppercase">Max</label><input type="number" data-path="rewards.silver_max" class="matrix-input"></div>
                                 </div>
+                                <div class="mt-2 text-center border-t border-white/5 pt-2">
+                                    <label class="text-[8px] opacity-30 uppercase">XP ได้รับ</label>
+                                    <input type="number" data-path="rewards.silver_xp" class="matrix-input !py-1 text-xs text-center border-none" placeholder="35">
+                                </div>
                             </div>
                             <!-- Tier 2 -->
                             <div class="p-5 bg-neon-gold/5 rounded-2xl border border-neon-gold/10 space-y-4">
@@ -289,7 +289,10 @@
                                     <div><label class="text-[9px] opacity-40 uppercase">Min</label><input type="number" data-path="rewards.gold_min" class="matrix-input"></div>
                                     <div><label class="text-[9px] opacity-40 uppercase">Max</label><input type="number" data-path="rewards.gold_max" class="matrix-input"></div>
                                 </div>
-                                <div><label class="text-[9px] opacity-40 uppercase">โอกาสดรอป (%)</label><input type="number" data-path="rewards.gold_rate" class="matrix-input"></div>
+                                <div class="grid grid-cols-2 gap-3 mt-2 border-t border-white/10 pt-2">
+                                    <div><label class="text-[8px] opacity-40 uppercase">โอกาสดรอป (%)</label><input type="number" data-path="rewards.gold_rate" class="matrix-input !py-1 text-xs"></div>
+                                    <div><label class="text-[8px] opacity-40 uppercase">XP ได้รับ</label><input type="number" data-path="rewards.gold_xp" class="matrix-input !py-1 text-xs" placeholder="180"></div>
+                                </div>
                             </div>
                             <!-- Tier 3 -->
                             <div class="p-5 bg-neon-cyan/5 rounded-2xl border border-neon-cyan/10 space-y-4">
@@ -298,7 +301,10 @@
                                     <div><label class="text-[9px] opacity-40 uppercase">Min</label><input type="number" data-path="rewards.diamond_min" class="matrix-input"></div>
                                     <div><label class="text-[9px] opacity-40 uppercase">Max</label><input type="number" data-path="rewards.diamond_max" class="matrix-input"></div>
                                 </div>
-                                <div><label class="text-[9px] opacity-40 uppercase">โอกาสดรอป (%)</label><input type="number" data-path="rewards.diamond_rate" class="matrix-input"></div>
+                                <div class="grid grid-cols-2 gap-3 mt-2 border-t border-white/10 pt-2">
+                                    <div><label class="text-[8px] opacity-40 uppercase">โอกาสดรอป (%)</label><input type="number" data-path="rewards.diamond_rate" class="matrix-input !py-1 text-xs"></div>
+                                    <div><label class="text-[8px] opacity-40 uppercase">XP ได้รับ</label><input type="number" data-path="rewards.diamond_xp" class="matrix-input !py-1 text-xs text-cyan-400" placeholder="500"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -360,11 +366,27 @@
                                         <div class="p-3 bg-white/5 rounded-lg border border-white/5"><label class="text-[7px] text-emerald-400">LUCK</label><input type="number" data-path="boosters.luck.cost" class="matrix-input !py-1"></div>
                                     </div>
                                 </div>
-                                <div class="p-5 bg-neon-cyan/5 rounded-2xl border border-neon-cyan/20">
-                                    <h4 class="text-[9px] font-black text-neon-cyan uppercase tracking-widest mb-4 flex items-center gap-2">📆 รางวัลล็อกอิน (Dynamic)</h4>
-                                    <div id="login-rewards-grid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2"></div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 8: Daily Login Rewards (Dedicated) -->
+                <section class="glass rounded-2xl overflow-hidden border border-neon-cyan/20 mb-6" id="sec-daily-login">
+                    <div class="collapsible-header" onclick="toggleSection('sec-daily-login')">
+                        <div class="flex items-center gap-3">📅 <div class="text-[10px] font-bold text-neon-cyan uppercase tracking-[0.3em]">ระบบรางวัลล็อกอินรายวัน (Daily Login Rewards)</div></div>
+                        <svg class="chevron w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="collapsible-content p-6">
+                        <div class="mb-4 flex justify-between items-center bg-neon-cyan/5 p-4 rounded-xl border border-neon-cyan/10">
+                            <div>
+                                <h4 class="text-xs font-black text-white uppercase italic">กำหนดค่ารางวัลตามลำดับวัน</h4>
+                                <p class="text-[9px] text-white/40 uppercase tracking-widest mt-1">จำนวนวันจะอัปเดตตาม "ระยะเวลาซีซั่น" ที่คุณตั้งไว้ด้านบน</p>
+                            </div>
+                        </div>
+                        <div id="login-rewards-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 lg:grid-cols-10 gap-4">
+                            <!-- Rewards inputs will be injected here -->
                         </div>
                     </div>
                 </section>
@@ -381,6 +403,19 @@
                             <div class="bg-black/40 p-4 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase block mb-1">เป้าหมายอาบน้ำ</label><input type="number" data-path="quests.target_clean" class="matrix-input w-full"></div>
                             <div class="bg-black/40 p-4 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase block mb-1">เป้าหมายเล่น</label><input type="number" data-path="quests.target_play" class="matrix-input w-full"></div>
                             <div class="bg-black/40 p-4 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase block mb-1">ตัวคูณรางวัล</label><input type="number" step="0.1" data-path="quests.reward_mult" class="matrix-input w-full text-neon-gold"></div>
+                        </div>
+
+                        <!-- 🌟 NEW: Special Quest Targets -->
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                            <div class="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10"><label class="text-[8px] text-indigo-300 uppercase block mb-1">เป้าหมายเก็บกวาด (Scoop)</label><input type="number" data-path="quests.target_scoop" class="matrix-input w-full"></div>
+                            <div class="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10"><label class="text-[8px] text-indigo-300 uppercase block mb-1">เป้าหมายฟีเวอร์ (Fever)</label><input type="number" data-path="quests.target_fever" class="matrix-input w-full"></div>
+                            <div class="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10"><label class="text-[8px] text-indigo-300 uppercase block mb-1">เป้าหมายรัก (Love 100%)</label><input type="number" data-path="quests.target_pure_love" class="matrix-input w-full"></div>
+                            <div class="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10"><label class="text-[8px] text-indigo-300 uppercase block mb-1">เป้าหมายใช้สตามิน่า</label><input type="number" data-path="quests.target_spend" class="matrix-input w-full"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 border-t border-white/5 pt-6">
+                            <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base Token Reward</label><input type="number" data-path="quests.base_tokens" class="matrix-input !py-1 text-xs"></div>
+                            <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base Score Reward</label><input type="number" data-path="quests.base_score" class="matrix-input !py-1 text-xs"></div>
+                            <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base XP Reward</label><input type="number" data-path="quests.base_xp" class="matrix-input !py-1 text-xs text-neon-gold"></div>
                         </div>
                     </div>
                 </section>
@@ -530,7 +565,11 @@
                                     <div class="text-[8px] text-white/30 font-bold uppercase tracking-widest mt-1">บอสยังไม่ถูกอัญเชิญ</div>
                                 </div>
                             </div>
-                            <button onclick="toggleBossSpawn()" id="btn-boss-spawn" class="px-8 py-3 rounded-xl bg-rose-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all glow shadow-[0_0_20px_rgba(225,29,72,0.3)]">อัญเชิญบอส (SPAWN)</button>
+                            <div class="flex items-center gap-2">
+                                <button onclick="resetBossHP()" class="px-3 py-3 rounded-xl bg-white/5 border border-white/10 text-[8px] font-black uppercase text-white/60 hover:bg-white/10 transition-all">รีเซ็ตเลือด</button>
+                                <button onclick="toggleBossSpawn()" id="btn-boss-spawn" class="px-5 py-3 rounded-xl bg-rose-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all glow">อัญเชิญบอส</button>
+                                <button onclick="saveBossConfig()" class="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all">บันทึกค่า</button>
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 mb-6">
@@ -631,10 +670,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="mt-8 pt-6 border-t border-white/5 flex justify-end gap-3">
-                            <button onclick="resetBossHP()" class="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/60 hover:bg-white/10 transition-all">รีเซ็ตเลือดบอสใหม่</button>
-                            <button onclick="saveBossConfig()" class="px-10 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-orange-600 text-white font-black uppercase text-[11px] tracking-widest hover:scale-105 transition-all shadow-[0_0_25px_rgba(225,29,72,0.3)]">💾 บันทึกการตั้งค่าบอสทั้งหมด</button>
-                        </div>
+
                     </div>
                 </section>
             </div>

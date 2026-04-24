@@ -80,18 +80,24 @@
                             <span class="text-sm sm:text-lg">🪙</span>
                         </div>
                         
-                        <button onclick="toggleShop(false)" class="glass px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl border border-white/10 text-[10px] sm:text-xs font-black uppercase text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all active:scale-95 shadow-lg shadow-cyan-500/5">🛒 ร้านค้า</button>
-                        
-                        <div class="flex gap-2">
-                            <button onclick="toggleLoginReward(false)" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95 relative">
-                                🗓️
-                            </button>
-                            <button onclick="toggleQuest(false)" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95 relative">
-                                📜
-                                <div id="quest-noti-dot" class="hidden absolute top-0 right-0 w-2 h-2 bg-red-500 border border-white rounded-full"></div>
-                            </button>
+                        <div class="flex flex-col items-end gap-2">
+                            <!-- 🛒 [USER REQUEST] กลับไปอยู่ด้านบนของปุ่มกิจกรรม -->
+                            <button onclick="toggleShop(false)" class="glass px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl border border-white/10 text-[10px] sm:text-xs font-black uppercase text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all active:scale-95 shadow-lg shadow-cyan-500/5">🛒 ร้านค้า</button>
+
+                            <div class="flex gap-2">
+                                <button onclick="toggleLoginReward(false)" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95 relative">
+                                    🗓️
+                                    <div id="login-noti-dot" class="hidden absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border border-white rounded-full shadow-[0_0_10px_rgba(239,68,68,0.6)]">
+                                        <div class="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
+                                    </div>
+                                </button>
+                                <button onclick="toggleQuest(false)" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-95 relative">
+                                    📜
+                                    <div id="quest-noti-dot" class="hidden absolute top-0 right-0 w-2 h-2 bg-red-500 border border-white rounded-full"></div>
+                                </button>
+                            </div>
                             <button id="music-btn" onclick="SFX.toggleMusic()" class="glass w-8 h-8 rounded-lg flex items-center justify-center text-sm border border-white/10 hover:bg-white/10 transition-all active:scale-90">🎵</button>
-                         </div>
+                        </div>
                     </div>
                     </div>
                 </header>
@@ -127,11 +133,13 @@
                     <div id="unified-hud-console" class="flex flex-col items-center w-full max-w-[900px] pointer-events-none">
                         
                         <!-- Global HUD Toggle Area -->
-                        <div id="hud-toggle-area" class="mb-2 cursor-pointer pointer-events-auto group mt-2" onclick="toggleMainHUD()">
+                        <div id="hud-toggle-area" class="mb-2 cursor-pointer pointer-events-auto group mt-2 relative" onclick="toggleMainHUD()">
                             <div class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 flex items-center gap-2 transition-all hover:bg-white/10 active:scale-95">
                                 <span class="text-[9px] sm:text-[11px] font-black text-white/50 uppercase tracking-[0.2em] hud-toggle-text">ย่อหน้าจอ</span>
                                 <span class="hud-toggle-icon text-white/50 text-[10px]">▼</span>
                             </div>
+                            <!-- 🔴 Skill Point Notification Dot -->
+                            <div id="skill-noti-dot" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.8)] z-[250]"></div>
                         </div>
 
                         <!-- Main Panel (Consolidated Style) -->
@@ -401,14 +409,18 @@
                         </div>
                     </div>
                 </div>
-                <div class="mt-4 pt-4 border-t border-white/5">
-                    <div class="flex justify-between items-end mb-2">
+                <div class="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
+                    <div class="flex justify-between items-end">
                         <span id="q-label-special" class="text-[10px] sm:text-xs font-black text-amber-400 uppercase tracking-widest animate-pulse">ภารกิจพิเศษ: นักเก็บอึ</span>
                         <span id="q-val-special" class="text-[10px] sm:text-xs font-black text-white">0/5</span>
                     </div>
                     <div class="w-full h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5">
                         <div id="q-bar-special" class="h-full bg-gradient-to-r from-neon-gold to-yellow-200 transition-all" style="width: 0%"></div>
                     </div>
+                    <!-- 🔥 [USER REQUEST] ปุ่มกดรับรางวัลพิเศษแยกต่างหาก -->
+                    <button id="btn-claim-special" onclick="claimSpecialQuestReward()" class="w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black uppercase text-[10px] transition-all hover:bg-amber-500/20 hidden">
+                        ✨ รับรางวัลพิเศษ
+                    </button>
                 </div>
             </div>
             <div class="p-5 shrink-0">
@@ -516,7 +528,7 @@
             <!-- Header -->
             <div class="px-6 pt-5 pb-3 flex items-center justify-between border-b border-white/5 bg-white/5">
                 <div class="flex flex-col">
-                    <span class="text-[9px] sm:text-[11px] font-black text-amber-400 uppercase tracking-[0.3em]">7-Day Login Rewards</span>
+                    <span id="login-reward-subtitle" class="text-[9px] sm:text-[11px] font-black text-amber-400 uppercase tracking-[0.3em]">Season Rewards</span>
                     <h2 class="text-xl sm:text-2xl font-black text-white italic tracking-tighter uppercase leading-none">เช็คชื่อรับรางวัล</h2>
                 </div>
                 <button onclick="toggleLoginReward(true)" class="w-8 h-8 bg-white/10 hover:bg-red-500/20 active:scale-95 rounded-full flex items-center justify-center transition-all border border-white/10 group">
@@ -524,66 +536,19 @@
                 </button>
             </div>
 
-            <!-- Content Grid 7 Days -->
-            <div class="p-4 grid grid-cols-4 gap-2 overflow-y-auto max-h-[60vh] no-scrollbar">
-                <div id="login-day-1" class="login-day-card relative flex flex-col items-center justify-center h-28 rounded-2xl bg-white/5 border border-white/5 transition-all">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">Day 1</span>
-                    <span class="text-xl mb-1 mt-2">🪙</span>
-                    <span class="text-[10px] font-black text-white" id="login-amt-1">100</span>
-                    <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5" id="login-buff-1"></span>
-                    <div id="login-check-1" class="hidden absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
-                <div id="login-day-2" class="login-day-card relative flex flex-col items-center justify-center h-28 rounded-2xl bg-white/5 border border-white/5 transition-all">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">Day 2</span>
-                    <span class="text-xl mb-1 mt-2">🪙</span>
-                    <span class="text-[10px] font-black text-white" id="login-amt-2">150</span>
-                    <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5" id="login-buff-2"></span>
-                    <div id="login-check-2" class="hidden absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
-                <div id="login-day-3" class="login-day-card relative flex flex-col items-center justify-center h-28 rounded-2xl bg-white/5 border border-white/5 transition-all">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">Day 3</span>
-                    <span class="text-xl mb-1 mt-2">🪙</span>
-                    <span class="text-[10px] font-black text-white" id="login-amt-3">200</span>
-                    <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5" id="login-buff-3"></span>
-                    <div id="login-check-3" class="hidden absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
-                <div id="login-day-4" class="login-day-card relative flex flex-col items-center justify-center h-28 rounded-2xl bg-white/5 border border-white/5 transition-all">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">Day 4</span>
-                    <span class="text-xl mb-1 mt-2">🪙</span>
-                    <span class="text-[10px] font-black text-white" id="login-amt-4">250</span>
-                    <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5" id="login-buff-4"></span>
-                    <div id="login-check-4" class="hidden absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
-                <div id="login-day-5" class="login-day-card relative flex flex-col items-center justify-center h-28 rounded-2xl bg-white/5 border border-white/5 transition-all">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">Day 5</span>
-                    <span class="text-xl mb-1 mt-2">🪙</span>
-                    <span class="text-[10px] font-black text-white" id="login-amt-5">300</span>
-                    <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5" id="login-buff-5"></span>
-                    <div id="login-check-5" class="hidden absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
-                <div id="login-day-6" class="login-day-card relative flex flex-col items-center justify-center h-28 rounded-2xl bg-white/5 border border-white/5 transition-all">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">Day 6</span>
-                    <span class="text-xl mb-1 mt-2">🪙</span>
-                    <span class="text-[10px] font-black text-white" id="login-amt-6">400</span>
-                    <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5" id="login-buff-6"></span>
-                    <div id="login-check-6" class="hidden absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
-                <div id="login-day-7" class="col-span-2 login-day-card relative flex flex-row items-center justify-center h-28 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 transition-all glow-amber shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                    <span class="text-[8px] font-black text-amber-400 uppercase absolute top-2">Jackpot Day 7</span>
-                    <span class="text-3xl mr-3">💰</span>
-                    <div class="flex flex-col">
-                        <span class="text-xs font-black text-white italic">GRAND PRIZE</span>
-                        <span class="text-lg font-black text-amber-400" id="login-amt-7">1,000</span>
-                        <span class="text-[9px] font-black text-white uppercase tracking-widest mt-1" id="login-buff-7"></span>
-                    </div>
-                    <div id="login-check-7" class="hidden absolute -bottom-1 -right-1 w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]"><svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg></div>
-                </div>
+            <!-- Content Grid (Generated via JavaScript) -->
+            <div id="login-rewards-grid" class="p-4 grid grid-cols-4 gap-2 overflow-y-auto max-h-[60vh] no-scrollbar">
+                <!-- Dynamic cards injected here -->
             </div>
             
-            <div class="p-5 pt-0">
+            <div class="p-5 pt-0 flex flex-col gap-3">
                 <div id="login-status-msg" class="w-full py-3 bg-white/5 rounded-2xl text-[10px] text-center font-black text-white/40 uppercase tracking-widest border border-white/5 italic">
                     คุณได้รับรางวัลเช็คอินวันที่ 3 แล้ว
                 </div>
+                <!-- 🔥 [USER REQUEST] ปุ่มกดรับรางวัลด้วยตนเอง -->
+                <button id="login-claim-btn" onclick="claimDailyReward()" class="w-full py-4 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white font-black text-sm rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all uppercase tracking-widest hidden">
+                    🎁 กดรับรางวัลเช็คอิน
+                </button>
             </div>
         </div>
     </div>

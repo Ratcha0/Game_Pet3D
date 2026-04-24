@@ -1,5 +1,8 @@
 import { loadPetState, savePetState, loadGameConfig, logSeasonHistory } from '../services/supabase.js';
 
+const urlParams = new URLSearchParams(window.location.search);
+export const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'admin-preview' || (window.self !== window.top);
+
 // --- ⚙️ Hyper-Granular Settings Factory (Sync with admin.js) ---
 const createDefaultSettings = (template, diff) => {
     const isHard = diff === 'hard';
@@ -10,55 +13,63 @@ const createDefaultSettings = (template, diff) => {
     const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
 
     return {
-        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
-        // ปรับให้โหมดยากได้แต้มเยอะกว่าชัดเจนเพื่อจูงใจการไต่อันดับ
+        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, XP]
         activities: {
-            feed:   { r: isEasy ? 50 : (isHard ? 25 : 34), s: isEasy ? 2 : (isHard ? 12 : 6), xp: isEasy ? 20 : (isHard ? 60 : 40) },
-            clean:  { r: isEasy ? 60 : (isHard ? 28 : 35), s: isEasy ? 2 : (isHard ? 10 : 5), xp: isEasy ? 15 : (isHard ? 50 : 35) },
-            repair: { r: isEasy ? 40 : (isHard ? 20 : 25), s: isEasy ? 2 : (isHard ? 10 : 10), xp: isEasy ? 10 : (isHard ? 40 : 30) },
-            play:   { r: isEasy ? 65 : (isHard ? 30 : 40), s: isEasy ? 5 : (isHard ? 25 : 15), xp: isEasy ? 30 : (isHard ? 100 : 70) }
+            feed:   { r: isEasy ? 50 : (isHard ? 25 : 34), s: isEasy ? 2 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
+            clean:  { r: isEasy ? 60 : (isHard ? 28 : 35), s: isEasy ? 2 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
+            repair: { r: isEasy ? 40 : (isHard ? 20 : 25), s: isEasy ? 2 : (isHard ? 10 : 10), xp: isEasy ? 30 : (isHard ? 100 : 55) },
+            play:   { r: isEasy ? 65 : (isHard ? 30 : 40), s: isEasy ? 5 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
         },
-        // 2. รางวัลไอเทมบนแมพ (Rewards) - [เหรียญ, เวลาแสดงผล]
+        // 2. รางวัลไอเทมบนแมพ (Economy)
         rewards: {
-            legendary_tokens: isHard ? 2000 : (isEasy ? 500 : 1000),
-            legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
-            legendary_rate: isEasy ? 4 : (isHard ? 1 : 2), 
-            rare_tokens: isHard ? 500 : (isEasy ? 150 : 300),
-            rare_time: isEasy ? 20 : (isHard ? 10 : 15),
-            rare_rate: isEasy ? 25 : (isHard ? 8 : 15) 
+            silver_min: isHard ? 10 : (isEasy ? 50 : 20),
+            silver_max: isHard ? 50 : (isEasy ? 150 : 100),
+            silver_xp: isHard ? 20 : (isEasy ? 60 : 40),
+            gold_min: isHard ? 100 : (isEasy ? 300 : 200),
+            gold_max: isHard ? 300 : (isEasy ? 600 : 400),
+            gold_rate: isEasy ? 25 : (isHard ? 8 : 15),
+            gold_xp: isHard ? 100 : (isEasy ? 300 : 200),
+            diamond_min: isHard ? 500 : (isEasy ? 1000 : 800),
+            diamond_max: isHard ? 1000 : (isEasy ? 2500 : 1500),
+            diamond_rate: isEasy ? 5 : (isHard ? 1 : 2),
+            diamond_xp: isHard ? 500 : (isEasy ? 1500 : 1000)
         },
         // 3. ภารกิจรายวัน (Quests)
-        // ตั้งเป้า 1M(H) / 700k(N) / 500k(E)
         quests: {
-            target_feed: isEasy ? 2 : (isHard ? 8 : 4),
-            target_clean: isEasy ? 1 : (isHard ? 6 : 3),
-            target_play: isEasy ? 1 : (isHard ? 3 : 2),
-            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4), // Gap 1.0 -> 1.4 -> 2.5
-            base_tokens: isEasy ? 300 : (isHard ? 400 : 430), // Multiply result -> H:1000, N:600, E:300
-            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150), // Multiply result -> H:15000, N:10000, E:4000
-            // Special Quest Targets
-            target_scoop: isEasy ? 3 : (isHard ? 15 : 8),
-            target_fever: isEasy ? 1 : (isHard ? 4 : 2),
-            target_spend: isEasy ? 500 : (isHard ? 2000 : 1000)
+            target_feed: isEasy ? 2 : (isHard ? 5 : 3),
+            target_clean: isEasy ? 1 : (isHard ? 4 : 2),
+            target_play: isEasy ? 1 : (isHard ? 3 : 1),
+            target_scoop: isHard ? 10 : 5,
+            target_fever: isHard ? 2 : 1,
+            target_pure_love: isHard ? 15 : 10,
+            target_spend: isHard ? 2000 : 1000,
+            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4),
+            base_tokens: isEasy ? 300 : (isHard ? 400 : 430),
+            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150),
+            base_xp: isEasy ? 1000 : (isHard ? 3000 : 2000)
         },
         // 4. ร้านค้า (Shop Economy)
-        // ปรับให้สอดคล้องกับพฤติกรรม: "รวยขึ้นแต่ต้องจ่ายเพื่อปั๊มแต้ม"
         shop: {
             small_tokens: isHard ? 600 : 450, small_amount: 50,
             medium_tokens: isHard ? 1400 : 1000, medium_amount: 120,
             large_tokens: isHard ? 3200 : 2500, large_amount: 300
         },
+        world_boss: {
+            active: false, hp: 1000000, max_hp: 1000000,
+            rock_spawn_delay: 2, rock_spawn_limit: 4, rock_carry_limit: 3,
+            base_damage: 5000, damage_scale: 5000,
+            reward_tokens: 5000, reward_score: 250000, reward_xp: 5000
+        },
         // 5. กลไกหลัก (Mechanics)
-        // กฎ 1-2-10: รอ 1 นาที สนุก 10 นาที (ในโหมดปกติ)
         mechanics: {
             dec_hunger: isHard ? 0.025 : (isEasy ? 0.008 : 0.015), 
             dec_clean:  isHard ? 0.020 : (isEasy ? 0.006 : 0.012),
             dec_happy:  isHard ? 0.030 : (isEasy ? 0.010 : 0.018),
-            reg_stamina: isEasy ? 0.5 : (isHard ? 0.02 : 0.05), 
+            max_stamina: isEasy ? 150 : (isHard ? 80 : 100),
+            reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75),
             sp_min: isHard ? 15 : (isEasy ? 30 : 20),
             sp_max: isHard ? 45 : (isEasy ? 90 : 60),
             rare_rate: isHard ? 12 : (isEasy ? 5 : 8),
-            // สเปคการดรอป: จำกัดรวม 6 ชิ้น และอยู่นานขึ้นเพื่อให้เก็บทัน (AFK Friendly)
             poop_lifetime: isEasy ? 300 : (isHard ? 90 : 180), 
             reward_lifetime: isEasy ? 240 : (isHard ? 80 : 150),
             max_poops: 3, max_rewards: 3,
@@ -66,27 +77,26 @@ const createDefaultSettings = (template, diff) => {
             fever_threshold: isEasy ? 70 : (isHard ? 90 : 80),
             fever_mult: isEasy ? 2.0 : (isHard ? 1.5 : 1.8)
         },
-        // 6. บัฟและไอเทมเสริม (Boosters) - [ราคา, ตัวคูณ, ระยะเวลา(นาที)]
+        // 6. บัฟและไอเทมเสริม (Boosters)
         boosters: {
-            score: { cost: 300, mult: 1.10, duration: 15 }, // +10% Score / 15m
-            decay: { cost: 450, mult: 0.80, duration: 20 }, // -20% Hunger Decay / 20m
-            luck:  { cost: 500, mult: 1.50, duration: 10 }  // x1.5 Rare Rate / 10m
+            score: { cost: 300, mult: 1.10, duration: 15 },
+            decay: { cost: 450, mult: 0.80, duration: 20 },
+            luck:  { cost: 500, mult: 1.50, duration: 10 }
         },
         // 7. ฟิสิกส์ (Physics)
         physics: {
             speed: isHard ? baseSpeed * 1.15 : baseSpeed,
             scale: baseScale
         },
-        // 8. รางวันเช็คอินรายวัน (Login Rewards) - [เงิน, ชนิดบัพ, ระยะเวลาบัพ(นาที)]
-        // 8. รางวันเช็คอินรายวัน (Login Rewards) - [ชนิดรางวัล (gold/score/decay/luck), มูลค่ารางวัล (เงิน หรือ นาที)]
+        // 8. รางวันเช็คอินรายวัน (Login Rewards)
         login_rewards: [
-            { day: 1, reward_type: 'gold', reward_value: 200 },
-            { day: 2, reward_type: 'gold', reward_value: 300 },
-            { day: 3, reward_type: 'score', reward_value: 15 },  // บัพคูณแต้ม 15 นาที
-            { day: 4, reward_type: 'gold', reward_value: 500 },
-            { day: 5, reward_type: 'decay', reward_value: 20 },  // บัพกันหิว 20 นาที
-            { day: 6, reward_type: 'gold', reward_value: 800 },
-            { day: 7, reward_type: 'luck', reward_value: 30 }    // บัพดวงดี 30 นาที (Jackpot)
+            { day: 1, reward_type: 'gold', reward_value: isHard ? 100 : (isEasy ? 300 : 200) },
+            { day: 2, reward_type: 'gold', reward_value: isHard ? 150 : (isEasy ? 450 : 300) },
+            { day: 3, reward_type: 'gold', reward_value: isHard ? 200 : (isEasy ? 600 : 400) },
+            { day: 4, reward_type: 'gold', reward_value: isHard ? 250 : (isEasy ? 750 : 500) },
+            { day: 5, reward_type: 'decay', reward_value: 20 },
+            { day: 6, reward_type: 'gold', reward_value: isHard ? 400 : (isEasy ? 1200 : 800) },
+            { day: 7, reward_type: 'luck', reward_value: 30 }
         ]
     };
 };
@@ -114,7 +124,7 @@ export const STATE = {
             plant: { easy: createDefaultSettings('plant', 'easy'), normal: createDefaultSettings('plant', 'normal'), hard: createDefaultSettings('plant', 'hard') }
         }
     },
-    quests: { feed: 0, feed_max: 4, clean: 0, clean_max: 3, play: 0, play_max: 2, special: { type: 'scoop', target: 8, current: 0, label: 'นักช้อนอึมือทอง', icon: '💩' }, claimed: false },
+    quests: { feed: 0, feed_max: 4, clean: 0, clean_max: 3, play: 0, play_max: 2, special: { type: 'scoop', target: 8, current: 0, label: 'นักช้อนอึมือทอง', icon: '💩' }, claimed: false, special_claimed: false },
     buffs: { 
         score_mult: 1.0, score_expiry: 0,
         decay_mult: 1.0, decay_expiry: 0,
@@ -140,6 +150,7 @@ export const SPECIAL_QUEST_POOL = [
 ];
 
 export let currentUserId = "GUEST_USER"; 
+export let isLoaded = false; // 🔒 Flag to prevent premature saving
 export function setUserId(id) { currentUserId = id; }
 
 export function resetStateToDefaults() {
@@ -153,7 +164,7 @@ export function resetStateToDefaults() {
     STATE.level = 1; 
     STATE.maxExp = 200;
     STATE.inventory = { skins: [], equipped_skins: {} };
-    STATE.quests = { feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' }, claimed: false };
+    STATE.quests = { feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' }, claimed: false, special_claimed: false };
     STATE.buffs = { 
         score_mult: 1.0, score_expiry: 0,
         decay_mult: 1.0, decay_expiry: 0,
@@ -168,6 +179,7 @@ export function resetStateToDefaults() {
 }
 
 export async function loadState() {
+    isLoaded = false;
     resetStateToDefaults();
     await loadGameConfigCloud();
     if (currentUserId !== "GUEST_USER") {
@@ -179,7 +191,8 @@ export async function loadState() {
             const playerSeason = STATE.current_season || 1;
             
             if (playerSeason < globalSeason) {
-                console.log(`NEW SEASON DETECTED! Resetting from S${playerSeason} to S${globalSeason}`);
+                console.warn(`🚨 NEW SEASON DETECTED! S${playerSeason} -> S${globalSeason}. Resetting progress...`);
+                STATE._isResettingSeason = true;
                 
                 // 1. บันทึกผลงานเก่าลง History ก่อนสลายหายไป
                 await logSeasonHistory(currentUserId, playerSeason, STATE.score);
@@ -195,43 +208,75 @@ export async function loadState() {
                 STATE.stamina = 100;
                 STATE.love = 50;
                 STATE.current_season = globalSeason;
+                STATE.login_streak = 0; // Fresh start for login rewards
+                STATE.last_login_date = ""; 
+                STATE.carrying_rock = 0;
+                
+                // รีเซ็ตสกิลบอส (ทุกคนต้องเริ่มฝึกใหม่)
+                STATE.boss_skills = {
+                    points: 0, xp: 0, lvl: 1, next: 5000,
+                    damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
+                };
                 
                 // รีเซ็ตภารกิจ
                 STATE.quests = { 
                     feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, 
-                    special: STATE.quests.special, // รักษาชนิด Quest พิเศษไว้
-                    claimed: false 
+                    special: STATE.quests.special, 
+                    claimed: false,
+                    special_claimed: false
                 };
                 
                 // บันทึกทับทันทีเพื่อให้ข้อมูลบน Cloud เป็นซีซั่นใหม่
-                savePetState(currentUserId, STATE);
-                
+                await savePetState(currentUserId, STATE);
+                STATE._isResettingSeason = false;
+
                 if (window.spawn) {
                     window.spawn(`🎉 เริ่มต้นซีซั่นใหม่ ${STATE.config.season_name}! (เริ่มเก็บสะสมใหม่กัน!)`, "text-neon-pink font-black");
                 }
             }
         }
     }
+    isLoaded = true; // ✅ Mark loading as complete
 }
 
 function mergeSaveData(d) {
+    if (!d) return;
+    
+    // 🛡️ Defensive Check: Don't allow resetting to Level 1 if we already have level 2+ 
+    // unless it's a confirmed season reset.
+    if (STATE.level > 1 && d.level === 1 && !STATE._isResettingSeason) {
+        console.warn("🛡️ Blocking suspicious state merge that would reset Level to 1.");
+        return;
+    }
+
     if (d.username || d.pet_name) STATE.username = d.username || d.pet_name;
     if (d.pin_code) STATE.pin_code = d.pin_code;
-    STATE.tokens = d.tokens ?? 500;
-    STATE.score = d.score ?? 0;
-    STATE.hunger = d.hunger ?? 80;
-    STATE.clean = d.clean ?? 80;
-    STATE.stamina = d.stamina ?? 100;
-    STATE.love = d.love ?? 50;
-    STATE.xp = d.xp ?? 0;
-    STATE.level = d.level ?? 1;
-    STATE.maxExp = d.max_exp ?? d.maxExp ?? 200;
-    STATE.current_season = d.current_season ?? d.season_number ?? 1;
-    STATE.carrying_rock = d.carrying_rock ?? 0;
+    
+    // อนุญาตให้อุกเดตถ้าค่าที่มาใหม่ "ไม่เป็นค่าว่าง/ค่าเริ่มต้นพังๆ"
+    if (d.tokens !== undefined && !isNaN(d.tokens)) STATE.tokens = d.tokens;
+    if (d.score !== undefined && !isNaN(d.score)) STATE.score = d.score;
+    if (d.hunger !== undefined && !isNaN(d.hunger)) STATE.hunger = d.hunger;
+    if (d.clean !== undefined && !isNaN(d.clean)) STATE.clean = d.clean;
+    if (d.stamina !== undefined && !isNaN(d.stamina)) STATE.stamina = d.stamina;
+    if (d.love !== undefined && !isNaN(d.love)) STATE.love = d.love;
+    if (d.xp !== undefined && !isNaN(d.xp)) STATE.xp = d.xp;
+    if (d.level !== undefined && d.level > 0 && !isNaN(d.level)) STATE.level = d.level;
+    if (d.maxExp && !isNaN(d.maxExp)) STATE.maxExp = d.maxExp;
+    
+    STATE.current_season = d.current_season ?? d.season_number ?? STATE.current_season;
+    STATE.carrying_rock = d.carrying_rock ?? STATE.carrying_rock;
+    
     if (d.boss_skills) STATE.boss_skills = d.boss_skills;
     if (d.inventory) STATE.inventory = d.inventory;
-    if (d.quests || d.quests_data) STATE.quests = d.quests || d.quests_data;
-    if (d.buffs || d.buffs_data) STATE.buffs = d.buffs || d.buffs_data;
+    if (d.quests) STATE.quests = d.quests;
+    if (d.buffs) STATE.buffs = d.buffs;
+    if (d.login_streak !== undefined) STATE.login_streak = d.login_streak;
+    if (d.last_login_date) STATE.last_login_date = d.last_login_date;
+    
+    // 🔥 [BUGFIX] ป้องกันการรีเซ็ตค่า Config (สกิน/เทมเพลต)
+    if (d.config) {
+        STATE.config = { ...STATE.config, ...d.config };
+    }
 }
 
 const SYNC_CHANNEL = new BroadcastChannel('like-gotchi-state-sync');
@@ -252,6 +297,11 @@ SYNC_CHANNEL.onmessage = (event) => {
 let saveTimeout = null;
 
 export function saveState(isSync = false, immediateCloud = false) {
+    if (!isLoaded && !isSync) {
+        console.warn("⚠️ Save blocked: State not yet loaded.");
+        return;
+    }
+    if (isAdminPreview) return; // 🛑 Block Admin Preview from saving/syncing
     const data = {
         username: STATE.username, pin_code: STATE.pin_code,
         tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
@@ -280,7 +330,8 @@ export function saveState(isSync = false, immediateCloud = false) {
     }
 
     // 3. Peer Sync (Immediate)
-    if (!isSync) {
+    // 🛑 Block Sync if this is an Admin Preview to prevent resetting other tabs
+    if (!isSync && !isAdminPreview) {
         SYNC_CHANNEL.postMessage({ type: 'STATE_UPDATED', userId: currentUserId, state: data });
     }
 }
