@@ -150,7 +150,7 @@ img.emoji {
     .alert-red { animation: pulse-red 0.8s infinite; border-color: #ef4444bb !important; }
     
     /* ปรับแต่งหน้าต่างให้เป็นก้อนลอยตรงกลางจอ (Universal Modal Polish) */
-    #shop-modal > div, #ranking-modal > div, #quest-modal > div {
+    #shop-modal > div, #ranking-modal > div, #quest-modal > div, #login-reward-modal > div {
         margin: auto !important;
         max-height: 90vh !important;
         height: auto !important;
@@ -159,6 +159,7 @@ img.emoji {
         padding: 1.5rem !important;
         overflow: hidden !important; /* เปลี่ยนจาก auto เป็น hidden เพื่อให้ลูกสกรอลล์แทน */
     }
+    .glow-indigo { box-shadow: 0 0 15px rgba(99, 102, 241, 0.3); }
 
     /* Optimized for Landscape / Small Height Screens */
     @media (max-height: 550px) {
@@ -651,5 +652,60 @@ img.emoji {
         bottom: 85px !important; /* Positioned right above the console box */
         left: 0px !important;
         z-index: 210 !important;
+    }
+}
+
+/* --- 📱 Mobile Specific Fixes (เจาะจงเฉพาะมือถือแนวตั้ง - จอสูงปกติเท่านั้น) --- */
+@media (max-width: 640px) and (min-height: 521px) {
+    /* จัดระเบียบปุ่มขวาบนเฉพาะจอแนวตั้งที่แคบกว่า 640px */
+    #top-right-hud {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        justify-content: flex-end !important;
+        gap: 6px !important;
+        max-width: 160px; /* จำกัดความกว้างเพื่อให้สวิตช์มาเรียงเป็นแถว */
+    }
+
+    #top-right-hud > div:first-child {
+        width: 100%; /* บังคับให้ Wallet อยู่แถวบนสุดแถวเดียว */
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 2px;
+    }
+
+    #top-right-hud button, #top-right-hud .flex.gap-2 {
+        margin: 0 !important;
+    }
+    
+    #top-right-hud button {
+        padding: 4px 6px !important;
+    }
+
+    /* สเกล Console ลงเพื่อไม่ให้บังตัว Pet */
+    #main-stats-panel {
+        transform: scale(0.85); /* กลับมาเป็น 0.85 เพื่อความสมดุล */
+        transform-origin: bottom center;
+        padding: 10px 6px !important;
+    }
+
+    /* ดันบอสให้อยู่ในจุดที่ปลอดภัย */
+    #world-boss-hud {
+        top: 75px !important; 
+        left: 8px !important;
+        transform: scale(0.8) !important; 
+        transform-origin: top left;
+        max-width: 160px !important;
+    }
+
+    #btn-throw-rock {
+        bottom: 220px !important; 
+        right: 12px !important;
+        transform: scale(0.85);
+    }
+
+    /* ปรับความสูง Modal บนจอเล็กให้ยืดหยุ่น */
+    #ranking-modal-container, #shop-modal-container, #quest-modal-container, #login-reward-modal-container {
+        height: 75vh !important;
+        min-height: auto !important;
     }
 }

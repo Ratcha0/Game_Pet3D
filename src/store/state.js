@@ -13,10 +13,10 @@ const createDefaultSettings = (template, diff) => {
         // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
         // ปรับให้โหมดยากได้แต้มเยอะกว่าชัดเจนเพื่อจูงใจการไต่อันดับ
         activities: {
-            feed:   { r: isEasy ? 15 : (isHard ? 8 : 12), s: isEasy ? 3 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
-            clean:  { r: isEasy ? 18 : (isHard ? 7 : 14), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
-            repair: { r: isEasy ? 12 : (isHard ? 6 : 10), s: isEasy ? 2 : (isHard ? 8 : 4), xp: isEasy ? 30 : (isHard ? 100 : 55) },
-            play:   { r: isEasy ? 20 : (isHard ? 10 : 18), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
+            feed:   { r: isEasy ? 50 : (isHard ? 25 : 34), s: isEasy ? 2 : (isHard ? 12 : 6), xp: isEasy ? 20 : (isHard ? 60 : 40) },
+            clean:  { r: isEasy ? 60 : (isHard ? 28 : 35), s: isEasy ? 2 : (isHard ? 10 : 5), xp: isEasy ? 15 : (isHard ? 50 : 35) },
+            repair: { r: isEasy ? 40 : (isHard ? 20 : 25), s: isEasy ? 2 : (isHard ? 10 : 10), xp: isEasy ? 10 : (isHard ? 40 : 30) },
+            play:   { r: isEasy ? 65 : (isHard ? 30 : 40), s: isEasy ? 5 : (isHard ? 25 : 15), xp: isEasy ? 30 : (isHard ? 100 : 70) }
         },
         // 2. รางวัลไอเทมบนแมพ (Rewards) - [เหรียญ, เวลาแสดงผล]
         rewards: {
@@ -51,10 +51,10 @@ const createDefaultSettings = (template, diff) => {
         // 5. กลไกหลัก (Mechanics)
         // กฎ 1-2-10: รอ 1 นาที สนุก 10 นาที (ในโหมดปกติ)
         mechanics: {
-            dec_hunger: isHard ? 0.18 : (isEasy ? 0.04 : 0.08), 
-            dec_clean:  isHard ? 0.10 : (isEasy ? 0.02 : 0.05),
-            dec_happy:  isHard ? 0.12 : (isEasy ? 0.03 : 0.06),
-            reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75), 
+            dec_hunger: isHard ? 0.025 : (isEasy ? 0.008 : 0.015), 
+            dec_clean:  isHard ? 0.020 : (isEasy ? 0.006 : 0.012),
+            dec_happy:  isHard ? 0.030 : (isEasy ? 0.010 : 0.018),
+            reg_stamina: isEasy ? 0.5 : (isHard ? 0.02 : 0.05), 
             sp_min: isHard ? 15 : (isEasy ? 30 : 20),
             sp_max: isHard ? 45 : (isEasy ? 90 : 60),
             rare_rate: isHard ? 12 : (isEasy ? 5 : 8),
@@ -77,15 +77,16 @@ const createDefaultSettings = (template, diff) => {
             speed: isHard ? baseSpeed * 1.15 : baseSpeed,
             scale: baseScale
         },
-        // 8. รางวันเช็คอินรายวัน (Login Rewards)
+        // 8. รางวันเช็คอินรายวัน (Login Rewards) - [เงิน, ชนิดบัพ, ระยะเวลาบัพ(นาที)]
+        // 8. รางวันเช็คอินรายวัน (Login Rewards) - [ชนิดรางวัล (gold/score/decay/luck), มูลค่ารางวัล (เงิน หรือ นาที)]
         login_rewards: [
-            { day: 1, tokens: 100 },
-            { day: 2, tokens: 150 },
-            { day: 3, tokens: 200 },
-            { day: 4, tokens: 250 },
-            { day: 5, tokens: 300 },
-            { day: 6, tokens: 400 },
-            { day: 7, tokens: 1000 }
+            { day: 1, reward_type: 'gold', reward_value: 200 },
+            { day: 2, reward_type: 'gold', reward_value: 300 },
+            { day: 3, reward_type: 'score', reward_value: 15 },  // บัพคูณแต้ม 15 นาที
+            { day: 4, reward_type: 'gold', reward_value: 500 },
+            { day: 5, reward_type: 'decay', reward_value: 20 },  // บัพกันหิว 20 นาที
+            { day: 6, reward_type: 'gold', reward_value: 800 },
+            { day: 7, reward_type: 'luck', reward_value: 30 }    // บัพดวงดี 30 นาที (Jackpot)
         ]
     };
 };
@@ -113,7 +114,7 @@ export const STATE = {
             plant: { easy: createDefaultSettings('plant', 'easy'), normal: createDefaultSettings('plant', 'normal'), hard: createDefaultSettings('plant', 'hard') }
         }
     },
-    quests: { feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, special: { type: 'scoop', target: 5, current: 0, label: 'ช้อนอึทองคำ', icon: '💩' }, claimed: false },
+    quests: { feed: 0, feed_max: 4, clean: 0, clean_max: 3, play: 0, play_max: 2, special: { type: 'scoop', target: 8, current: 0, label: 'นักช้อนอึมือทอง', icon: '💩' }, claimed: false },
     buffs: { 
         score_mult: 1.0, score_expiry: 0,
         decay_mult: 1.0, decay_expiry: 0,
@@ -224,7 +225,7 @@ function mergeSaveData(d) {
     STATE.love = d.love ?? 50;
     STATE.xp = d.xp ?? 0;
     STATE.level = d.level ?? 1;
-    STATE.maxExp = d.maxExp ?? 100;
+    STATE.maxExp = d.max_exp ?? d.maxExp ?? 200;
     STATE.current_season = d.current_season ?? d.season_number ?? 1;
     STATE.carrying_rock = d.carrying_rock ?? 0;
     if (d.boss_skills) STATE.boss_skills = d.boss_skills;
@@ -248,7 +249,9 @@ SYNC_CHANNEL.onmessage = (event) => {
     }
 };
 
-export function saveState(isSync = false) {
+let saveTimeout = null;
+
+export function saveState(isSync = false, immediateCloud = false) {
     const data = {
         username: STATE.username, pin_code: STATE.pin_code,
         tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
@@ -260,13 +263,23 @@ export function saveState(isSync = false) {
         quests: STATE.quests, buffs: STATE.buffs, inventory: STATE.inventory
     };
     
+    // 1. Local Save (Immediate)
     localStorage.setItem('PW3D_SAVE_' + currentUserId, JSON.stringify(data));
     
+    // 2. Cloud Save (Debounced to protect database)
     if (currentUserId !== "GUEST_USER") {
-        savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
+        if (immediateCloud) {
+            if (saveTimeout) clearTimeout(saveTimeout);
+            savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
+        } else {
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
+            }, 3000); // 3 seconds debounce
+        }
     }
 
-    // กระจายข้อมูลให้หน้าจออื่นทราบ โดยระบุสิทธิ์ความเป็นเจ้าของ
+    // 3. Peer Sync (Immediate)
     if (!isSync) {
         SYNC_CHANNEL.postMessage({ type: 'STATE_UPDATED', userId: currentUserId, state: data });
     }

@@ -77,7 +77,12 @@ export const initBossController = (STATE, engineHelpers) => {
         updateThrowButton(wb);
     };
 
+    let _lastSkillState = "";
     const updateSkillUI = () => {
+        const currentState = JSON.stringify(BOSS_SKILLS);
+        if (currentState === _lastSkillState) return;
+        _lastSkillState = currentState;
+
         const skills = ['damage', 'crit', 'speed', 'bag'];
         skills.forEach(key => {
             const s = BOSS_SKILLS[key];
@@ -136,10 +141,13 @@ export const initBossController = (STATE, engineHelpers) => {
         updateThrowButton(STATE.config.world_boss);
     };
 
+    window.updateBossThrowUI = () => updateThrowButton(STATE.config?.world_boss);
+    
     const resetBossSkills = () => {
         // เลเวลสกิลจะถูกดึงมาจาก STATE ถาวร เราแค่รีเซ็ตความเร็วพื้นฐานและอัปเดต UI
         window._bossSpeedMult = 1.0 + (BOSS_SKILLS.speed.lvl - 1) * 0.15;
         updateSkillUI();
+        window.updateBossThrowUI();
     };
 
     const updateThrowButton = (wb) => {

@@ -211,7 +211,7 @@ class SoundManager {
 
     // --- BACKGROUND MUSIC (Local MP3 Asset) ---
     startBGM() {
-        if (!this.enabled || this.bgm) return;
+        if (!this.musicEnabled || this.bgm) return;
         
         const bgmUrl = '/Music/Sugar_Coated_Combo.mp3';
         

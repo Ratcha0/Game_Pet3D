@@ -37,14 +37,16 @@ const createDefaultSettings = (template, diff) => {
             repair: { r: isEasy ? 12 : (isHard ? 6 : 10), s: isEasy ? 2 : (isHard ? 8 : 4), xp: isEasy ? 30 : (isHard ? 100 : 55) },
             play:   { r: isEasy ? 20 : (isHard ? 10 : 18), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
         },
-        // 2. รางวัลไอเทมบนแมพ (Rewards) - [เหรียญ, เวลาแสดงผล]
+        // 2. รางวัลไอเทมบนแมพ (Economy)
         rewards: {
-            legendary_tokens: isHard ? 2000 : (isEasy ? 500 : 1000),
-            legendary_time: isEasy ? 45 : (isHard ? 20 : 30),
-            legendary_rate: isEasy ? 4 : (isHard ? 1 : 2), 
-            rare_tokens: isHard ? 500 : (isEasy ? 150 : 300),
-            rare_time: isEasy ? 20 : (isHard ? 10 : 15),
-            rare_rate: isEasy ? 25 : (isHard ? 8 : 15) 
+            silver_min: isHard ? 10 : (isEasy ? 50 : 20),
+            silver_max: isHard ? 50 : (isEasy ? 150 : 100),
+            gold_min: isHard ? 100 : (isEasy ? 300 : 200),
+            gold_max: isHard ? 300 : (isEasy ? 600 : 400),
+            gold_rate: isEasy ? 25 : (isHard ? 8 : 15),
+            diamond_min: isHard ? 500 : (isEasy ? 1000 : 800),
+            diamond_max: isHard ? 1000 : (isEasy ? 2500 : 1500),
+            diamond_rate: isEasy ? 5 : (isHard ? 1 : 2)
         },
         // 3. ภารกิจรายวัน (Quests)
         quests: {
@@ -70,6 +72,7 @@ const createDefaultSettings = (template, diff) => {
             dec_hunger: isHard ? 0.18 : (isEasy ? 0.04 : 0.08),
             dec_clean:  isHard ? 0.10 : (isEasy ? 0.02 : 0.05),
             dec_happy:  isHard ? 0.12 : (isEasy ? 0.03 : 0.06),
+            max_stamina: isEasy ? 150 : (isHard ? 80 : 100),
             reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75),
             sp_min: isHard ? 15 : (isEasy ? 30 : 20),
             sp_max: isHard ? 45 : (isEasy ? 90 : 60),
@@ -95,13 +98,13 @@ const createDefaultSettings = (template, diff) => {
         },
         // 8. รางวันเช็คอินรายวัน (Login Rewards)
         login_rewards: [
-            { day: 1, tokens: 100 },
-            { day: 2, tokens: 150 },
-            { day: 3, tokens: 200 },
-            { day: 4, tokens: 250 },
-            { day: 5, tokens: 300 },
-            { day: 6, tokens: 400 },
-            { day: 7, tokens: 1000 }
+            { day: 1, reward_type: 'gold', reward_value: isHard ? 100 : (isEasy ? 300 : 200) },
+            { day: 2, reward_type: 'gold', reward_value: isHard ? 150 : (isEasy ? 450 : 300) },
+            { day: 3, reward_type: 'score', reward_value: 15 },
+            { day: 4, reward_type: 'gold', reward_value: isHard ? 250 : (isEasy ? 750 : 500) },
+            { day: 5, reward_type: 'decay', reward_value: 20 },
+            { day: 6, reward_type: 'gold', reward_value: isHard ? 400 : (isEasy ? 1200 : 800) },
+            { day: 7, reward_type: 'luck', reward_value: 30 }
         ]
     };
 };
@@ -113,6 +116,8 @@ let ADMIN_STATE = {
     ground: 'grass',
     custom_model: '',
     custom_rotation_y: 0,
+    season_number: 1,
+    season_name: '',
     season_duration: 15,
     world_boss: {
         active: false,
@@ -166,39 +171,95 @@ function highlightUI() {
     
     document.querySelectorAll('[data-global]').forEach(el => {
         const key = el.dataset.global;
-        if (ADMIN_STATE[key] !== undefined) {
-            el.value = ADMIN_STATE[key];
+        const currentVal = getDeepValue(ADMIN_STATE, key);
+        
+        if (currentVal !== undefined) {
+            el.value = currentVal;
         }
+
         if (!el.dataset.boundGlobal) {
             el.addEventListener('input', (e) => {
                 let val = e.target.value;
                 if (e.target.type === 'number') val = parseFloat(val) || val;
-                ADMIN_STATE[key] = val;
-                sendPreview(); saveLocal();
+                
+                setDeepValue(ADMIN_STATE, key, val);
+                
+                sendPreview(); 
+                saveLocal();
+                
+                if (key === 'season_duration') window.syncInputsWithMatrix();
+                if (key.startsWith('world_boss.')) window.renderBossConfig(); // Update preview if boss path changed
             });
             el.dataset.boundGlobal = "true";
         }
     });
 }
 
+window.renderLoginRewards = () => {
+    const grid = $('login-rewards-grid');
+    if (!grid) return;
+
+    const config = ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode];
+    const duration = parseInt(ADMIN_STATE.season_duration || 7);
+    
+    // Ensure login_rewards array matches duration
+    if (!config.login_rewards) config.login_rewards = [];
+    while (config.login_rewards.length < duration) {
+        const d = config.login_rewards.length + 1;
+        config.login_rewards.push({ 
+            day: d, 
+            reward_type: 'gold', 
+            reward_value: 100 + (d * 50) 
+        });
+    }
+    // Truncate if duration is smaller (optional, but keep it for sync)
+    // config.login_rewards = config.login_rewards.slice(0, duration);
+
+    grid.innerHTML = config.login_rewards.slice(0, duration).map((r, i) => {
+        const isJackpot = (i + 1) % 7 === 0;
+        const colorClass = isJackpot ? 'border-neon-gold ring-1 ring-neon-gold/50 bg-neon-gold/10' : 'border-white/5 bg-black/40';
+        const labelClass = isJackpot ? 'text-neon-gold font-black' : 'text-white/30 font-black';
+
+        return `
+            <div class="${colorClass} p-3 rounded-2xl border flex flex-col gap-2 relative overflow-hidden transition-all hover:scale-105 duration-300">
+                ${isJackpot ? '<div class="absolute -top-1 -right-1 bg-neon-gold text-black text-[6px] font-black px-1.5 py-0.5 rounded-bl uppercase">Jackpot</div>' : ''}
+                <div class="text-[8px] uppercase border-b border-white/5 pb-1 mb-1 ${labelClass}">วันที่ ${i+1}</div>
+                <select data-path="login_rewards.${i}.reward_type" class="matrix-input !py-1.5 !text-[9px] !px-1 !bg-white/10 text-white [&>option]:bg-[#1a1c2e] [&>option]:text-white">
+                    <option value="gold" ${r.reward_type==='gold'?'selected':''}>💰 ทอง</option>
+                    <option value="score" ${r.reward_type==='score'?'selected':''}>📊 คูณแต้ม</option>
+                    <option value="decay" ${r.reward_type==='decay'?'selected':''}>🛡️ กันหิว</option>
+                    <option value="luck" ${r.reward_type==='luck'?'selected':''}>🍀 ดวงดี</option>
+                </select>
+                <input type="number" value="${r.reward_value}" data-path="login_rewards.${i}.reward_value" class="matrix-input !py-1.5 !text-[10px] text-center text-neon-gold font-bold" placeholder="จำนวน">
+            </div>
+        `;
+    }).join('');
+}
+
 function syncInputsWithMatrix() {
+    window.renderLoginRewards(); // Generate dynamic inputs first
     const config = ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode];
     
-    // หา Input ทุกตัวที่มี data-path
+    // หา Input และ Select ทุกตัวที่มี data-path
     document.querySelectorAll('.matrix-input').forEach(el => {
         const path = el.dataset.path;
         if (path) {
             const val = getDeepValue(config, path);
             if (val !== undefined) el.value = val;
 
-            // ผูก Event ให้บันทึกลง Matrix
+            // ผูก Event ให้บันทึกลง Matrix (รองรับทั้งการพิมพ์และการเลือก Select)
             if (!el.dataset.bound) {
-                el.addEventListener('input', (e) => {
-                    const newVal = parseFloat(e.target.value);
-                    setDeepValue(config, path, isNaN(newVal) ? e.target.value : newVal);
+                const updateFn = (e) => {
+                    let newVal = e.target.value;
+                    // ถ้าเป็นตัวเลขให้แปลงเป็น Float แต่ถ้าเป็น String (เช่น 'score') ให้เก็บเป็น String
+                    const num = parseFloat(newVal);
+                    setDeepValue(config, path, isNaN(num) ? newVal : num);
                     sendPreview();
                     saveLocal();
-                });
+                };
+                
+                el.addEventListener('input', updateFn);
+                el.addEventListener('change', updateFn);
                 el.dataset.bound = "true";
             }
         }

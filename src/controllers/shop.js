@@ -291,36 +291,47 @@ export function initShop() {
         grid.innerHTML = html;
     };
 
-    window._buying = false;
-    window.buyBooster = (type) => {
-        if (window._buying) return;
-        const config = getActiveConfig().boosters || {};
-        const b = config[type];
-        if (!b) return;
+window.applyBuff = (type, durationMin) => {
+    if (!type || type === 'none' || durationMin <= 0) return;
+    
+    const config = getActiveConfig().boosters || {};
+    const b = config[type];
+    if (!b) return;
 
-        if (STATE.tokens < b.cost) {
-            if(window.spawn) window.spawn('🪙 เหรียญไม่พอซื้อบัฟครับ!'); 
-            SFX.playAsset('error');
-            return;
-        }
+    const now = Date.now();
+    const currentExp = STATE.buffs[`${type}_expiry`] || 0;
+    // ถ้าบัพเดิมยังไม่หมดอาย ให้บวกเวลาต่อจากของเดิม (Stacking)
+    const baseStart = currentExp > now ? currentExp : now;
+    
+    STATE.buffs[`${type}_mult`] = b.mult;
+    STATE.buffs[`${type}_expiry`] = baseStart + (durationMin * 60 * 1000);
+    
+    saveState();
+    if (window.renderShopBoosters) window.renderShopBoosters();
+};
 
-        window._buying = true;
-        setTimeout(() => { window._buying = false; }, 800); // 800ms throttle
+window.buyBooster = (type) => {
+    if (window._buying) return;
+    const config = getActiveConfig().boosters || {};
+    const b = config[type];
+    if (!b) return;
 
-        const now = Date.now();
-        const currentExp = STATE.buffs[`${type}_expiry`] || 0;
-        const baseStart = currentExp > now ? currentExp : now;
-        
-        STATE.tokens -= b.cost;
-        STATE.buffs[`${type}_mult`] = b.mult;
-        STATE.buffs[`${type}_expiry`] = baseStart + (b.duration * 60 * 1000);
+    if (STATE.tokens < b.cost) {
+        if(window.spawn) window.spawn('🪙 เหรียญไม่พอซื้อบัฟครับ!'); 
+        SFX.playAsset('error');
+        return;
+    }
 
-        logScoreAction(currentUserId, 'BUFF_PURCHASE', 0, -b.cost, `ซื้อบัฟ ${type}`);
-        if(window.spawn) window.spawn(`🌟 เปิดใช้งานบัฟ ${type.toUpperCase()} สำเร็จ!`);
-        SFX.playAsset('bell');
-        
-        saveState();
-        window.renderShopBoosters();
-        if (window.updateUI) window.updateUI();
-    };
+    window._buying = true;
+    setTimeout(() => { window._buying = false; }, 800); 
+
+    STATE.tokens -= b.cost;
+    window.applyBuff(type, b.duration);
+
+    logScoreAction(currentUserId, 'BUFF_PURCHASE', 0, -b.cost, `ซื้อบัฟ ${type}`);
+    if(window.spawn) window.spawn(`🌟 เปิดใช้งานบัฟ ${type.toUpperCase()} สำเร็จ!`);
+    SFX.playAsset('bell');
+    
+    if (window.updateUI) window.updateUI();
+};
 }
