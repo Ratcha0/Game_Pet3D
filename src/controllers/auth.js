@@ -159,6 +159,13 @@ window._pressPin = (num) => {
     SFX.init(); // ปลุกระบบเสียงและเริ่มเพลงทันทีที่สัมผัสปุ่ม
     if (currentPin.length < 4) {
         currentPin += num;
+        
+        // 🔊 [AUDIT FIX] Force Resume Audio Context for Mobile Browsers
+        if (window.AudioContext || window.webkitAudioContext) {
+            const ctx = SFX.ctx || (window.AudioContext ? new AudioContext() : null);
+            if (ctx && ctx.state === 'suspended') ctx.resume();
+        }
+        
         SFX.playClick();
         updatePinUI();
         if (currentPin.length === 4) {

@@ -16,7 +16,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
  * เก็บ/อัปเดตข้อมูลเซฟเกมสัตว์เลี้ยง
  */
 export async function savePetState(userId, stateData) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
         .from('pet_states')
         .upsert({
             player_id: userId,
@@ -31,14 +31,15 @@ export async function savePetState(userId, stateData) {
             clean: stateData.clean,
             love: Math.floor(stateData.love),
             stamina: stateData.stamina,
-            // 🎒 [NEW] ส่งข้อมูล Inventory, สกิลบอส และเควส ขึ้น Cloud
             inventory: stateData.inventory || { skins: [], equipped_skins: {} },
             boss_skills: stateData.boss_skills || { points: 0, xp: 0, lvl: 1 },
             quests_data: (stateData.quests_data && Object.keys(stateData.quests_data).length > 0) ? stateData.quests_data : (stateData.quests || {}),
-            last_quest_date: stateData.last_quest_date, // 🛡️ [SYNC FIX] ส่งวันที่เควสไปเก็บด้วย
+            last_quest_date: stateData.last_quest_date,
+            // 🧠 [TODO] เปิดบรรทัดด้านล่างนี้หลังจากเพิ่มคอลัมน์ 'memory' (jsonb) ใน Supabase แล้ว
+            // memory: stateData.memory || { interaction_counts: { feed: 0, clean: 0, play: 0, repair: 0 }, loyalty_bonus: 0 },
             last_interaction_at: new Date().toISOString()
         }, { onConflict: 'player_id' });
-        
+
     if (error) console.error("Error saving pet state:", error);
     return { data, error };
 }

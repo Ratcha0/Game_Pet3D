@@ -19,6 +19,14 @@ const viewType = urlParams.get('view') || 'mobile';
 const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'admin-preview';
 if (isAdminPreview) document.body.classList.add('is-admin-preview');
 
+// [UTILITY] คำนวณตัวคูณคะแนนตามความยาก
+function getDifficultyMultiplier() {
+    const diff = STATE.config?.difficulty_mode || 'normal';
+    if (diff === 'hard') return 1.75;
+    if (diff === 'easy') return 0.75;
+    return 1.0;
+}
+
 (async function() {
     // 🔥 [CRITICAL] โหลด Config ล่าสุดจาก Cloud
     await loadGameConfigCloud();
@@ -508,8 +516,23 @@ window.doAction = async (type) => {
     const feverThr = mech.fever_threshold || 85;
     const isFever = (STATE.hunger >= feverThr && STATE.love >= feverThr && STATE.clean >= feverThr);
     
+    // 🧠 [PET INTELLIGENCE] ระบบเจริญอาหาร (Appetite Logic)
+    const moodRegenMult = (isFever || STATE.love > 85) ? 1.2 : 1.0;
+    const finalRegen = act.r * moodRegenMult;
+
     let scoreGainPerAction = act.xp || 10;
     if (isFever) scoreGainPerAction *= (mech.fever_mult || 1.5);
+    
+    // 🧠 [PET INTELLIGENCE] ระบบสะสมความภักดี (Loyalty Logic)
+    if (!STATE.memory) STATE.memory = { interaction_counts: { feed: 0, clean: 0, play: 0, repair: 0 }, loyalty_bonus: 0 };
+    if (!STATE.memory.interaction_counts[type]) STATE.memory.interaction_counts[type] = 0;
+    
+    STATE.memory.interaction_counts[type]++;
+    STATE.memory.last_action_at = Date.now();
+    
+    const totalInteractions = Object.values(STATE.memory.interaction_counts || {}).reduce((a, b) => a + (b || 0), 0);
+    const loyaltyMult = Math.max(1.0, 1.0 + Math.min(0.5, totalInteractions * 0.001));
+    scoreGainPerAction *= loyaltyMult;
     
     // Apply Score Booster
     const scoreMult = (STATE.buffs.score_mult || 1.0);
@@ -528,7 +551,7 @@ window.doAction = async (type) => {
 
     switch(type) {
         case 'feed': 
-            STATE.hunger = Math.min(100, STATE.hunger + act.r); 
+            STATE.hunger = Math.min(100, STATE.hunger + finalRegen); 
             let feedJoy = (hungerBefore < 30) ? 5 : 1;
             if (isDirty) feedJoy *= 0.3; 
             STATE.love = Math.min(100, STATE.love + feedJoy);
@@ -548,7 +571,7 @@ window.doAction = async (type) => {
             break;
 
         case 'clean': 
-            STATE.clean = Math.min(100, STATE.clean + act.r); 
+            STATE.clean = Math.min(100, STATE.clean + finalRegen); 
             let cleanJoy = (cleanBefore < 30) ? 6 : 2;
             STATE.love = Math.min(100, STATE.love + cleanJoy);
 
@@ -573,7 +596,7 @@ window.doAction = async (type) => {
             break;
 
         case 'play': 
-            let playJoy = act.r; 
+            let playJoy = finalRegen; 
             if (STATE.hunger < 20) {
                 playJoy *= 0.6; // ลดโทษลงจาก 0.2 -> 0.6 (ยังได้ผลอยู่)
                 spawn('🟡 น้องหิวเกินไป เล่นไม่ค่อยไหวคร้าบ');
@@ -945,9 +968,10 @@ window.claimQuestReward = () => {
     const scoreMult = (STATE.buffs.score_mult || 1.0);
     const xpMult = 1.0; // เก็บไว้ขยายผลต่อ
 
-    const gainedScore = Math.floor(base_score * scoreMult);
+    const diffMult = getDifficultyMultiplier();
+    const gainedScore = Math.floor(base_score * scoreMult * diffMult);
     const gainedTokens = base_tokens;
-    const gainedXP = base_xp;
+    const gainedXP = Math.floor(base_xp * (diffMult >= 1.75 ? 1.5 : (diffMult < 1.0 ? 0.8 : 1.0))); // 🆙 คูณ XP ตามความยาก
 
     STATE.tokens += gainedTokens;
     STATE.score += gainedScore;
@@ -1095,7 +1119,9 @@ window.toggleLoginReward = (close) => {
             statusMsg.classList.add('text-emerald-400');
             statusMsg.classList.remove('text-white/40');
         } else {
-            statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${streak} เรียบร้อยแล้ว`;
+            // 🔥 [FIX] บังคับเริ่มนับวันที่ 1 ถ้าผู้เล่นรับรางวัลแล้วแต่ระบบยังเก็บ 0
+            const displayStreak = (streak === 0) ? 1 : streak;
+            statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${displayStreak} เรียบร้อยแล้ว`;
             statusMsg.classList.remove('text-emerald-400');
             statusMsg.classList.add('text-white/40');
         }
@@ -1403,9 +1429,13 @@ function updateLoading(progress) {
         () => {
             const mech = STATE.config.mechanics || { dec_happy_poop: 12 };
             const penaltyVal = mech.dec_happy_poop || 12;
+            const cleanPenalty = 25; 
+            
             STATE.love = Math.max(0, STATE.love - penaltyVal);
+            STATE.clean = Math.max(0, STATE.clean - cleanPenalty);
+            
             const tpl = STATE.config.template || 'pet';
-            const expireMsg = { pet: `💩 อึเน่าเกินไป! -${penaltyVal}♥`, car: `🛢️ น้ำมันไหลเลอะเทอะ! -${penaltyVal}♥`, plant: `🍂 วัชพืชรกมาก! -${penaltyVal}♥` };
+            const expireMsg = { pet: `💩 อึเน่าคาบ้าน! -${penaltyVal}♥ -${cleanPenalty}🧼`, car: `🛢️ น้ำมันเลอะเครื่อง! -${penaltyVal}♥ -${cleanPenalty}🔧`, plant: `🍂 วัชพืชรกบ้าน! -${penaltyVal}♥ -${cleanPenalty}🌿` };
             spawn(expireMsg[tpl] || expireMsg.pet);
             updateUI(); saveState();
         }
@@ -1419,6 +1449,9 @@ function updateLoading(progress) {
         
         let tokens = 10;
         let xp = 10;
+        const diffMult = getDifficultyMultiplier();
+        const xpDiffMult = (diffMult >= 1.75 ? 1.5 : (diffMult < 1.0 ? 0.8 : 1.0)); // 🆙 ตัวคูณ XP
+        
         let score = 0;
         let msg = '';
         
@@ -1446,8 +1479,9 @@ function updateLoading(progress) {
         }
 
         
+        const finalXP = Math.floor(xp * xpDiffMult); 
         STATE.tokens += tokens;
-        STATE.xp += xp;
+        STATE.xp += finalXP;
         checkLevelUp(); // 🔥 [BUGFIX] เก็บของบนพื้นแล้วต้องเช็กเลเวลทันที
         STATE.score += score;
         
@@ -1456,8 +1490,9 @@ function updateLoading(progress) {
 
         
         // ส่ง Log ขึ้น Cloud
+        const finalScore = Math.floor(score * diffMult); // 🏆 คูณโหมดความยาก
         const logType = type ? type.toUpperCase() : 'UNKNOWN';
-        logScoreAction(currentUserId, `COLLECT_${logType}`, score, tokens);
+        logScoreAction(currentUserId, `COLLECT_${logType}`, finalScore, tokens);
 
         spawn(msg, 'text-neon-gold pulse');
         updateUI();
@@ -1505,13 +1540,13 @@ function updateLoading(progress) {
         const mech = matrix.mechanics || { sp_min:60, sp_max:180 };
         const rew = matrix.rewards || {};
         
-        // รางวัลพิเศษใช้ความถี่เดียวกับไอเทมจิปาถะ หรืออาจจะคูณ 1.5 เพื่อให้เกิดยากกว่านิดหน่อย
-        const delay = (mech.sp_min * 1.5 + Math.random() * (mech.sp_max - mech.sp_min)) * 1000;
+        // ⚡ [BUFF] ลดเวลาเกิดลงให้เท่ากับไอเทมปกติ (ไม่ต้องรอคูณ 1.5 แล้ว)
+        const delay = (mech.sp_min + Math.random() * (mech.sp_max - mech.sp_min)) * 1000;
         
         setTimeout(() => {
-            // 🎯 ดึงค่าตรงๆ จากหน้า Dashboard (ถ้าไม่ได้ตั้งไว้ให้เป็น 0%)
-            let rGold = (parseFloat(rew.gold_rate) || 0) / 100;
-            let rDiamond = (parseFloat(rew.diamond_rate) || 0) / 100;
+            // 🎯 [BUFF] เพิ่มค่า Luck พื้นฐาน (Base Rate) เข้าไปกันเหนียว
+            let rGold = (parseFloat(rew.gold_rate) || 12) / 100; // อย่างน้อย 12%
+            let rDiamond = (parseFloat(rew.diamond_rate) || 5) / 100; // อย่างน้อย 5%
             
             // 💖 Luck Bonus from Happiness (โบนัสเลี้ยงดี ดวงดีขึ้น)
             const love = STATE.love || 0;
@@ -1597,19 +1632,21 @@ function updateLoading(progress) {
         const decayMult = (STATE.buffs.decay_mult || 1.0);
 
         // 1. Hunger & Clean Decay
-        const d_hunger = (mRaw.dec_hunger !== undefined) ? parseFloat(mRaw.dec_hunger) : 0.08;
-        const d_clean  = (mRaw.dec_clean !== undefined) ? parseFloat(mRaw.dec_clean) : 0.05;
-        const d_happy  = (mRaw.dec_happy !== undefined) ? parseFloat(mRaw.dec_happy) : 0.06;
+        const d_hunger = (mRaw.dec_hunger !== undefined) ? parseFloat(mRaw.dec_hunger) : 0.04;
+        const d_clean  = (mRaw.dec_clean !== undefined) ? parseFloat(mRaw.dec_clean) : 0.03;
+        const d_happy  = (mRaw.dec_happy !== undefined) ? parseFloat(mRaw.dec_happy) : 0.035;
 
         STATE.hunger = Math.max(0, STATE.hunger - (d_hunger * decayMult));
         STATE.clean = Math.max(0, STATE.clean - (d_clean * decayMult));
 
         let happyDecay = d_happy * decayMult;
+        // ถ้าหิวมากหรือสกปรกมาก ความรักจะลดลง (เพิ่มความท้าทายแต่ไม่ให้ฮวบจนเกินไป)
         if (STATE.hunger < 20 || STATE.clean < 20) happyDecay *= 2.0; 
         STATE.love = Math.max(0, STATE.love - happyDecay); 
 
-        if (STATE.hunger > 85 && STATE.clean > 85) {
-            STATE.love = Math.min(100, STATE.love + 0.15); 
+        // 💖 Passive Love (ต้อง Happy จริงๆ ถึงจะเด้ง)
+        if (STATE.hunger > 90 && STATE.clean > 90 && STATE.love < 100) {
+            STATE.love = Math.min(100, STATE.love + 0.02); // ลดการ Regen ลงให้สมดุล
         }
         
         // 🌟 Passive Emoticons

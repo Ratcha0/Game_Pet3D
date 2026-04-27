@@ -10,7 +10,7 @@ class SoundManager {
         this.musicEnabled = localStorage.getItem('pw3d_music_enabled') !== 'false';
         
         // --- ส่วนที่ปรับความดังได้ง่ายๆ ตรงนี้ครับ ---
-        this.masterVolume = 0.5; // ความดังเสียงเอฟเฟกต์ทั่วไป (0.0 - 1.0)
+        this.masterVolume = 0.25; // ลดเสียงลงจาก 0.5 → 0.25 ตามคำสั่งพี่
         this.bgmVolume = 0.05;   // ความดังเพลงพื้นหลัง (0.0 - 1.0)
         
         this.assets = {};

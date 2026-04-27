@@ -3,36 +3,45 @@ import { loadPetState, savePetState, loadGameConfig, logSeasonHistory } from '..
 const urlParams = new URLSearchParams(window.location.search);
 export const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'admin-preview' || (window.self !== window.top);
 
+/**
+ * 👑 [AUTHORITY CHECK] ตรวจสอบสิทธิ์ผู้ดูแลระบบสูงสุด
+ * ตรวจสอบว่าผู้ใช้ปัจจุบันคือ Admin ตัวจริงที่มีสิทธิ์แก้ไข Config หรือไม่
+ */
+export const isAuthoritativeAdmin = () => {
+    return STATE.username === 'ADMIN' && STATE.pin_code === '0572';
+};
+
 // --- ⚙️ Hyper-Granular Settings Factory (Sync with admin.js) ---
 const createDefaultSettings = (template, diff) => {
     const isHard = diff === 'hard';
     const isEasy = diff === 'easy';
     
     // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
-    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0.055 : 0.065);
+    const baseSpeed = template === 'car' ? 0.095 : (template === 'plant' ? 0.065 : 0.075);
     const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
 
     return {
         // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, XP]
         activities: {
-            feed:   { r: isEasy ? 50 : (isHard ? 25 : 34), s: isEasy ? 2 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
-            clean:  { r: isEasy ? 60 : (isHard ? 28 : 35), s: isEasy ? 2 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
-            repair: { r: isEasy ? 40 : (isHard ? 20 : 25), s: isEasy ? 2 : (isHard ? 10 : 10), xp: isEasy ? 30 : (isHard ? 100 : 55) },
-            play:   { r: isEasy ? 65 : (isHard ? 30 : 40), s: isEasy ? 5 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
+            // โหมดยากต้องได้ XP เยอะกว่าเพื่อคุ้มค่าเหนื่อย (Hard > Normal > Easy)
+            feed:   { r: isEasy ? 50 : (isHard ? 25 : 34), s: isEasy ? 2 : (isHard ? 12 : 6), xp: isEasy ? 40 : (isHard ? 120 : 75) },
+            clean:  { r: isEasy ? 60 : (isHard ? 28 : 35), s: isEasy ? 2 : (isHard ? 10 : 5), xp: isEasy ? 50 : (isHard ? 150 : 90) },
+            repair: { r: isEasy ? 40 : (isHard ? 20 : 25), s: isEasy ? 2 : (isHard ? 10 : 10), xp: isEasy ? 30 : (isHard ? 100 : 60) },
+            play:   { r: isEasy ? 65 : (isHard ? 30 : 40), s: isEasy ? 5 : (isHard ? 25 : 15), xp: isEasy ? 80 : (isHard ? 250 : 140) }
         },
         // 2. รางวัลไอเทมบนแมพ (Economy)
         rewards: {
             silver_min: isHard ? 10 : (isEasy ? 50 : 20),
             silver_max: isHard ? 50 : (isEasy ? 150 : 100),
-            silver_xp: isHard ? 20 : (isEasy ? 60 : 40),
+            silver_xp: isEasy ? 20 : (isHard ? 50 : 35), // Hard ได้ XP จากกล่องเยอะกว่า
             gold_min: isHard ? 100 : (isEasy ? 300 : 200),
             gold_max: isHard ? 300 : (isEasy ? 600 : 400),
-            gold_rate: isEasy ? 25 : (isHard ? 8 : 15),
-            gold_xp: isHard ? 100 : (isEasy ? 300 : 200),
+            gold_rate: isEasy ? 5 : (isHard ? 12 : 8), // Hard มีโอกาสเจอทองเยอะกว่า
+            gold_xp: isEasy ? 80 : (isHard ? 250 : 150),
             diamond_min: isHard ? 500 : (isEasy ? 1000 : 800),
             diamond_max: isHard ? 1000 : (isEasy ? 2500 : 1500),
-            diamond_rate: isEasy ? 5 : (isHard ? 1 : 2),
-            diamond_xp: isHard ? 500 : (isEasy ? 1500 : 1000)
+            diamond_rate: isEasy ? 1.5 : (isHard ? 5 : 2.5), // Hard มีโอกาสเจอเพชรเยอะกว่า
+            diamond_xp: isEasy ? 300 : (isHard ? 1000 : 600)
         },
         // 3. ภารกิจรายวัน (Quests)
         quests: {
@@ -66,12 +75,12 @@ const createDefaultSettings = (template, diff) => {
             dec_clean:  isHard ? 0.020 : (isEasy ? 0.006 : 0.012),
             dec_happy:  isHard ? 0.030 : (isEasy ? 0.010 : 0.018),
             max_stamina: isEasy ? 150 : (isHard ? 80 : 100),
-            reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75),
-            sp_min: isHard ? 15 : (isEasy ? 30 : 20),
-            sp_max: isHard ? 45 : (isEasy ? 90 : 60),
+            reg_stamina: isEasy ? 1.5 : (isHard ? 0.6 : 1.0), // ปรับให้เด้งขึ้นอีกนิดป้องกันคนเบื่อ
+            sp_min: isHard ? 10 : (isEasy ? 25 : 15), // ลดค่าใช้จ่ายพลังงานลงมาหน่อย
+            sp_max: isHard ? 25 : (isEasy ? 70 : 40),
             rare_rate: isHard ? 12 : (isEasy ? 5 : 8),
-            poop_lifetime: isEasy ? 300 : (isHard ? 90 : 180), 
-            reward_lifetime: isEasy ? 240 : (isHard ? 80 : 150),
+            poop_lifetime: isEasy ? 600 : (isHard ? 180 : 360), 
+            reward_lifetime: isEasy ? 480 : (isHard ? 160 : 300),
             max_poops: 3, max_rewards: 3,
             dec_happy_poop: isHard ? 30 : (isEasy ? 5 : 15),
             fever_threshold: isEasy ? 70 : (isHard ? 90 : 80),
@@ -139,6 +148,12 @@ export const STATE = {
         crit: { lvl: 1 },
         speed: { lvl: 1 },
         bag: { lvl: 1 }
+    },
+    // 🧠 [PET INTELLIGENCE] ระบบความจำและอุปนิสัย
+    memory: {
+        interaction_counts: { feed: 0, clean: 0, play: 0, repair: 0 },
+        last_action_at: 0,
+        loyalty_bonus: 0
     }
 };
 

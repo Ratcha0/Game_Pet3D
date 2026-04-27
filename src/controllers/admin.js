@@ -24,7 +24,6 @@ const createDefaultSettings = (template, diff) => {
     const isEasy = diff === 'easy';
     
     // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
-    // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
     const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0.055 : 0.065);
     const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
 
@@ -335,11 +334,15 @@ function syncInputsWithMatrix() {
 }
 
 function deepMerge(target, source) {
+    if (!source || typeof source !== 'object') return target;
+    
     for (const key in source) {
-        if (source[key] instanceof Object && key in target) {
+        if (Array.isArray(source[key])) {
+            target[key] = [...source[key]];
+        } else if (source[key] instanceof Object && key in target && !Array.isArray(target[key])) {
+            // 🔥 [CRITICAL FIX] บังคับให้ขุดลงไปลึกๆ แม้จะเป็น Matrix ที่ซับซ้อน
             deepMerge(target[key], source[key]);
         } else {
-            // Overwrite or add the key
             target[key] = source[key];
         }
     }
@@ -347,14 +350,8 @@ function deepMerge(target, source) {
 }
 
 function loadLocal() {
-    const c = localStorage.getItem('pw3d_config');
-    if (c) {
-        try {
-            const parsed = JSON.parse(c);
-            deepMerge(parsed.matrix, ADMIN_STATE.matrix);
-            Object.assign(ADMIN_STATE, parsed);
-        } catch(e) { console.error("Config corrupt", e); }
-    }
+    // 🛡️ [AUDIT FIX] ปล่อยให้ Cloud รับหน้าที่แทน 100% ป้องกันค่าเก่าในเครื่องปนเปื้อน
+    console.log("ℹ️ Persistence: Local Load SKIPPED (Cloud Mode Only)");
 }
 
 window.resetCurrentMatrix = () => {
@@ -367,7 +364,7 @@ window.resetCurrentMatrix = () => {
     }
 };
 
-function saveLocal() { localStorage.setItem('pw3d_config', JSON.stringify(ADMIN_STATE)); }
+function saveLocal() { /* 🛡️ [AUDIT FIX] ปิดระบบเซฟในเบราเซอร์ถาวร */ }
 
 function sendPreview() {
     document.querySelectorAll('iframe').forEach(f => {
@@ -393,6 +390,12 @@ window.loadPreset = (m) => {
 };
 
 window.saveAll = async () => {
+    // 🛡️ [SECURITY AUDIT] ตรวจสอบสิทธิ์สูงสุดก่อนบันทึก
+    if (typeof isAuthoritativeAdmin === 'function' && !isAuthoritativeAdmin()) {
+        window.spawn("🚫 คุณไม่มีสิทธิ์บันทึกข้อมูล (Invalid Authority)", "text-rose-500 font-black");
+        return;
+    }
+
     if (!IS_CLOUDSYNC_READY) {
         window.spawn("⚠️ กรุณารอให้ระบบโหลดข้อมูลปัจจุบันเสร็จก่อนบันทึก", "text-rose-400");
         return;
@@ -407,9 +410,6 @@ window.saveAll = async () => {
 
     window.spawn("💾 กำลังส่งข้อมูลขึ้น Cloud...", "text-neon-cyan animate-pulse");
     
-    // 🔥 [REMOVED] เราจะไม่ดึงเลขซีซั่นมาทับแล้ว เพราะเราต้องการให้การกด "จรวด" แล้วตามด้วย "บันทึก" ทำงานได้ถูกต้อง
-    // เลขซีซั่นจะเปลี่ยนก็ต่อเมื่อคุณจงใจแก้ที่ช่อง Input หรือกดปุ่มจรวดเท่านั้น
-    
     saveLocal();
     const { error } = await saveGameConfig(ADMIN_STATE);
     
@@ -422,7 +422,20 @@ window.saveAll = async () => {
         window.spawn("❌ บันทึกขึ้น Cloud ไม่สำเร็จ!", "text-rose-500 font-bold");
         console.error(error);
     } else {
-        window.spawn("✅ บันทึกข้อมูลสำเร็จ (ไม่กระทบกับเลเวลผู้เล่น)", "text-emerald-400 font-black");
+        window.spawn("✅ บันทึกข้อมูลสำเร็จ (Cloud Master Synced)", "text-emerald-400 font-black");
+    }
+};
+
+window.finishSeason = async () => {
+    if (!isAuthoritativeAdmin()) {
+        window.spawn("🚫 สิทธิ์ไม่เพียงพอในการจบซีซั่น", "text-rose-500 font-black");
+        return;
+    }
+    
+    if (confirm("🔥 คำเตือน: นี่คือการ 'รีเซ็ต' คะแนนผู้เล่นทุกคนในซีซั่นหน้า คุณแน่ใจหรือไม่?")) {
+        ADMIN_STATE.season_number = (parseInt(ADMIN_STATE.season_number) || 1) + 1;
+        await window.saveAll();
+        window.spawn(`🚀 เริ่มต้นซีซั่นใหม่: ซีซั่น ${ADMIN_STATE.season_number}`, "text-cyan-400 font-black");
     }
 };
 
@@ -894,19 +907,24 @@ window.deleteScheduleSlot = (index) => {
 };
 
 (async () => {
-    loadLocal();
+    // loadLocal เดิมถูกปิดการทำงานแล้ว
+
+    // 👑 [TESTING MODE] บายพาสระบบ Login เพื่อความรวดเร็วในการเทสตามคำสั่งพี่
     highlightUI();
     syncInputsWithMatrix();
     renderGallery();
     switchView('settings');
-    
+
     const { data, error } = await loadGameConfig();
     if (data && data.config) {
+        // 🔥 [SYNC FIX] รวมค่าจาก Cloud เข้ากับ State ของเรา
         deepMerge(ADMIN_STATE, data.config);
-        highlightUI();
+        
+        // บังคับให้ช่องกรอกข้อมูล (Inputs) และ UI ทั้งหมดอัปเดตตามค่าจาก Cloud
         syncInputsWithMatrix();
+        highlightUI();
         renderGallery();
-        console.log("☁️ Cloud Config Sync: SUCCESS", ADMIN_STATE);
+        console.log("☁️ Cloud Config Sync: [SUCCESS + UI REFRESHED]", ADMIN_STATE);
     }
     
     IS_CLOUDSYNC_READY = true; // ✅ Ready to Save

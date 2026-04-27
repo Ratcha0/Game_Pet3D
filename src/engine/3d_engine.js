@@ -97,6 +97,7 @@ let onRewardCollected = null;
 const rewardObjects = [];
 let engineConfig = { poop_lifetime: 180, reward_lifetime: 150, max_poops: 3, max_rewards: 3 };
 let targetItemToCollect = null;
+let userInvokedCollect = false; // 🔒 เพิ่มตัวแปรเช็คว่าคนกดเองไหม
 
 function disposeObject(obj) {
     if (!obj) return;
@@ -551,13 +552,23 @@ function animate() {
         if (isWalking) {
             _dir.subVectors(targetPos, petModel.position); _dir.y = 0;
             if (_dir.length() > 0.1) {
-                let baseSpeed = (currentTemplate === 'car') ? 0.085 : (currentTemplate === 'plant' ? 0.06 : 0.05);
+                // 🔥 [AUDIT FIX] ดึงค่าความเร็วจาก Dashboard (STATE) โดยตรง ไม่ใช้ค่าคงที่เดิม
+                const baseSpeedFromState = window.STATE?.physics?.speed || 0.065;
+                // 🔥 [PET INTELLIGENCE] ระบบเดินตามอารมณ์และสเตตัส
+                const hunger = window.STATE?.hunger || 100;
+                const love = window.STATE?.love || 100;
                 const stam = window.STATE?.stamina || 100;
+
+                // คำนวณ Mood Factor: หิวมาก=เดินช้า, อารมณ์ดี=เดินกระฉับกระเฉง
+                let moodFactor = 1.0;
+                if (hunger < 25) moodFactor *= 0.65; // หิวโซ จนไม่มีแรง
+                else if (love > 85 && hunger > 70) moodFactor *= 1.25; // แฮปปี้สุดๆ เดินไวกว่าปกติ
+                
                 const stamFactor = stam < 20 ? 0.6 : (stam < 50 ? 0.85 : 1.0);
                 
                 // --- 👹 Boss Skill Speed Support ---
                 const speedMult = window._bossSpeedMult || 1.0;
-                const finalSpeed = baseSpeed * stamFactor * speedMult;
+                const finalSpeed = baseSpeedFromState * stamFactor * moodFactor * speedMult;
 
                 _dir.normalize().multiplyScalar(finalSpeed); petModel.position.add(_dir);
                 const targetRot = Math.atan2(_dir.x, _dir.z);
@@ -566,15 +577,36 @@ function animate() {
                 petModel.rotation.y += diff * 0.08;
                 if (animState !== 'walk' && mixer) {
                     animState = 'walk'; 
-                    // หยุดเฉพาะท่าที่ไม่เกี่ยวข้องกับท่าเดิน เพื่อกันกระตุกในกรณีใช้ท่าเดียวกัน
                     idleActions.forEach(a => { if (!walkActions.includes(a)) a.stop(); });
                     walkActions.forEach(a => a.play());
                 }
             } else {
                 isWalking = false;
-                if (targetItemToCollect) { collectItemAtPet(); targetItemToCollect = null; }
+                // 🛑 เช็คระยะห่างจริงๆ ก่อนเก็บ (ต้องใกล้พอ) และต้องเป็นการสั่งจากคนเล่นเท่านั้น
+                if (targetItemToCollect && userInvokedCollect) { 
+                    const distToItem = petModel.position.distanceTo(targetItemToCollect.position);
+                    if (distToItem < 1.0) {
+                        collectItemAtPet(); 
+                    }
+                    targetItemToCollect = null; 
+                    userInvokedCollect = false; 
+                }
             }
         } else {
+            // 🚨 [PET INTELLIGENCE] ระบบจ้องหน้าอ้อน (Attention Demanding) - หันมองเฉพาะตอนจำเป็น
+            const hunger = window.STATE?.hunger || 100;
+            const clean = window.STATE?.clean || 100;
+            
+            if (hunger < 15 || clean < 15) {
+                // อัปเดตทุกๆ 3 เฟรมเพื่อประหยัดพลังงาน
+                if (Math.floor(Date.now() / 50) % 3 === 0) {
+                    let camAngle = Math.atan2(camera.position.x - petModel.position.x, camera.position.z - petModel.position.z);
+                    let diff = camAngle - petModel.rotation.y;
+                    while (diff < -Math.PI) diff += Math.PI * 2; while (diff > Math.PI) diff -= Math.PI * 2;
+                    petModel.rotation.y += diff * 0.1;
+                }
+            }
+
             if (animState !== 'idle' && mixer) {
                 animState = 'idle'; 
                 // หยุดเฉพาะท่าที่ไม่ใช่ท่า Idle
@@ -582,8 +614,22 @@ function animate() {
                 idleActions.forEach(a => a.play());
             }
             if (now > nextAutoWalkTime) {
+                // 💤 [PET INTELLIGENCE] ถ้าน้องเหนื่อย หรือ "หิว/สกปรก" มากจนเดินไม่ไหว จะไม่ยอมขยับ
+                const stam = window.STATE?.stamina || 100;
+                const walkHunger = window.STATE?.hunger || 100;
+                const walkClean = window.STATE?.clean || 100;
+                
+                if (walkHunger < 12 || walkClean < 12) {
+                    // ไม่เดินจ้า ยืนจ้องหน้าพี่อย่างเดียว
+                    nextAutoWalkTime = now + 5; 
+                    return;
+                }
+
+                const restMult = stam < 30 ? 2.5 : (stam < 60 ? 1.5 : 1.0);
+                
                 targetPos.set((Math.random() - 0.5) * 10, -1.2, (Math.random() - 0.5) * 10);
-                isWalking = true; nextAutoWalkTime = now + 8 + Math.random() * 10;
+                isWalking = true; 
+                nextAutoWalkTime = now + (8 + Math.random() * 10) * restMult;
             }
         }
         const s = petModel.scale.x, goal = targetPetScale, n = s + (goal - s) * 0.03;
@@ -593,17 +639,7 @@ function animate() {
             camera.position.lerp(_camTarget, 0.03); camera.lookAt(petModel.position.x, petModel.position.y + 0.7, petModel.position.z);
         }
         
-        // --- 🛡️ [NEW] ระบบ Proximity Detection (เดินทับแล้วเก็บ) ---
-        [poopObjects, rewardObjects].forEach(arr => {
-            for (let i = arr.length - 1; i >= 0; i--) {
-                const item = arr[i];
-                if (petModel.position.distanceTo(item.mesh.position) < 0.75) {
-                    targetItemToCollect = item.mesh;
-                    collectItemAtPet();
-                    targetItemToCollect = null;
-                }
-            }
-        });
+        // --- 🛡️ Proximity Detection (REMOVED: Users must click icons to collect) ---
 
         // 🪨 Rock Detection
         if (window._worldRocks) {
@@ -696,9 +732,17 @@ function animate() {
 }
 
 function updatePoops(delta) {
+    const minLifetime = 60; // 🛑 ปรับเป็น 1 นาทีตามสั่ง
+    const effectiveLifetime = Math.max(minLifetime, engineConfig.poop_lifetime || 0);
+
     for (let i = poopObjects.length - 1; i >= 0; i--) {
         const p = poopObjects[i]; p.elapsed += delta;
-        if (p.elapsed >= engineConfig.poop_lifetime) { scene.remove(p.mesh); disposeObject(p.mesh); poopObjects.splice(i, 1); if(onPoopExpired) onPoopExpired(); }
+        if (p.elapsed >= effectiveLifetime) { 
+            scene.remove(p.mesh); 
+            disposeObject(p.mesh); 
+            poopObjects.splice(i, 1); 
+            if(onPoopExpired) onPoopExpired(); 
+        }
     }
 }
 
@@ -785,7 +829,9 @@ function renderIndicator(t, container, x, y, angle) {
             e.preventDefault(); e.stopPropagation();
             if (petModel) {
                 targetPos.copy(mesh.position); targetPos.y = -1.2; isWalking = true;
-                targetItemToCollect = mesh; nextAutoWalkTime = (performance.now() / 1000) + 20;
+                targetItemToCollect = mesh; 
+                userInvokedCollect = true; // ✅ ทำเครื่องหมายว่า "คนกดสั่งเก็บ"
+                nextAutoWalkTime = (performance.now() / 1000) + 20;
             }
         });
         container.appendChild(el); indicatorElements.set(mesh, el);
@@ -816,11 +862,16 @@ function renderIndicator(t, container, x, y, angle) {
 
     const glow = (tier === 'gold' || tier === 'diamond' || tier === 'rare') ? `0 0 15px ${navColor}` : 'none';
     
+    // 🚨 [VISUAL FEEDBACK] แสดงไฟกระพริบแดงเมื่อใกล้เน่า (เหลือ < 10 วิ)
+    const isDying = (t.lifeLeft < 10);
+    const dyingClass = isDying ? 'animate-pulse text-red-500 scale-125' : '';
+    const dyingBorder = isDying ? 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.8)]' : `border-[${navColor}]`;
+    
     // ปรับปรุงขนาดและลูกศร
     el.innerHTML = `
-        <div class="indicator-wrapper" style="position: relative; scale: 1.1;">
-            <div class="indicator-inner" style="border: 2.5px solid ${navColor}; box-shadow: ${glow}; font-size: 1.4rem;">${displayIcon}</div>
-            <div class="indicator-arrow" style="border-bottom-color: ${navColor}; transform: translateX(-50%) rotate(${angle + Math.PI/2}rad); transform-origin: 50% 36px;"></div>
+        <div class="indicator-wrapper ${dyingClass}" style="position: relative; scale: 1.1;">
+            <div class="indicator-inner" style="border: 2.5px solid ${isDying ? '#dc2626' : navColor}; box-shadow: ${isDying ? '0 0 20px #dc2626' : glow}; font-size: 1.4rem;">${displayIcon}</div>
+            <div class="indicator-arrow" style="border-bottom-color: ${isDying ? '#dc2626' : navColor}; transform: translateX(-50%) rotate(${angle + Math.PI/2}rad); transform-origin: 50% 36px;"></div>
         </div>
     `;
     
@@ -921,6 +972,7 @@ export function spawnPoop(type = 'normal', fromSync = false, syncId = null, x = 
     
     const mesh = createPoopMesh(px, pz, type); 
     mesh.userData.syncId = sid;
+    mesh.userData.createdAt = performance.now(); // 🕒 บันทึกเวลาเกิด
     scene.add(mesh);
     poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, tier: type }); 
 
@@ -1114,6 +1166,14 @@ export function collectPoopByUI() {
 }
 function collectItemAtPet() {
     if (!targetItemToCollect) return;
+    
+    // ✋ [SPAWN PROTECT] ห้ามเก็บของที่เพิ่งเกิด (กันบัคขี้ปุ๊บเก็บปั๊บ)
+    const age = performance.now() - (targetItemToCollect.userData.createdAt || 0);
+    if (age < 2000) { 
+        console.log("⏳ Item is too fresh to collect!");
+        return; 
+    }
+
     const sid = targetItemToCollect.userData.syncId;
     
     [poopObjects, rewardObjects].forEach(arr => {
