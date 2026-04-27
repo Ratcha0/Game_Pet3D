@@ -14,6 +14,7 @@ import { initShop } from './shop.js';
 
 const $ = id => document.getElementById(id);
 const urlParams = new URLSearchParams(window.location.search);
+window.SFX = SFX; // 🎵 [FIX] ทำให้หน้า HTML เรียกใช้ระบบเสียงได้โดยตรง
 const viewType = urlParams.get('view') || 'mobile';
 const isAdminPreview = urlParams.get('admin') === 'true' || window.name === 'admin-preview';
 if (isAdminPreview) document.body.classList.add('is-admin-preview');
@@ -57,17 +58,21 @@ window.updateUI = function() {
         const t=$('hud-tokens'); if(t) t.innerText=Math.floor(STATE.tokens).toLocaleString();
         const s=$('hud-score'); if(s) s.innerText=Math.floor(STATE.score).toLocaleString();
         
-        // 📈 XP Progress Bar & Levels
-        const lvlBtn = $('hud-level-btn');
+        // 📈 XP Progress Bar & Levels (Force Numeric to avoid String bugs)
+        // 📈 XP Progress Bar & Levels (Force Numeric to avoid String bugs)
+        const lvlEl = $('hud-level'); // 🔥 [FIXED ID] เปลี่ยนจาก hud-level-btn เป็น hud-level
         const xpBar = $('bar-xp');
         const xpVal = $('hud-xp-val');
         
-        const safeLvl = isNaN(STATE.level) ? 1 : STATE.level;
-        const safeXP = isNaN(STATE.xp) ? 0 : STATE.xp;
-        const safeMax = isNaN(STATE.maxExp) || STATE.maxExp < 1 ? 200 : STATE.maxExp;
+        const safeLvl = parseInt(STATE.level) || 1;
+        const safeXP  = parseFloat(STATE.xp) || 0;
+        const safeMax = parseFloat(STATE.maxExp) || 200;
 
-        if (lvlBtn) lvlBtn.innerText = `LV.${safeLvl}`;
-        if (xpBar) xpBar.style.width = `${Math.min(100, (safeXP / safeMax) * 100)}%`;
+        if (lvlEl) lvlEl.innerText = safeLvl; // แสดงแค่ตัวเลข เพราะหน้า HTML มีคำว่า Lv. รอไว้แล้ว
+        if (xpBar) {
+            const percentage = (safeXP / safeMax) * 100;
+            xpBar.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+        }
         if (xpVal) xpVal.innerText = `${Math.floor(safeXP)}/${Math.floor(safeMax)} XP`;
 
         // Update Shop display from config
@@ -105,10 +110,13 @@ window.updateUI = function() {
     const ihp=$('icon-happy'); if(ihp) ihp.innerText = si.happy;
     const ic=$('icon-clean'); if(ic) ic.innerText = si.clean;
 
+    const activeCfg = getActiveConfig();
+    const maxStam = activeCfg?.mechanics?.max_stamina || 100;
+
     [['bar-hunger','val-hunger',STATE.hunger, cur.h, 'lbl-stat-hunger'],['bar-happy','val-happy',STATE.love, cur.l, 'lbl-stat-happy'],
      ['bar-clean','val-clean',STATE.clean, cur.c, 'lbl-stat-clean'],['bar-stamina','val-stamina',STATE.stamina, cur.s, 'lbl-stat-stamina']]
     .forEach(([b,v,val,label,lid])=>{
-        const maxVal = (b === 'bar-stamina') ? (STATE.maxStamina || 100) : 100;
+        const maxVal = (b === 'bar-stamina') ? maxStam : 100;
         const bar = $(b); if(bar) bar.style.width = `${Math.min(100, (val/maxVal)*100)}%`;
         const txt = $(v); if(txt) {
             const isStamina = b === 'bar-stamina';
@@ -189,11 +197,13 @@ window.updateUI = function() {
 
     if (window.updateBossThrowUI) window.updateBossThrowUI();
 
-    // 🗓️ [USER REQUEST] จุดแจ้งเตือนสีแดง สำหรับรางวัลเช็คอิน
+    // 🗓️ [DEEP AUDIT FIX] ใช้ ISO Date (YYYY-MM-DD) เพื่อความแม่นยำรายวันทั่วโลก ไม่ขึ้นกับ Timezone เครื่อง
     const loginDot = $('login-noti-dot');
     if (loginDot) {
         const today = new Date().toDateString();
-        const canClaim = STATE.last_login_date !== today;
+        // 🛡️ [AUDIT FIX] เช็คทั้งจาก State และ LocalStorage เพื่อให้จุดแดงหายไปทันทีและแม่นยำ
+        const localLastLogin = localStorage.getItem('last_login_verified_' + currentUserId);
+        const canClaim = STATE.last_login_date !== today && localLastLogin !== today;
         loginDot.classList.toggle('hidden', !canClaim);
     }
 
@@ -451,7 +461,7 @@ window.savePetNameUI = () => {
 initShop();
 
 let lastActionTime = 0;
-window.doAction = (type) => {
+window.doAction = async (type) => {
     const now = Date.now();
     if (now - lastActionTime < 250) return; // 🛡️ Anti-Spam / Macro Guard (250ms cooldown)
     lastActionTime = now;
@@ -459,6 +469,12 @@ window.doAction = (type) => {
     SFX.init(); // ประกันว่า AudioContext จะทำงานเมื่อมีการคลิกครั้งแรก
     
     const active = getActiveConfig();
+    
+    // 🛡️ [SYNC GAURD] บังคับให้ใช้ข้อมูลเควสล่าสุดจากก้อนข้อมูลหลัก
+    if (STATE.quests_data && Object.keys(STATE.quests_data).length > 0) {
+        STATE.quests = { ...STATE.quests, ...STATE.quests_data };
+    }
+
     const actRaw = active.activities?.[type] || {};
     const act = {
         r:  (actRaw.r !== undefined) ? parseFloat(actRaw.r) : 15,
@@ -593,8 +609,10 @@ window.doAction = (type) => {
 
 
     checkLevelUp();
-    SFX.playClick();
-    updateUI(); saveState();
+    updateUI(); 
+    updateQuestUI(); // 🔥 [UI FIX] อัปเดตตัวเลขในหน้าต่างเควสทันที
+    await saveState(false, true); 
+
 };
 
 // --- ฟังก์ชัน Interaction พิเศษ (จิ้มที่ตัวโดยตรง) ---
@@ -750,32 +768,45 @@ function triggerLevelUpUI(level) {
     }, 2500);
 }
 
-function checkLevelUp() {
+async function checkLevelUp() {
     let levelsGained = 0;
     let totalScoreBonus = 0;
     let totalTokenBonus = 0;
     const startLevel = STATE.level;
 
-    while (STATE.xp >= STATE.maxExp && STATE.level < 100) {
+    let safetyCounter = 0;
+    while (STATE.xp >= STATE.maxExp && STATE.level < 100 && safetyCounter < 100) {
+        safetyCounter++;
         levelsGained++;
         STATE.level++;
-        STATE.xp -= STATE.maxExp;
         
+        // หัก XP เก่าออก
+        STATE.xp = Math.max(0, STATE.xp - STATE.maxExp);
+        
+        // คำนวณเพดาน XP ใหม่สำหรับเลเวลปัจจุบัน
         STATE.maxExp = Math.floor(200 + (STATE.level * STATE.level * 1.25));
+        
         totalScoreBonus += 5000 + (STATE.level * 1000); 
         totalTokenBonus += 500 + (STATE.level * 50); 
         
-        // ให้โบนัสค่าสถานะสะสม
+        // ฟื้นฟูสเตตัส (โบนัสอัปเวล)
         STATE.hunger = Math.min(100, STATE.hunger + 30);
         STATE.love = Math.min(100, STATE.love + 20);
         STATE.clean = Math.min(100, STATE.clean + 30);
-        STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + 50);
+        STATE.stamina = Math.min(STATE.maxStamina || 100, STATE.stamina + 50);
+
+        // [SAFETY] กัน Loop ตายถ้าค่าเป็น NaN หรือเกิดเหตุไม่คาดคิด
+        if (isNaN(STATE.xp) || isNaN(STATE.maxExp) || STATE.maxExp <= 0) {
+            STATE.xp = 0;
+            STATE.maxExp = 200;
+            break;
+        }
     }
 
     if (levelsGained > 0) {
         SFX.playAsset('level');
         STATE.score += totalScoreBonus;
-        STATE.tokens += totalTokenBonus;
+        STATE.tokens = Math.floor(STATE.tokens + totalTokenBonus);
         
         // เช็คการวิวัฒนาการ (เฉพาะเลเวลที่สำคัญ)
         const hitMilestone = [10, 25, 50].some(m => startLevel < m && STATE.level >= m);
@@ -791,7 +822,11 @@ function checkLevelUp() {
 
         updatePetScale(STATE.level);
         triggerLevelUpEffect(); 
-        updateUI(); saveState();
+        updateUI(); 
+        
+        // 🔥 [CRITICAL FIX] บันทึกเลเวลใหม่ขึ้น Cloud ทันที และรอให้เสร็จก่อน (ป้องกันการรีเฟรชแล้วข้อมูลหาย)
+        await saveState(false, true); 
+        console.log("✅ Level Up Persisted Successfully.");
     }
 
     if (STATE.level >= 100) {
@@ -1006,7 +1041,9 @@ window.toggleLoginReward = (close) => {
     // Update Content
     const config = getActiveConfig();
     const rewards = config.login_rewards || [];
-    const streak = STATE.login_streak || 0;
+    // 🛡️ [AUDIT FIX] ดึงจาก LocalStorage เสมอถ้า Cloud เป็น 0 เพื่อให้ข้อมูลที่หน้าจอไม่ "ถอยหลัง"
+    const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + currentUserId)) || 0;
+    const streak = Math.max(STATE.login_streak || 0, localStreak);
     const duration = STATE.config?.season_duration || 7;
 
     const subtitle = $('login-reward-subtitle');
@@ -1048,7 +1085,9 @@ window.toggleLoginReward = (close) => {
     const statusMsg = $('login-status-msg');
     const claimBtn = $('login-claim-btn');
     const today = new Date().toDateString();
-    const canClaim = STATE.last_login_date !== today;
+    // 🛡️ [AUDIT FIX] เช็คทั้งจาก State และ LocalStorage เพื่อกันกรณี Cloud ล้างข้อมูลทิ้ง
+    const localLastLogin = localStorage.getItem('last_login_verified_' + currentUserId);
+    const canClaim = STATE.last_login_date !== today && localLastLogin !== today;
 
     if (statusMsg) {
         if (canClaim) {
@@ -1069,15 +1108,18 @@ window.toggleLoginReward = (close) => {
 
 window.claimDailyReward = () => {
     const today = new Date().toDateString();
-    if (STATE.last_login_date === today) return;
+    const localLastLogin = localStorage.getItem('last_login_verified_' + currentUserId);
+    if (STATE.last_login_date === today || localLastLogin === today) return;
 
-    // 1. คำนวณ Streak
+    // 1. คำนวณ Streak (ดึงค่าจาก LocalStorage มาช่วยยืนยันเพราะ Cloud ปิดอยู่)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toDateString();
 
-    if (STATE.last_login_date === yesterdayStr) {
+    if (STATE.last_login_date === yesterdayStr || localLastLogin === yesterdayStr) {
         STATE.login_streak = (STATE.login_streak || 0) + 1;
+    } else if (STATE.last_login_date === today || localLastLogin === today) {
+        // กรณีรับไปแล้วในวันนี้ ไม่ต้องทำอะไร
     } else {
         STATE.login_streak = 1;
     }
@@ -1108,8 +1150,13 @@ window.claimDailyReward = () => {
         showEmoticon('🎁', 3000);
     }
 
+    STATE.last_login_date = today;
+    // 🛡️ [AUDIT FIX] บันทึกลง LocalStorage ทั้งวันที่และวันต่อเนื่อง
+    localStorage.setItem('last_login_verified_' + currentUserId, today);
+    localStorage.setItem('login_streak_verified_' + currentUserId, STATE.login_streak);
+
     updateUI();
-    saveState();
+    saveState(false, true); 
     window.toggleLoginReward(true); // ปิดหน้าต่างหลังรับรางวัล
 };
 
@@ -1580,17 +1627,19 @@ function updateLoading(progress) {
             }
         }
 
-        // ⚡ Stamina Regen
+        // ⚡ Stamina Regen (Deep Audit Fix: Strict Max Lock)
         let regenMultiplier = 1.0;
         const f_mult = (mRaw.fever_mult !== undefined) ? parseFloat(mRaw.fever_mult) : 1.5;
         if (isPerfect) regenMultiplier *= f_mult;
         if (STATE.buffs.regen > 1 && Date.now() < STATE.buffs.regen_expiry) regenMultiplier *= STATE.buffs.regen;
 
         const baseRegen = (mRaw.reg_stamina !== undefined) ? parseFloat(mRaw.reg_stamina) : 0.75;
-        STATE.maxStamina = (mRaw.max_stamina !== undefined) ? parseFloat(mRaw.max_stamina) : 100;
+        const currentMaxStam = parseFloat(mRaw.max_stamina || 100);
+        STATE.maxStamina = currentMaxStam;
 
-        if (STATE.stamina < STATE.maxStamina) {
-            STATE.stamina = Math.min(STATE.maxStamina, STATE.stamina + (baseRegen * regenMultiplier));
+        if (STATE.stamina < currentMaxStam) {
+            // บล็อกไม่ให้เกิน MaxStamina แม้แต่ทศนิยมเดียว
+            STATE.stamina = Math.min(currentMaxStam, STATE.stamina + (baseRegen * regenMultiplier));
         }
 
         // 2. UI Updates
@@ -1606,10 +1655,10 @@ function updateLoading(progress) {
     // 🛡️ GUARDIAN AUTO-SAVE: บันทึกทุก 5 นาที + ทันทีที่พับหน้าจอ
     setInterval(() => saveState(), 5 * 60 * 1000); 
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') saveState(false, true); // 🔥 Immediate Save on Hide
+        if (document.visibilityState === 'hidden') {
+            saveState(false, true); // 🔥 บังคับส่ง Cloud ทันทีเมื่อพับจอ
+        }
     });
-    window.addEventListener('beforeunload', () => saveState(false, true)); // 🔥 Immediate Save on Close
-
     checkLoginReward(); 
     updateUI(); 
     
@@ -1623,10 +1672,34 @@ function updateLoading(progress) {
         max_rewards: mm.max_rewards || 3
     });
 
-    if (window.twemoji) {
-        twemoji.parse($('game-container'));
-    }
+    // 💾 MANUAL SAVE FUNCTION
+    window.manualSave = async () => {
+        SFX.playClick();
+        spawn('💾 กำลังบันทึกข้อมูลด่วน...', 'text-cyan-400');
+        await saveState(false, true);
+        spawn('✅ บันทึกข้อมูลสำเร็จ!', 'text-emerald-400');
+    };
+
+    // 🛡️ [USER REQUEST] ระบบป้องกันข้อมูลหายตอนรีเฟรชหรือหน้าจอ
+    window.addEventListener('beforeunload', (e) => {
+        if (isLoaded) {
+            // สั่งเซฟด่วน (ยิงกระสุนนัดสุดท้าย)
+            saveState(false, true); 
+            
+            // แสดงหน้าต่างยืนยันของเบราว์เซอร์
+            e.preventDefault();
+            e.returnValue = 'ระบบกำลังบันทึกข้อมูลของคุณ กรุณายืนยันการออกจากหน้าจอ';
+        }
+    });
 
     // 👹 START BOSS SYSTEM
     initBossController(STATE, { spawnWorldRock, clearWorldRocks, throwRockAtBoss, collectWorldRockAtPet, _getPetPosition, updateBossModel });
+
+    // 👗 [AUDIT FIX] Safe Skin Restoration: ประกันว่าสกินจะถูกใส่ให้โมเดลแน่นอนหลังโหลดเสร็จ
+    setTimeout(() => {
+        if (STATE.inventory && STATE.inventory.skins && window.refreshPetModel) {
+            console.log("👗 Syncing pet skin from inventory...");
+            window.refreshPetModel();
+        }
+    }, 1500); 
 })();

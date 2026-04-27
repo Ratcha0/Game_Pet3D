@@ -181,97 +181,170 @@ export function resetStateToDefaults() {
 export async function loadState() {
     isLoaded = false;
     resetStateToDefaults();
-    await loadGameConfigCloud();
+    
+    // 🛡️ [NEW] Step 1: โหลดจาก LocalStorage ทันทีเพื่อให้ UI แสดงผลรวดเร็วและเป็น Backup กรณี Cloud พัง
     if (currentUserId !== "GUEST_USER") {
-        const { data, error } = await loadPetState(currentUserId);
-        if (data) {
-            mergeSaveData(data);
-            // --- 📅 Season Reset Logic (Lazy Reset) ---
-            const globalSeason = STATE.config.season_number || 1;
-            const playerSeason = STATE.current_season || 1;
-            
-            if (playerSeason < globalSeason) {
-                console.warn(`🚨 NEW SEASON DETECTED! S${playerSeason} -> S${globalSeason}. Resetting progress...`);
-                STATE._isResettingSeason = true;
-                
-                // 1. บันทึกผลงานเก่าลง History ก่อนสลายหายไป
-                await logSeasonHistory(currentUserId, playerSeason, STATE.score);
-                
-                // 2. รีเซ็ตค่าสำคัญทั้งหมด (เริ่มใหม่ 100% ยกเว้นสกิน)
-                STATE.score = 0;
-                STATE.level = 1;
-                STATE.xp = 0;
-                STATE.maxExp = 100;
-                STATE.tokens = 500; // รีเซ็ตเงินเริ่มต้นใหม่
-                STATE.hunger = 80;
-                STATE.clean = 80;
-                STATE.stamina = 100;
-                STATE.love = 50;
-                STATE.current_season = globalSeason;
-                STATE.login_streak = 0; // Fresh start for login rewards
-                STATE.last_login_date = ""; 
-                STATE.carrying_rock = 0;
-                
-                // รีเซ็ตสกิลบอส (ทุกคนต้องเริ่มฝึกใหม่)
-                STATE.boss_skills = {
-                    points: 0, xp: 0, lvl: 1, next: 5000,
-                    damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
-                };
-                
-                // รีเซ็ตภารกิจ
-                STATE.quests = { 
-                    feed: 0, feed_max: 3, clean: 0, clean_max: 2, play: 0, play_max: 1, 
-                    special: STATE.quests.special, 
-                    claimed: false,
-                    special_claimed: false
-                };
-                
-                // บันทึกทับทันทีเพื่อให้ข้อมูลบน Cloud เป็นซีซั่นใหม่
-                await savePetState(currentUserId, STATE);
-                STATE._isResettingSeason = false;
-
-                if (window.spawn) {
-                    window.spawn(`🎉 เริ่มต้นซีซั่นใหม่ ${STATE.config.season_name}! (เริ่มเก็บสะสมใหม่กัน!)`, "text-neon-pink font-black");
-                }
+        const localSave = localStorage.getItem('PW3D_SAVE_' + currentUserId);
+        if (localSave) {
+            try {
+                const parsed = JSON.parse(localSave);
+                mergeSaveData(parsed);
+                console.log("💾 [Local] ข้อมูลจาก LocalStorage ถูกโหลดเป็นฐานรองรับ");
+            } catch(e) {
+                console.error("Local Load Fail: ", e);
             }
         }
     }
-    isLoaded = true; // ✅ Mark loading as complete
+
+    await loadGameConfigCloud();
+
+    // 🛡️ [NEW] Step 2: โหลดจาก Cloud (Supabase) เพื่อเป็นแหล่งข้อมูลที่ถูกต้องที่สุด
+    if (currentUserId !== "GUEST_USER") {
+        const { data, error } = await loadPetState(currentUserId);
+        if (!error) {
+            if (data) {
+                // 🛡️ [DEEP AUDIT] ป้องกันข้อมูลย้อนกลับ: ถ้ามีเลลเวลในเครื่องสูงกว่า Cloud (และไม่ใช่ตอนรีซีซั่น) ให้ระงับการโหลดทับ
+                if (STATE.level > (data.level || 0) && !STATE._isResettingSeason) {
+                    console.warn("⚠️ Local progress is ahead of Cloud. Keeping local state.");
+                } else {
+                    mergeSaveData(data);
+                }
+                // --- 📅 Season Reset Logic (Lazy Reset) ---
+                const globalSeason = STATE.config.season_number || 1;
+                const playerSeason = STATE.current_season || 1;
+                
+                if (playerSeason < globalSeason) {
+                    console.warn(`🚨 NEW SEASON DETECTED! S${playerSeason} -> S${globalSeason}. Resetting progress...`);
+                    STATE._isResettingSeason = true;
+                    
+                    // 1. บันทึกผลงานเก่าลง History ก่อนสลายหายไป
+                    await logSeasonHistory(currentUserId, playerSeason, STATE.score);
+                    
+                    // 2. รีเซ็ตค่าสำคัญส่วนใหญ่ (เริ่มเลเวลใหม่)
+                    STATE.score = 0;
+                    STATE.level = 1;
+                    STATE.xp = 0;
+                    STATE.maxExp = 200;
+                    // 🔥 [POLICY] ไม่รีเซ็ต Tokens เพราะเป็นค่าเงินพรีเมียม/สะสมที่ผู้เล่นควรได้เก็บไว้
+                    // STATE.tokens = 500; 
+                    
+                    STATE.hunger = 80;
+                    STATE.clean = 80;
+                    STATE.stamina = 100;
+                    STATE.love = 50;
+                    STATE.current_season = globalSeason;
+                    STATE.login_streak = 0; 
+                    STATE.last_login_date = ""; 
+                    STATE.carrying_rock = 0;
+                    
+                    // รีเซ็ตสกิลบอส (ทุกคนต้องเริ่มฝึกใหม่)
+                    STATE.boss_skills = {
+                        points: 0, xp: 0, lvl: 1, next: 5000,
+                        damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
+                    };
+                    
+                    // รีเซ็ตภารกิจ โดยดึงค่าเป้าหมายจาก Config ล่าสุด (ไม่ใช้ค่า Hardcoded)
+                    const activeCfg = getActiveConfig();
+                    const qCfg = activeCfg.quests || {};
+                    STATE.quests = { 
+                        feed: 0, feed_max: qCfg.target_feed || 4, 
+                        clean: 0, clean_max: qCfg.target_clean || 3, 
+                        play: 0, play_max: qCfg.target_play || 2, 
+                        special: STATE.quests.special, 
+                        claimed: false,
+                        special_claimed: false
+                    };
+                    
+                    // บันทึกทับทันทีเพื่อให้ข้อมูลบน Cloud เป็นซีซั่นใหม่
+                    await savePetState(currentUserId, STATE);
+                    STATE._isResettingSeason = false;
+
+                    if (window.spawn) {
+                        window.spawn(`🎉 เริ่มต้นซีซั่นใหม่ ${STATE.config.season_name}! (เริ่มเก็บสะสมใหม่กัน!)`, "text-neon-pink font-black");
+                    }
+                }
+            }
+            isLoaded = true; // ✅ Mark loading as complete ONLY if cloud load succeeded (or no error)
+            console.log("✅ State Loaded from Cloud successfully.");
+        } else {
+            // 🛡️ [CRITICAL FIX] ถ้ามี Username แต่อินเทอร์เน็ตพัง ห้ามเซฟทับเด็ดขาด!
+            isLoaded = false; 
+            console.error("🚨 Cloud Load Critical Error: Saving disabled to prevent data wipe.");
+        }
+    } else {
+        // [AUDIT] สำหรับ Guest (ยังไม่มี Username) ให้ถือว่า Loaded ได้เพื่อสร้างไอดีใหม่
+        isLoaded = true; 
+    }
 }
 
 function mergeSaveData(d) {
     if (!d) return;
     
-    // 🛡️ Defensive Check: Don't allow resetting to Level 1 if we already have level 2+ 
-    // unless it's a confirmed season reset.
-    if (STATE.level > 1 && d.level === 1 && !STATE._isResettingSeason) {
-        console.warn("🛡️ Blocking suspicious state merge that would reset Level to 1.");
+    // 🛡️ [CRITICAL FIX] ป้องกันข้อมูลย้อนกลับ (Regression Protection)
+    // หากเลเวลในเครื่องสูงกว่าที่กำลังจะโหลดมาทับ และไม่ใช่การรีเซ็ตซีซั่น => ห้ามโหลดทับ!
+    if (STATE.level > (d.level || 1) && !STATE._isResettingSeason) {
+        console.warn(`🛡️ Blocking level regression: Current ${STATE.level} > Incoming ${d.level}. Using local state.`);
         return;
     }
 
     if (d.username || d.pet_name) STATE.username = d.username || d.pet_name;
     if (d.pin_code) STATE.pin_code = d.pin_code;
     
-    // อนุญาตให้อุกเดตถ้าค่าที่มาใหม่ "ไม่เป็นค่าว่าง/ค่าเริ่มต้นพังๆ"
+    // อนุญาตให้อัพเดตถ้าค่าที่มาใหม่ "ไม่เป็นค่าว่าง/ค่าเริ่มต้นพังๆ"
     if (d.tokens !== undefined && !isNaN(d.tokens)) STATE.tokens = d.tokens;
     if (d.score !== undefined && !isNaN(d.score)) STATE.score = d.score;
     if (d.hunger !== undefined && !isNaN(d.hunger)) STATE.hunger = d.hunger;
     if (d.clean !== undefined && !isNaN(d.clean)) STATE.clean = d.clean;
     if (d.stamina !== undefined && !isNaN(d.stamina)) STATE.stamina = d.stamina;
     if (d.love !== undefined && !isNaN(d.love)) STATE.love = d.love;
-    if (d.xp !== undefined && !isNaN(d.xp)) STATE.xp = d.xp;
-    if (d.level !== undefined && d.level > 0 && !isNaN(d.level)) STATE.level = d.level;
-    if (d.maxExp && !isNaN(d.maxExp)) STATE.maxExp = d.maxExp;
+    if (d.xp !== undefined && !isNaN(d.xp)) STATE.xp = parseFloat(d.xp);
+    if (d.level !== undefined && d.level > 0 && !isNaN(d.level)) STATE.level = parseInt(d.level);
+    
+    // 🔥 [BUGFIX] จัดการ Key Mismatch ระหว่าง Supabase (Snake Case) และ STATE (Camel Case)
+    const maxExpVal = d.max_exp ?? d.maxExp;
+    if (maxExpVal && !isNaN(maxExpVal)) STATE.maxExp = parseFloat(maxExpVal);
     
     STATE.current_season = d.current_season ?? d.season_number ?? STATE.current_season;
     STATE.carrying_rock = d.carrying_rock ?? STATE.carrying_rock;
     
     if (d.boss_skills) STATE.boss_skills = d.boss_skills;
-    if (d.inventory) STATE.inventory = d.inventory;
-    if (d.quests) STATE.quests = d.quests;
-    if (d.buffs) STATE.buffs = d.buffs;
-    if (d.login_streak !== undefined) STATE.login_streak = d.login_streak;
-    if (d.last_login_date) STATE.last_login_date = d.last_login_date;
+    // 🛡️ [DEEP AUDIT] Deep Merge Inventory (ป้องกันไอเทมหาย)
+    if (d.inventory) {
+        if (!STATE.inventory) STATE.inventory = { skins: [], boosters: [] };
+        // รวมรายการสกิน (ไม่ใช้การทับ)
+        const combinedSkins = [...new Set([...(STATE.inventory.skins || []), ...(d.inventory.skins || [])])];
+        STATE.inventory.skins = combinedSkins;
+        // จัดการ Booster และสกินที่ใส่อยู่
+        STATE.inventory.boosters = d.inventory.boosters || STATE.inventory.boosters;
+        STATE.inventory.equipped_skins = d.inventory.equipped_skins || STATE.inventory.equipped_skins;
+    }
+
+    // 📊 [SYNC FIX] จัดการคะแนนล่าสุด (เลือกค่าที่มากกว่าเสมอ)
+    if (d.score !== undefined && d.score > STATE.score) {
+        STATE.score = d.score;
+    }
+    
+    // 🔥 [SYNC FIX] จัดการวันที่ของเควสให้ตรงกับ Cloud (กันบัครีเซ็ตเป็น 0 ตอนรีเฟรช)
+    const cloudDate = d.last_quest_date || (d.last_interaction_at ? new Date(d.last_interaction_at).toDateString() : null);
+    if (cloudDate) STATE.last_quest_date = cloudDate;
+
+    // 🔥 [BUGFIX] จัดการ Quest/Buff Data จาก Cloud (ใช้ชื่อ quests_data นำหน้าเพื่อให้ตรงกับ DB)
+    const questData = d.quests_data ?? d.quests;
+    if (questData && Object.keys(questData).length > 0) STATE.quests = questData;
+    
+    const buffData = d.buffs ?? d.buffs_data;
+    if (buffData) STATE.buffs = buffData;
+
+    // 🛡️ [DEEP AUDIT FIX] จัดการข้อมูลการเช็คอินให้ปลอดภัย
+    // ถ้าข้อมูลใหม่ (d) มีค่าที่มากกว่าเดิม หรือไม่เป็นค่าว่าง ให้ใช้ข้อมูลใหม่
+    if (d.login_streak !== undefined && d.login_streak > (STATE.login_streak || 0)) {
+        STATE.login_streak = d.login_streak;
+    }
+    
+    // สำคัญ: ห้ามเอาค่าว่างจาก Cloud มาทับค่าที่มีอยู่ในเครื่อง
+    if (d.last_login_date && d.last_login_date !== "") {
+        STATE.last_login_date = d.last_login_date;
+    }
     
     // 🔥 [BUGFIX] ป้องกันการรีเซ็ตค่า Config (สกิน/เทมเพลต)
     if (d.config) {
@@ -296,21 +369,30 @@ SYNC_CHANNEL.onmessage = (event) => {
 
 let saveTimeout = null;
 
-export function saveState(isSync = false, immediateCloud = false) {
+export async function saveState(isSync = false, immediateCloud = false) {
+    // 🛡️ [DEEP AUDIT FIX] บล็อกการเซฟทุกกรณีถ้ามาจากหน้า Admin Preview เพื่อกันข้อมูลทับซ้อน
+    if (isAdminPreview || window.name === 'admin-preview') return; 
+
     if (!isLoaded && !isSync) {
-        console.warn("⚠️ Save blocked: State not yet loaded.");
         return;
     }
-    if (isAdminPreview) return; // 🛑 Block Admin Preview from saving/syncing
+    
+    // รับประกันว่าค่าเป็นตัวเลขก่อนบันทึก
+    const currentLvl = parseInt(STATE.level) || 1;
+    const currentXP = parseFloat(STATE.xp) || 0;
+    const currentMaxXP = parseFloat(STATE.maxExp) || 200;
+
     const data = {
         username: STATE.username, pin_code: STATE.pin_code,
         tokens: Math.floor(STATE.tokens), score: Math.floor(STATE.score), 
         hunger: STATE.hunger, clean: STATE.clean, stamina: STATE.stamina,
-        love: STATE.love, xp: STATE.xp, level: STATE.level, maxExp: STATE.maxExp,
+        love: STATE.love, xp: currentXP, level: currentLvl, maxExp: currentMaxXP,
         current_season: STATE.current_season,
-        carrying_rock: STATE.carrying_rock || 0,
         boss_skills: STATE.boss_skills,
-        quests: STATE.quests, buffs: STATE.buffs, inventory: STATE.inventory
+        inventory: STATE.inventory,
+        quests_data: STATE.quests, 
+        last_quest_date: STATE.last_quest_date, // 🛡️ [RESET PROTECT] บันทึกวันไว้กันโดนล้างเควส
+        buffs: STATE.buffs
     };
     
     // 1. Local Save (Immediate)
@@ -318,14 +400,22 @@ export function saveState(isSync = false, immediateCloud = false) {
     
     // 2. Cloud Save (Debounced to protect database)
     if (currentUserId !== "GUEST_USER") {
+        const safeCloudSave = async () => {
+            // [ULTIMATE GAURD] เช็คเลเวลบน Cloud ก่อนเซฟทับ กันแท็บเก่าฆ่าแท็บใหม่
+            const { data: cloudData } = await loadPetState(currentUserId);
+            if (cloudData && (cloudData.level || 0) > (data.level || 0)) {
+                console.warn("🛑 Cloud is ahead. Tab save aborted.");
+                return;
+            }
+            await savePetState(currentUserId, data).catch(e => console.error("Cloud Save Fail: ", e));
+        };
+
         if (immediateCloud) {
             if (saveTimeout) clearTimeout(saveTimeout);
-            savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
+            await safeCloudSave(); // 🔥 รอให้เซฟเสร็จก่อน (กันโดน Browser ตัดการเชื่อมต่อ)
         } else {
             if (saveTimeout) clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                savePetState(currentUserId, STATE).catch(e => console.error("Cloud Save Fail: ", e));
-            }, 3000); // 3 seconds debounce
+            saveTimeout = setTimeout(safeCloudSave, 3000); 
         }
     }
 

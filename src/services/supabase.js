@@ -24,17 +24,18 @@ export async function savePetState(userId, stateData) {
             pin_code: stateData.pin_code,
             level: stateData.level,
             xp: Math.floor(stateData.xp),
-            max_exp: stateData.maxExp,
+            max_exp: stateData.max_exp || stateData.maxExp || 200,
             score: Math.floor(stateData.score),
             tokens: Math.floor(stateData.tokens),
             hunger: stateData.hunger,
             clean: stateData.clean,
             love: Math.floor(stateData.love),
             stamina: stateData.stamina,
-            quests_data: stateData.quests,
-            buffs_data: stateData.buffs,
-            inventory: stateData.inventory,
-            current_season: stateData.current_season || 1,
+            // 🎒 [NEW] ส่งข้อมูล Inventory, สกิลบอส และเควส ขึ้น Cloud
+            inventory: stateData.inventory || { skins: [], equipped_skins: {} },
+            boss_skills: stateData.boss_skills || { points: 0, xp: 0, lvl: 1 },
+            quests_data: (stateData.quests_data && Object.keys(stateData.quests_data).length > 0) ? stateData.quests_data : (stateData.quests || {}),
+            last_quest_date: stateData.last_quest_date, // 🛡️ [SYNC FIX] ส่งวันที่เควสไปเก็บด้วย
             last_interaction_at: new Date().toISOString()
         }, { onConflict: 'player_id' });
         
