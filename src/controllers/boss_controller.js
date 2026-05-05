@@ -7,28 +7,9 @@ import { SFX } from '../services/sound.js';
  * จัดการเหตุการณ์การสู้บอสในเกม
  */
 export const initBossController = (STATE, engineHelpers) => {
-    const { spawnWorldRock, clearWorldRocks, throwRockAtBoss, collectWorldRockAtPet, _getPetPosition, updateBossModel } = engineHelpers;
+    const { spawnWorldRock, clearWorldRocks, throwRockAtBoss, collectWorldRockAtPet, _getPetPosition, updateBossModel, flashBoss } = engineHelpers;
 
-    // 📊 Boss Skill State (Link to persistent State)
-    const BOSS_SKILLS = STATE.boss_skills;
-
-    // 🔘 Toggle ย่อ/ขยายแผงควบคุมหลักทั้งหมด
-    window.toggleMainHUD = () => {
-        const panel = document.getElementById('main-stats-panel');
-        const toggleArea = document.getElementById('hud-toggle-area');
-        const icon = document.querySelector('.hud-toggle-icon');
-        const text = document.querySelector('.hud-toggle-text');
-        
-        if (panel) {
-            const isCollapsed = panel.classList.toggle('collapsed');
-            if (toggleArea) toggleArea.classList.toggle('mini-mode', isCollapsed);
-            if (icon) icon.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
-            if (text) text.innerText = isCollapsed ? 'แสดงหน้าจอ' : 'ย่อหน้าจอ';
-            
-            // 🔥 บังคับให้อัปเดตจุดแจ้งเตือนทันทีที่ย่อ/ขยาย
-            updateSkillUI(); 
-        }
-    };
+    // 🔘 Toggle ย่อ/ขยายแผงควบคุมหลักทั้งหมด (Consolidated in game.js)
 
     // อัปเดตการแสดงผล HUD ของบอส
     const updateBossHUD = (wb) => {
@@ -47,11 +28,19 @@ export const initBossController = (STATE, engineHelpers) => {
 
             const hp = wb?.hp ?? 0;
             const max = wb?.max_hp ?? 1000000;
-            const hpPercent = (hp / max) * 100;
+            
+            // 🔥 [UI SAFETY FIX] ป้องกันหลอดเลือดเอ๋อ (หลอดดำ) ถ้าเลือดปัจจุบันมากกว่าเลือดสูงสุด
+            const rawPercent = (hp / max) * 100;
+            const hpPercent = Math.max(0, Math.min(100, rawPercent));
             
             const bar = document.getElementById('boss-hp-bar');
             const text = document.getElementById('boss-hp-text');
-            if (bar) bar.style.width = `${hpPercent}%`;
+            if (bar) {
+                bar.style.width = `${hpPercent}%`;
+                // เปลี่ยนสีหลอดตามความวิกฤต (ชมพู -> แดง)
+                if (hpPercent < 20) bar.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+                else bar.style.background = 'linear-gradient(90deg, #ec4899, #8b5cf6)';
+            }
             if (text) text.innerText = `${hp.toLocaleString()} HP`;
             
             // Rock Spawning Logic
@@ -68,7 +57,7 @@ export const initBossController = (STATE, engineHelpers) => {
                     }
                 }, spawnDelay);
             }
-            updateSkillUI();
+            window.updateSkillUI();
         } else {
             // 🛑 ซ่อนทุกอย่างที่เกี่ยวกับบอสทันที
             if (bossHPContainer) bossHPContainer.classList.add('hidden');
@@ -76,8 +65,16 @@ export const initBossController = (STATE, engineHelpers) => {
             if (toggleArea) toggleArea.classList.add('hidden');
             if (throwBtn) throwBtn.classList.add('hidden');
             
-            // ล้างสถานะบอส
-            resetBossSkills();
+            // 🛡️ [BUGFIX] บอสตาย ต้องลบตัวบอสออกจากฉากทันที
+            if (typeof updateBossModel === 'function') {
+                updateBossModel(null); // ส่ง null เพื่อสั่งลบออกจากฉาก 3D
+            }
+
+            if (wb && wb.hp <= 0) {
+                // 🛡️ [AUDIT FIX] ลบ resetBossSkills() ออก เพื่อให้ผู้เล่นเก็บเลเวลสกิลไว้สู้บอสตัวถัดไปได้
+                // จะรีเซ็ตจริงเฉพาะตอน "จบซีซั่น" (Season Reset) เท่านั้น
+            }
+
             if (typeof clearWorldRocks === 'function') clearWorldRocks();
             
             // หยุดการเกิดของหิน
@@ -90,21 +87,21 @@ export const initBossController = (STATE, engineHelpers) => {
     };
 
     let _lastSkillState = "";
-    const updateSkillUI = () => {
-        const currentState = JSON.stringify(BOSS_SKILLS);
+    window.updateSkillUI = () => {
+        const currentState = JSON.stringify(STATE.boss_skills);
         if (currentState === _lastSkillState) return;
         _lastSkillState = currentState;
 
         const skills = ['damage', 'crit', 'speed', 'bag'];
         skills.forEach(key => {
-            const s = BOSS_SKILLS[key];
+            const s = STATE.boss_skills[key];
             const expBar = document.getElementById(`skill-${key}-exp`);
             const dotsContainer = document.getElementById(`dots-${key}`);
             const arrow = document.querySelector(`.boss-skill-item[onclick*="${key}"] .lvl-up-arrow`);
             
             // ใช้ XP รวมในการแสดงหลอดความก้าวหน้า
             if (expBar) {
-                const pct = Math.min(100, (BOSS_SKILLS.xp / BOSS_SKILLS.next) * 100);
+                const pct = Math.min(100, (STATE.boss_skills.xp / STATE.boss_skills.next) * 100);
                 expBar.style.width = `${pct}%`;
             }
             
@@ -118,7 +115,7 @@ export const initBossController = (STATE, engineHelpers) => {
             }
             // ปุ่มอัปเกรดจะโชว์ถ้า "มีแต้มสกิล" และ "เลเวลยังไม่เต็ม"
             if (arrow) {
-                if (BOSS_SKILLS.points > 0 && s.lvl < 5) {
+                if (STATE.boss_skills.points > 0 && s.lvl < 5) {
                     arrow.classList.remove('hidden');
                 } else {
                     arrow.classList.add('hidden');
@@ -128,12 +125,8 @@ export const initBossController = (STATE, engineHelpers) => {
 
         // --- 🔴 Update Global Skill Noti Dot ---
         const globalDot = document.getElementById('skill-noti-dot');
-        const mainPanel = document.getElementById('main-stats-panel');
-        const isCollapsed = mainPanel ? mainPanel.classList.contains('collapsed') : false;
-        
         if (globalDot) {
-            // โชว์จุดแดงถ้ามี่แต้มสกิลค้างอยู่ (ไม่ต้องสนว่าย่อหรือขยาย)
-            if (BOSS_SKILLS.points > 0) {
+            if (STATE.boss_skills.points > 0) {
                 globalDot.classList.remove('hidden');
             } else {
                 globalDot.classList.add('hidden');
@@ -142,38 +135,44 @@ export const initBossController = (STATE, engineHelpers) => {
     };
 
     window.upgradeBossSkill = (key) => {
-        const s = BOSS_SKILLS[key];
-        if (BOSS_SKILLS.points > 0 && s.lvl < 5) {
+        const s = STATE.boss_skills[key];
+        if (STATE.boss_skills.points > 0 && s.lvl < 5) {
             s.lvl++;
-            BOSS_SKILLS.points--; // 🔥 [RESTORED] หักแต้มจริง
-            STATE.boss_skills = BOSS_SKILLS; // ซิงค์ก้อนใหญ่ก่อนเซฟ
-            saveState(); 
-            updateSkillUI();
-            
+            STATE.boss_skills.points--;
+            saveState(false, true); 
+            window.updateSkillUI();
             applySkillEffects();
+            
             const skillNames = { damage: 'ความแรงการปา', crit: 'โอกาสติดคริ', speed: 'ความเร็วขว้าง', bag: 'ความจุหิน' };
-            window.spawn?.(`✨ อัปเกรด ${skillNames[key] || key} เป็น LVL ${s.lvl}! (เหลือ ${BOSS_SKILLS.points} แต้ม)`, "text-cyan-400 font-bold");
+            window.spawn?.(`✨ อัปเกรด ${skillNames[key] || key} เป็น LVL ${s.lvl}! (เหลือ ${STATE.boss_skills.points} แต้ม)`, "text-cyan-400 font-bold");
             SFX.playAsset('level');
         }
     };
 
     const applySkillEffects = () => {
-        // 1. Power & Crit (ใช้อยู่ในฟังก์ชัน throwRock อยู่แล้ว)
-        
-        // 2. Speed (เวล 1 = x1.0, เวล 5 = x2.4)
-        window._bossSpeedMult = 1.0 + (BOSS_SKILLS.speed.lvl - 1) * 0.35;
-        
-        // 3. Update Throw Button (อัปเดตเลขช่องเก็บหิน)
+        window._bossSpeedMult = 1.0 + (STATE.boss_skills.speed.lvl - 1) * 0.35;
         updateThrowButton(STATE.config.world_boss);
     };
 
     window.updateBossThrowUI = () => updateThrowButton(STATE.config?.world_boss);
     
     const resetBossSkills = () => {
-        // เลเวลสกิลจะถูกดึงมาจาก STATE ถาวร เราแค่รีเซ็ตความเร็วพื้นฐานและอัปเดต UI
-        window._bossSpeedMult = 1.0 + (BOSS_SKILLS.speed.lvl - 1) * 0.35;
-        updateSkillUI();
+        STATE.boss_skills.lvl = 1;
+        STATE.boss_skills.xp = 0;
+        STATE.boss_skills.next = 5000;
+        STATE.boss_skills.points = 0;
+        
+        const skills = ['damage', 'crit', 'speed', 'bag'];
+        skills.forEach(key => {
+            STATE.boss_skills[key].lvl = 1;
+        });
+
+        STATE.carrying_rock = 0;
+        window._bossSpeedMult = 1.0;
+        window.updateSkillUI();
         updateThrowButton(STATE.config?.world_boss);
+        saveState(false, true);
+        console.log("🧹 [Boss System] รีเซ็ตสกิลและสถานะการต่อสู้แล้ว");
     };
 
     const updateThrowButton = (wb) => {
@@ -181,16 +180,14 @@ export const initBossController = (STATE, engineHelpers) => {
         if (!btn) return;
         
         const count = STATE.carrying_rock || 0;
-        // Bag Capacity: เวล 1 = 2, เวล 5 = 10 (กัปเพิ่มทีละ 2)
         const baseLimit = (wb?.rock_carry_limit !== undefined) ? parseInt(wb.rock_carry_limit) : 2;
-        const carryLimit = baseLimit + (BOSS_SKILLS.bag.lvl - 1) * 2; 
+        const carryLimit = baseLimit + (STATE.boss_skills.bag.lvl - 1) * 2; 
 
         if (wb?.active && (wb.hp > 0)) {
             btn.classList.remove('hidden');
             const label = btn.querySelector('.tracking-tighter');
             if (label) label.innerText = `ขว้าง! (${count}/${carryLimit})`;
             
-            // ถ้าไม่มีหิน ให้จางลงและกดไม่ได้
             if (count > 0) {
                 btn.style.opacity = "1";
                 btn.style.pointerEvents = "auto";
@@ -203,12 +200,11 @@ export const initBossController = (STATE, engineHelpers) => {
         }
     };
 
-    // ฟังก์ชันสำหรับเก็บหิน
     window.collectRock = (id) => {
         const currentCount = STATE.carrying_rock || 0;
         const wb = STATE.config?.world_boss;
         const baseLimit = (wb?.rock_carry_limit !== undefined) ? parseInt(wb.rock_carry_limit) : 2;
-        const carryLimit = baseLimit + (BOSS_SKILLS.bag.lvl - 1) * 2;
+        const carryLimit = baseLimit + (STATE.boss_skills.bag.lvl - 1) * 2;
         
         if (currentCount >= carryLimit) {
             const now = Date.now();
@@ -221,24 +217,26 @@ export const initBossController = (STATE, engineHelpers) => {
 
         if (collectWorldRockAtPet(id)) {
             STATE.carrying_rock = currentCount + 1;
-            saveState(); // บันทึกทันทีป้องกัน Sync ทับ
+            saveState();
             updateThrowButton(STATE.config?.world_boss);
-            window.spawn?.(`🪨 เก็บหินแล้ว! (${STATE.carrying_rock}/${carryLimit})`, "text-orange-400 font-bold");
+            window.spawn?.(`🪨 เก็บหินแล้ว! (${STATE.carrying_rock}/${carryLimit})`, "text-orange-400 font-black scale-110");
         }
     };
 
-    // ฟังก์ชันสำหรับปาหิน
+    let _isThrowing = false;
     window.throwRock = async () => {
+        if (_isThrowing) return;
+
         const count = STATE.carrying_rock || 0;
         if (count <= 0 || !STATE.config?.world_boss?.active || (STATE.config?.world_boss?.hp <= 0)) return;
         
+        _isThrowing = true;
         STATE.carrying_rock = count - 1;
-        saveState(); // บันทึกทันที
+        saveState();
         updateThrowButton(STATE.config.world_boss);
         
-        // คำนวณดาเมจตามสกิล
-        const powerLvl = BOSS_SKILLS.damage.lvl;
-        const critLvl = BOSS_SKILLS.crit.lvl;
+        const powerLvl = STATE.boss_skills.damage.lvl;
+        const critLvl = STATE.boss_skills.crit.lvl;
         
         const wbConfig = STATE.config?.world_boss || {};
         const baseDmg = (wbConfig.base_damage !== undefined) ? parseFloat(wbConfig.base_damage) : 5000;
@@ -247,51 +245,51 @@ export const initBossController = (STATE, engineHelpers) => {
         let damage = baseDmg + (powerLvl * scaleDmg);
         let isCrit = Math.random() < (critLvl * 0.20); 
         
-        if (isCrit) damage *= 2; // Critical hit!
+        if (isCrit) damage *= 2; 
 
         const petPos = _getPetPosition();
+        const cooldownMs = Math.max(500, 1200 / (window._bossSpeedMult || 1.0));
+
         throwRockAtBoss(petPos, async () => {
-            await BossService.damageBoss(damage);
+            if (flashBoss) flashBoss(); // 💥 [VISUAL JUICE]
+            await BossService.damageBoss(Math.floor(damage));
             
-            // รับ Global Boss XP (ปรับสมดุลใหม่: ให้แต้มสกิลสัมพันธ์กับดาเมจมหาศาล)
+            setTimeout(() => {
+                _isThrowing = false;
+            }, cooldownMs);
+
             const expGained = Math.floor(damage / 10); 
-            BOSS_SKILLS.xp += expGained;
+            STATE.boss_skills.xp += expGained;
             
-            // เช็คเลเวลอัปรวม
-            if (BOSS_SKILLS.xp >= BOSS_SKILLS.next) {
-                BOSS_SKILLS.xp -= BOSS_SKILLS.next;
-                BOSS_SKILLS.lvl++;
-                BOSS_SKILLS.points++; // ได้แต้มสกิล!
-                BOSS_SKILLS.next = Math.floor(BOSS_SKILLS.next * 1.2); // ปรับจาก 1.4 -> 1.2 เพื่อให้เลเวลไม่ตันยากเกินไปคราบ
+            if (STATE.boss_skills.xp >= STATE.boss_skills.next) {
+                STATE.boss_skills.xp -= STATE.boss_skills.next;
+                STATE.boss_skills.lvl++;
+                STATE.boss_skills.points++;
+                STATE.boss_skills.next = Math.floor(STATE.boss_skills.next * 1.2);
                 
                 if (window.spawn) {
-                    window.spawn(`🎊 เลเวลบอสเพิ่มเป็น ${BOSS_SKILLS.lvl}! ได้รับ 1 แต้มสกิล!`, "text-yellow-400 font-black animate-bounce");
+                    window.spawn(`🎊 เลเวลบอสเพิ่มเป็น ${STATE.boss_skills.lvl}! ได้รับ 1 แต้มสกิล!`, "text-yellow-400 font-black animate-bounce");
                 }
             }
             
-            // ⚔️ [USER REQUEST] จัดการ XP ตัวละครหลักด้วย (สู้บอสต้องได้เวลหลักด้วย)
-            if (window.STATE) {
-                const globalXPGain = Math.min(20, Math.floor(damage * 0.05)); // 5% ของดาเมจเป็น XP หลัก
-                window.STATE.xp += globalXPGain;
+            if (STATE) {
+                const globalXPGain = Math.min(20, Math.floor(damage * 0.05));
+                STATE.xp += globalXPGain;
                 if (window.checkLevelUp) window.checkLevelUp();
             }
 
-            STATE.boss_skills = BOSS_SKILLS; // 🔥 [BUGFIX] ซิงค์ก่อนเซฟ
-            saveState(); // บันทึก XP/LVL ใหม่
-            updateSkillUI();
+            saveState(false, true); 
+            window.updateSkillUI();
 
             const dmgStr = damage.toLocaleString();
             if (isCrit) {
-                // 💥 ใหญ่สะใจ (Critical)
                 window.spawn?.(`💥 CRITICAL! -${dmgStr}`, "text-orange-500 font-black text-3xl sm:text-5xl italic drop-shadow-[0_0_15px_rgba(249,115,22,0.8)]");
             } else {
-                // 💢 ขนาดกำลังดี (Normal)
                 window.spawn?.(`💢 -${dmgStr}`, "text-white font-black text-xl sm:text-3xl drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]");
             }
         });
     };
 
-    // 🕒 ระบบเช็คตารางเวลาอัตโนมัติ
     const checkBossSchedule = async () => {
         const wb = STATE.config?.world_boss;
         if (!wb || !wb.schedules || wb.schedules.length === 0) return;
@@ -310,38 +308,44 @@ export const initBossController = (STATE, engineHelpers) => {
                 endTime.setMinutes(endTime.getMinutes() + (slot.duration || 30));
                 
                 if (now >= startTime && now <= endTime) {
-                    if (wb.hp <= 0 && wb.active === false) {
-                        shouldBeActive = false;
-                    } else {
-                        shouldBeActive = true;
-                    }
+                    shouldBeActive = (wb.hp > 0);
                     break;
                 }
             }
         }
 
         if (shouldBeActive && !wb.active) {
-            const spawnHP = (wb.hp <= 0) ? wb.max_hp : wb.hp;
-            console.log("🕒 [Schedule] อัญเชิญบอสตามตารางเวลา!");
-            await BossService.updateBossStatus(true, spawnHP);
+            await BossService.updateBossStatus(true, (wb.hp <= 0) ? wb.max_hp : wb.hp);
         } else if (!shouldBeActive && wb.active) {
-            console.log("🕒 [Schedule] บอสหายไปตามตารางเวลา (End of Slot)");
             await BossService.updateBossStatus(false, wb.max_hp);
         }
     };
 
     setInterval(checkBossSchedule, 30000);
-
-    // เช็คสถานะเริ่มต้น
     checkBossSchedule();
     updateBossHUD(STATE.config?.world_boss);
-    updateSkillUI();
-    if (STATE.config?.world_boss) {
-        updateBossModel(STATE.config.world_boss);
-    }
+    window.updateSkillUI();
+    if (STATE.config?.world_boss) updateBossModel(STATE.config.world_boss);
 
+    let _isVictoryReported = false;
     BossService.subscribe((wb) => {
         STATE.config.world_boss = wb;
+        
+        if (wb.hp <= 0 && wb.active && !_isVictoryReported) {
+            _isVictoryReported = true;
+            // 🛡️ [REFACTORED] นำระบบแจกรางวัลแบบ Manual ออก เพื่อไปใช้ระบบ RPC ใน BossRewardController แทน
+            // ป้องกันการได้รางวัลซ้ำซ้อน
+            
+            BossService.updateBossStatus(false, 0);
+        }
+
+        if (!wb.active) {
+            if (_isVictoryReported || (STATE.boss_skills && STATE.boss_skills.lvl > 1)) {
+                 resetBossSkills();
+            }
+            _isVictoryReported = false;
+        }
+
         updateBossHUD(wb);
         updateBossModel(wb);
     });

@@ -1,9 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',sans-serif; }
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; color-scheme: dark; }
+body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',sans-serif; color: #fff; }
 .phone-frame { width:100%; height:100vh; height:100dvh; position:relative; overflow:hidden; background:#080c18; }
 .hud { position:absolute; inset:0; z-index:20; pointer-events:none; display:flex; flex-direction:column; width: 100%; height: 100%; overflow: hidden; padding: env(safe-area-inset-top, 20px) 0 env(safe-area-inset-bottom, 16px) 0; }
 .hud-content { width: 100%; display: flex; flex-direction: column; height: 100%; position: relative; }
@@ -44,9 +44,9 @@ body { background:#000; min-height:100vh; overflow:hidden; font-family:'Outfit',
 .critical-warning { animation: critical-blink 0.5s ease-in-out infinite !important; }
 
 @keyframes float-up {
-    0% { transform: translateY(0) scale(1); opacity: 1; }
+    0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
     80% { opacity: 0.8; }
-    100% { transform: translateY(-50px) scale(0.9); opacity: 0; }
+    100% { transform: translate(-50%, -50px) scale(0.9); opacity: 0; }
 }
 .animate-float-up { animation: float-up 2.5s ease-out forwards; }
 
@@ -72,7 +72,7 @@ img.emoji {
     .stats-panel, .action-panel { transform: scale(0.9); transform-origin: bottom center; }
     .profile-box { transform: scale(0.85); transform-origin: top left; }
     .wallet-box { transform: scale(0.85); transform-origin: top right; }
-    #spawn-area { transform: scale(0.8) translateY(-10px); }
+    /* Removed transform from #spawn-area to prevent fixed positioning bugs */
     /* ลดความร้อนบนมือถือโดยการปิด Blur ที่กินเครื่องมากๆ */
     .glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(15, 23, 42, 0.95) !important; }
 }
@@ -121,7 +121,7 @@ img.emoji {
     .profile-box { transform: scale(0.8); transform-origin: top left; }
     .wallet-box { transform: scale(0.8); transform-origin: top right; }
     .stats-panel { width: 100% !important; max-width: none !important; border-radius: 1.5rem !important; }
-    #spawn-area { transform: scale(0.7) translateY(-20px); opacity: 0.9; }
+    /* Removed transform from #spawn-area */
     header { padding-left: 8px !important; padding-right: 8px !important; }
 }
 
@@ -221,7 +221,7 @@ img.emoji {
     .stats-panel, .action-panel { transform: scale(0.6) !important; margin: 0 !important; }
     .stats-panel { transform-origin: bottom left !important; }
     .action-panel { transform-origin: bottom right !important; }
-    #spawn-area { top: 10px !important; transform: translateX(-50%) scale(0.4) !important; }
+    /* Removed transform from #spawn-area */
     header { padding: 4px 8px !important; }
     #pin-lock-container { transform: scale(0.85) !important; transform-origin: center !important; padding-top: 0; }
     #pin-lock-container .mb-10 { margin-bottom: 8px !important; }
@@ -327,7 +327,24 @@ img.emoji {
     transition: all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* --- 🗨️ Emotion Bubble Styles --- */
+/* --- 🗨️ Emotion Bubble --- */
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars for all browsers */
+::-webkit-scrollbar {
+    display: none;
+}
+* {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
 .emotion-bubble {
     position: relative;
     background: rgba(255, 255, 255, 0.95);
@@ -513,7 +530,7 @@ img.emoji {
 /* Boss Skill Panel positioning logic handled via utility classes */
 #world-boss-hud {
     position: fixed;
-    top: 75px; /* ใต้กรอบโปรไฟล์ */
+    top: 135px; /* ขยับลงมาเพื่อหลบแถบบัพที่ย้ายขึ้นไป */
     left: 10px;
     z-index: 1000;
     width: auto;
@@ -562,8 +579,8 @@ img.emoji {
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
-/* New Combined Rule for Landscape / Short Screens / Admin Preview */
-@media (max-height: 520px), .is-admin-preview {
+/* --- 📱 Widget & Landscape Mode (หน้าจอสั้น/วิดเจ็ต) --- */
+@media screen and (max-height: 520px) {
     /* Top Left HUB (Profile + Boss HP) */
     #top-left-hud {
         position: fixed !important;
@@ -709,3 +726,27 @@ img.emoji {
         min-height: auto !important;
     }
 }
+/* --- 📊 Ranking & Custom Dropdown Styling --- */
+#rank-season-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+}
+#rank-season-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.1); }
+
+.season-option {
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.2s;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+}
+.season-option:last-child { border-bottom: none; }
+.season-option:hover { background: rgba(139, 92, 246, 0.2); color: white; }
+.season-option.active { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }

@@ -24,19 +24,26 @@ export async function savePetState(userId, stateData) {
             pin_code: stateData.pin_code,
             level: stateData.level,
             xp: Math.floor(stateData.xp),
-            max_exp: stateData.max_exp || stateData.maxExp || 200,
+            max_exp: stateData.max_exp || 200,
+            max_stamina: stateData.max_stamina || 100,
             score: Math.floor(stateData.score),
             tokens: Math.floor(stateData.tokens),
             hunger: stateData.hunger,
             clean: stateData.clean,
             love: Math.floor(stateData.love),
             stamina: stateData.stamina,
-            inventory: stateData.inventory || { skins: [], equipped_skins: {} },
+            inventory: stateData.inventory || { skins: [], boosters: [] },
             boss_skills: stateData.boss_skills || { points: 0, xp: 0, lvl: 1 },
-            quests_data: (stateData.quests_data && Object.keys(stateData.quests_data).length > 0) ? stateData.quests_data : (stateData.quests || {}),
+            quests_data: stateData.quests || {},
             last_quest_date: stateData.last_quest_date,
-            // 🧠 [TODO] เปิดบรรทัดด้านล่างนี้หลังจากเพิ่มคอลัมน์ 'memory' (jsonb) ใน Supabase แล้ว
-            // memory: stateData.memory || { interaction_counts: { feed: 0, clean: 0, play: 0, repair: 0 }, loyalty_bonus: 0 },
+            current_season: stateData.config?.season_number || 1, // 🏆 [AUDIT FIX] เพิ่มเพื่อรองรับการกรอง Ranking
+            // 🚀 [CLOUD SYNC FIX] เปิดใช้งานการเซฟฟิลด์ใหม่ๆ ทั้งหมดจริง
+            config: stateData.config || {},
+            buffs: stateData.buffs || { score_mult: 1, score_expiry: 0, decay_mult: 1, decay_expiry: 0, luck_mult: 1, luck_expiry: 0, regen_mult: 1, regen_expiry: 0 },
+            login_streak: stateData.login_streak || 0,
+            last_login_date: stateData.last_login_date || "",
+            memory: stateData.memory || { interaction_counts: { feed: 0, clean: 0, play: 0, repair: 0 }, loyalty_bonus: 0 },
+            carrying_rock: stateData.carrying_rock || 0,
             last_interaction_at: new Date().toISOString()
         }, { onConflict: 'player_id' });
 
@@ -90,6 +97,20 @@ export async function saveGameConfig(configData, configId = 'production_config')
 }
 
 /**
+ * เพิ่มรางวัลผู้เล่นแบบ Atomic (RPC) - ป้องกันเงินหาย
+ */
+export async function addPlayerRewards(userId, tokens, xp, score) {
+    const { error } = await supabase.rpc('add_player_rewards', {
+        p_player_id: userId,
+        p_tokens: Math.floor(tokens),
+        p_xp: Math.floor(xp),
+        p_score: Math.floor(score)
+    });
+    if (error) console.error("Error adding rewards via RPC:", error);
+    return { error };
+}
+
+/**
  * บันทึกประวัติคะแนนเมื่อเล่นเกม ส่งกลับระบบหลังบ้าน
  */
 export async function logScoreAction(userId, actionType, scoreGain, tokenGain, desc = '') {
@@ -127,10 +148,11 @@ export async function logSeasonHistory(userId, seasonNum, score, rank = null) {
 /**
  * ดึง Ranking ผู้เล่นดะแนนสูงสุด 10 อันดับแรก
  */
-export async function fetchLeaderboard() {
+export async function fetchLeaderboard(seasonNum = 1) {
     const { data, error } = await supabase
         .from('pet_states')
-        .select('player_id, level, score')
+        .select('player_id, level, score, pet_name')
+        .eq('current_season', seasonNum)
         .order('score', { ascending: false })
         .limit(10);
         
@@ -159,7 +181,7 @@ export async function fetchSeasonRankings(seasonNum) {
 export async function fetchLiveRankings(seasonNum) {
     const { data, error } = await supabase
         .from('pet_states')
-        .select('player_id, score, last_interaction_at')
+        .select('player_id, score, last_interaction_at, pet_name')
         .eq('current_season', seasonNum)
         .order('score', { ascending: false })
         .limit(20);

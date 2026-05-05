@@ -1,5 +1,6 @@
 import '../styles.css';
-import { saveGameConfig, loadGameConfig, fetchSeasonRankings, fetchLiveRankings, fetchAllUsers, setUserBanStatus } from '../services/supabase.js';
+import { supabase, saveGameConfig, loadGameConfig, fetchSeasonRankings, fetchLiveRankings, fetchAllUsers, setUserBanStatus } from '../services/supabase.js';
+import { BossService } from '../services/boss_sync.js';
 
 const $ = id => document.getElementById(id);
 
@@ -31,10 +32,10 @@ const createDefaultSettings = (template, diff) => {
         // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
         // ปรับให้โหมดยากได้แต้มเยอะกว่าชัดเจนเพื่อจูงใจการไต่อันดับ
         activities: {
-            feed:   { r: isEasy ? 15 : (isHard ? 8 : 12), s: isEasy ? 3 : (isHard ? 12 : 6), xp: isEasy ? 50 : (isHard ? 150 : 80) },
-            clean:  { r: isEasy ? 18 : (isHard ? 7 : 14), s: isEasy ? 3 : (isHard ? 10 : 5), xp: isEasy ? 40 : (isHard ? 120 : 65) },
-            repair: { r: isEasy ? 12 : (isHard ? 6 : 10), s: isEasy ? 2 : (isHard ? 8 : 4), xp: isEasy ? 30 : (isHard ? 100 : 55) },
-            play:   { r: isEasy ? 20 : (isHard ? 10 : 18), s: isEasy ? 8 : (isHard ? 25 : 15), xp: isEasy ? 100 : (isHard ? 350 : 150) }
+            feed:   { r: isEasy ? 15 : (isHard ? 10 : 12), s: isEasy ? 3 : (isHard ? 10 : 6), xp: isEasy ? 50 : (isHard ? 180 : 100) },
+            clean:  { r: isEasy ? 18 : (isHard ? 10 : 14), s: isEasy ? 3 : (isHard ? 8 : 5), xp: isEasy ? 40 : (isHard ? 150 : 80) },
+            repair: { r: isEasy ? 12 : (isHard ? 8 : 10), s: isEasy ? 2 : (isHard ? 6 : 4), xp: isEasy ? 30 : (isHard ? 120 : 70) },
+            play:   { r: isEasy ? 20 : (isHard ? 12 : 18), s: isEasy ? 8 : (isHard ? 20 : 15), xp: isEasy ? 100 : (isHard ? 450 : 200) }
         },
         // 2. รางวัลไอเทมบนแมพ (Economy)
         rewards: {
@@ -66,9 +67,9 @@ const createDefaultSettings = (template, diff) => {
         },
         // 4. ร้านค้า (Shop Economy)
         shop: {
-            small_tokens: isHard ? 600 : 450, small_amount: 50,
-            medium_tokens: isHard ? 1400 : 1000, medium_amount: 120,
-            large_tokens: isHard ? 3200 : 2500, large_amount: 300
+            small_tokens: isHard ? 500 : 350, small_amount: 50,
+            medium_tokens: isHard ? 1200 : 800, medium_amount: 120,
+            large_tokens: isHard ? 2800 : 2000, large_amount: 300
         },
         // 5. กลไกหลัก (Mechanics)
         mechanics: {
@@ -117,18 +118,18 @@ let ADMIN_STATE = {
     difficulty_mode: 'normal',
     sky: 'day',
     ground: 'grass',
-    custom_model: '',
+    custom_model: '/toon_cat_free.glb', // 👈 [FIX] ต้องไม่เป็นค่าว่างเพื่อให้ Preview โหลดขึ้นทันที
     custom_rotation_y: 0,
     season_number: 1,
     season_name: '',
     season_duration: 15,
     world_boss: {
-        active: false,
-        hp: 1000000,
-        max_hp: 1000000,
+        active: true,
+        hp: 250000,
+        max_hp: 250000,
         reward_tokens: 5000,
-        reward_xp: 2500,
-        model_path: '/models/phoenix_bird.glb',
+        reward_xp: 5000,
+        model_path: '/models/truffle_man.glb',
         anim_speed: 1.0,
         rock_spawn_limit: 3,
         rock_carry_limit: 2,
@@ -426,18 +427,7 @@ window.saveAll = async () => {
     }
 };
 
-window.finishSeason = async () => {
-    if (!isAuthoritativeAdmin()) {
-        window.spawn("🚫 สิทธิ์ไม่เพียงพอในการจบซีซั่น", "text-rose-500 font-black");
-        return;
-    }
-    
-    if (confirm("🔥 คำเตือน: นี่คือการ 'รีเซ็ต' คะแนนผู้เล่นทุกคนในซีซั่นหน้า คุณแน่ใจหรือไม่?")) {
-        ADMIN_STATE.season_number = (parseInt(ADMIN_STATE.season_number) || 1) + 1;
-        await window.saveAll();
-        window.spawn(`🚀 เริ่มต้นซีซั่นใหม่: ซีซั่น ${ADMIN_STATE.season_number}`, "text-cyan-400 font-black");
-    }
-};
+
 
 window.updateSkinProp = (id, prop, val) => {
     const skin = ADMIN_STATE.available_skins.find(s => s.id === id);
@@ -522,7 +512,8 @@ function renderGallery() {
                     interaction-prompt="none"
                     shadow-intensity="1" 
                     exposure="1.2"
-                    loading="lazy"
+                    loading="eager"
+                    reveal="auto"
                     style="width:100%; height:100%; background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);">
                     
                     <!-- 🔴 จุดนำสายตาสำหรับตำแหน่งการดรอป -->
@@ -584,22 +575,31 @@ window.finishSeason = async () => {
     const currentS = parseInt(ADMIN_STATE.season_number || 1);
     const nextS = currentS + 1;
     
-    const confirmMsg = `⚠️ เตรียมเริ่มซีซั่นใหม่?\n\nระบบจะปรับเลขซีซั่นเป็น ${nextS} ในหน้าจอนี้\n(คุณต้องกดปุ่ม "บันทึกค่าทั้งหมด" อีกครั้งเพื่อยืนยันการรีเซ็ตเลเวลผู้เล่นทุกคน)`;
+    const confirmMsg = `🔥 [คำเตือนขั้นเด็ดขาด]\n\nคุณกำลังจะเริ่ม "ซีซั่น ${nextS}"\n- ผู้เล่นทุกคนจะถูกรีเซ็ตเลเวลเป็น 1\n- เงินจะถูกปรับเป็น 500\n- คะแนนสะสมจะกลายเป็น 0\n\nต้องการดำเนินการต่อหรือไม่?`;
     
     if (confirm(confirmMsg)) {
-        // 1. อัปเดตเลขซีซั่นใน State (เฉพาะในเครื่องก่อน)
-        ADMIN_STATE.season_number = nextS;
+        window.spawn("⏳ กำลังรีเซ็ตผู้เล่นทั้งเซิร์ฟเวอร์...", "text-yellow-400 animate-pulse");
         
-        // 2. อัปเดต UI ให้เห็นเลขใหม่
-        const input = $('input-season-num');
-        if (input) {
-            input.value = nextS;
-            input.classList.add('animate-bounce', 'text-yellow-400');
-            setTimeout(() => input.classList.remove('animate-bounce'), 2000);
+        // 🔥 เรียก RPC รีเซ็ตทั้งระบบบน Cloud
+        const { error } = await supabase.rpc('start_new_season', { 
+            p_new_season_num: nextS 
+        });
+
+        if (!error) {
+            ADMIN_STATE.season_number = nextS;
+            const input = $('input-season-num');
+            if (input) {
+                input.value = nextS;
+                input.classList.add('animate-bounce', 'text-yellow-400');
+            }
+            window.spawn?.(`🚀 เริ่มซีซั่น ${nextS} สำเร็จ! ทุกคนกลับไปเริ่มใหม่แล้ว`, "text-emerald-400 font-black");
+            
+            // รีโหลดหน้าเพื่อให้ State ล่าสุดทำงาน
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            console.error(error);
+            window.spawn("❌ เกิดข้อผิดพลาดในการรีเซ็ตซีซั่น", "text-rose-500");
         }
-        
-        window.spawn?.(`🚀 เตรียมเริ่มซีซั่น ${nextS} แล้ว!อย่าลืมกด "บันทึกค่าทั้งหมด"`, "text-yellow-400 font-black");
-        saveLocal();
     }
 };
 
@@ -634,6 +634,7 @@ window.switchView = (view) => {
         if(preview) preview.classList.remove('hidden');
         window.initSeasonDropdown();
         window.renderHistoryRankings();
+        window.renderBossHistoryRankings();
     } else if (view === 'users') {
         vu.classList.remove('hidden');
         nu.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
@@ -757,7 +758,7 @@ window.renderHistoryRankings = async () => {
                 const isTop3 = index < 3;
                 const score = player.score ?? player.final_score ?? 0;
                 const timestamp = player.last_interaction_at ?? player.created_at;
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+                const rankNum = index + 1;
                 const glowClass = (index === 0 && isTop3) ? 'border-neon-gold shadow-[0_0_20px_rgba(255,215,0,0.1)]' : 
                                   (index === 1 && isTop3) ? 'border-white/20' : 
                                   (index === 2 && isTop3) ? 'border-white/10' : 'border-white/5';
@@ -765,15 +766,58 @@ window.renderHistoryRankings = async () => {
                 return `
                     <div class="flex items-center justify-between p-5 bg-white/[0.02] hover:bg-white/[0.05] rounded-3xl border ${glowClass} transition-all group">
                         <div class="flex items-center gap-6">
-                            <div class="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-black ${isTop3 ? 'text-xl' : 'text-[10px] text-white/20'}">${medal}</div>
+                            <div class="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-black ${isTop3 ? 'text-xl' : 'text-[10px] text-white/20'}">${rankNum}</div>
                             <div>
                                 <div class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors tracking-tight">${player.player_id}</div>
                                 <div class="text-[8px] text-white/20 uppercase tracking-[0.2em] mt-1">${new Date(timestamp).toLocaleDateString('th-TH', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} น.</div>
                             </div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right pr-4">
                             <div class="${isLive ? 'text-cyan-400' : 'text-neon-gold'} font-black text-2xl tracking-tighter">${score.toLocaleString()}</div>
                             <div class="text-[7px] text-white/30 uppercase font-black tracking-widest mt-0.5">${isLive ? 'คะแนนปัจจุบัน (LIVE)' : 'คะแนนสรุป (FINAL)'}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+};
+
+window.renderBossHistoryRankings = async () => {
+    const listContainer = $('boss-history-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = `<div class="text-center py-20 text-rose-400/40 animate-pulse">กำลังโหลดข้อมูลนักล่าบอส...</div>`;
+
+    const { data, error } = await supabase.rpc('get_boss_leaderboard');
+    
+    if (error || !data || data.length === 0) {
+        listContainer.innerHTML = `<div class="text-center py-20 text-white/10">❌ ยังไม่มีข้อมูลความเสียหายบอส</div>`;
+        return;
+    }
+
+    listContainer.innerHTML = `
+        <div class="flex flex-col gap-3">
+            ${data.map((player, index) => {
+                const isTop3 = index < 3;
+                const damage = player.damage || 0;
+                const rankNum = index + 1;
+                const glowClass = (index === 0 && isTop3) ? 'border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.1)]' : 
+                                  (index === 1 && isTop3) ? 'border-orange-500/30' : 
+                                  (index === 2 && isTop3) ? 'border-white/10' : 'border-white/5';
+
+                return `
+                    <div class="flex items-center justify-between p-5 bg-rose-500/[0.02] hover:bg-rose-500/[0.05] rounded-3xl border ${glowClass} transition-all group">
+                        <div class="flex items-center gap-6">
+                            <div class="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-black ${isTop3 ? 'text-xl text-rose-400' : 'text-[10px] text-white/20'}">${rankNum}</div>
+                            <div>
+                                <div class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors tracking-tight">${player.player_id}</div>
+                                <div class="text-[8px] text-rose-400/40 uppercase tracking-[0.2em] mt-1">BOSS HUNTER</div>
+                            </div>
+                        </div>
+                        <div class="text-right pr-4">
+                            <div class="text-rose-500 font-black text-2xl tracking-tighter">${damage.toLocaleString()}</div>
+                            <div class="text-[7px] text-white/30 uppercase font-black tracking-widest mt-0.5">ความเสียหาย (DAMAGE)</div>
                         </div>
                     </div>
                 `;
@@ -802,7 +846,11 @@ window.renderBossConfig = () => {
     if ($('boss-max-hp-input')) $('boss-max-hp-input').value = wb.max_hp || 1000000;
     if ($('boss-reward-tokens')) $('boss-reward-tokens').value = wb.reward_tokens || 5000;
     if ($('boss-reward-xp')) $('boss-reward-xp').value = wb.reward_xp || 2500;
-    if ($('boss-model-path')) $('boss-model-path').value = wb.model_path || '/models/phoenix_bird.glb';
+    let currentPath = wb.model_path || '/models/truffle_man.glb';
+    // 🛡️ [FORCE MIGRATION] ถ้ายังเป็นนกฟีนิกซ์ ให้เปลี่ยนเป็น Truffle Man ทันทีในหน้าจอ
+    if (currentPath.includes('phoenix_bird')) currentPath = '/models/truffle_man.glb';
+    
+    if ($('boss-model-path')) $('boss-model-path').value = currentPath;
     if ($('boss-anim-speed')) $('boss-anim-speed').value = wb.anim_speed || 1.0;
     
     // New Rock Mechanics
@@ -815,8 +863,29 @@ window.renderBossConfig = () => {
     // อัปเดตตัวพรีวิว 3D
     const viewer = $('boss-preview-viewer');
     if (viewer) {
-        const path = wb.model_path || '/models/phoenix_bird.glb';
-        viewer.src = path.startsWith('/') ? path : '/' + path;
+        let path = wb.model_path || '/models/truffle_man.glb';
+        if (path.includes('phoenix_bird')) path = '/models/truffle_man.glb';
+        const finalPath = path.startsWith('/') ? path : '/' + path;
+
+        // 🛡️ [DASHBOARD FIX] ตรวจสอบว่าเป็น model-viewer หรือยัง ถ้าไม่ใช่ให้สร้างใหม่
+        let mv = viewer.querySelector('model-viewer');
+        if (!mv) {
+            viewer.innerHTML = `
+                <model-viewer 
+                    src="${finalPath}" 
+                    camera-controls 
+                    auto-rotate
+                    interaction-prompt="none"
+                    shadow-intensity="1" 
+                    exposure="1.2"
+                    loading="eager"
+                    reveal="auto"
+                    style="width:100%; height:100%; background: transparent;">
+                </model-viewer>
+            `;
+        } else if (mv.getAttribute('src') !== finalPath) {
+            mv.setAttribute('src', finalPath);
+        }
     }
 };
 
@@ -824,7 +893,13 @@ window.updateBossPreview = () => {
     const path = $('boss-model-path')?.value;
     const viewer = $('boss-preview-viewer');
     if (viewer && path) {
-        viewer.src = path.startsWith('/') ? path : '/' + path;
+        const finalPath = path.startsWith('/') ? path : '/' + path;
+        let mv = viewer.querySelector('model-viewer');
+        if (mv) {
+            mv.setAttribute('src', finalPath);
+        } else {
+            window.renderBossConfig(); // Re-render if model-viewer is missing
+        }
     }
 };
 
@@ -833,6 +908,9 @@ window.toggleBossSpawn = async () => {
     ADMIN_STATE.world_boss.active = !ADMIN_STATE.world_boss.active;
     if (ADMIN_STATE.world_boss.active) {
         ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
+        // 🔥 ล้างดาเมจทุกคนเมื่อเริ่มบอสใหม่
+        await supabase.rpc('reset_all_boss_damage');
+        window.spawn?.("👹 เริ่มศึกบอสใหม่! ล้างอันดับดาเมจแล้ว", "text-yellow-400 font-bold");
     }
     await window.saveBossConfig();
 };
@@ -840,6 +918,9 @@ window.toggleBossSpawn = async () => {
 window.resetBossHP = async () => {
     if(!ADMIN_STATE.world_boss) return;
     ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
+    // 🔥 ล้างดาเมจทุกคนเมื่อรีเซ็ตเลือด
+    await supabase.rpc('reset_all_boss_damage');
+    window.spawn?.("🔄 รีเซ็ตเลือดบอสและอันดับดาเมจแล้ว", "text-cyan-400");
     await window.saveBossConfig();
 };
 
@@ -848,7 +929,7 @@ window.saveBossConfig = async () => {
     ADMIN_STATE.world_boss.max_hp = parseInt($('boss-max-hp-input')?.value || 1000000);
     ADMIN_STATE.world_boss.reward_tokens = parseInt($('boss-reward-tokens')?.value || 5000);
     ADMIN_STATE.world_boss.reward_xp = parseInt($('boss-reward-xp')?.value || 2500);
-    ADMIN_STATE.world_boss.model_path = $('boss-model-path')?.value || '/models/phoenix_bird.glb';
+    ADMIN_STATE.world_boss.model_path = $('boss-model-path')?.value || '/models/truffle_man.glb';
     ADMIN_STATE.world_boss.anim_speed = parseFloat($('boss-anim-speed')?.value || 1.0);
     
     // New Rock Mechanics
@@ -906,27 +987,54 @@ window.deleteScheduleSlot = (index) => {
     window.saveBossConfig();
 };
 
-(async () => {
-    // loadLocal เดิมถูกปิดการทำงานแล้ว
+// --- 🔐 Security & Authentication Logic (BYPASS MODE) ---
+window.handleAdminLogin = () => {
+    // ซ่อนหน้าจอทันทีถ้ามีการกดปุ่ม
+    const overlay = $('admin-login-overlay');
+    if (overlay) overlay.remove();
+    window.spawn?.("🔓 ระบบ Admin Bypass: เข้าใช้งานได้ทันที", "text-cyan-400 font-black");
+};
 
-    // 👑 [TESTING MODE] บายพาสระบบ Login เพื่อความรวดเร็วในการเทสตามคำสั่งพี่
+window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์สูงสุดเสมอสำหรับการทดสอบ
+
+(async () => {
+    // 🛡️ ซ่อนหน้าจอ Login อัตโนมัติ (Bypass)
+    const overlay = $('admin-login-overlay');
+    if (overlay) overlay.classList.add('hidden');
+
     highlightUI();
     syncInputsWithMatrix();
-    renderGallery();
     switchView('settings');
 
     const { data, error } = await loadGameConfig();
     if (data && data.config) {
-        // 🔥 [SYNC FIX] รวมค่าจาก Cloud เข้ากับ State ของเรา
         deepMerge(ADMIN_STATE, data.config);
         
-        // บังคับให้ช่องกรอกข้อมูล (Inputs) และ UI ทั้งหมดอัปเดตตามค่าจาก Cloud
+        if (!ADMIN_STATE.custom_model) {
+            const firstSkin = (ADMIN_STATE.available_skins || []).find(s => s.template === ADMIN_STATE.template);
+            if (firstSkin) {
+                ADMIN_STATE.custom_model = firstSkin.model;
+                ADMIN_STATE.custom_rotation_y = firstSkin.rotationY || 0;
+            }
+        }
+
         syncInputsWithMatrix();
         highlightUI();
         renderGallery();
-        console.log("☁️ Cloud Config Sync: [SUCCESS + UI REFRESHED]", ADMIN_STATE);
+        sendPreview(); 
+        
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'PW3D_READY') {
+                sendPreview();
+            }
+        });
+
+        BossService.subscribe((wb) => {
+            ADMIN_STATE.world_boss = wb;
+            window.renderBossConfig(); 
+        });
     }
     
-    IS_CLOUDSYNC_READY = true; // ✅ Ready to Save
+    IS_CLOUDSYNC_READY = true; 
     if(window.twemoji) twemoji.parse(document.body);
 })();

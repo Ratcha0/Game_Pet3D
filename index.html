@@ -6,7 +6,6 @@
     <title>LikeGotchi 3D - Ultimate Virtual Pet</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/20.0.0/tween.umd.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 </head>
 <body class="m-0 overflow-hidden bg-[#0a0e1a] select-none touch-none text-slate-100 font-sans">
 
@@ -39,8 +38,11 @@
         <div class="hud">
             <div class="hud-content">
                 
+                <!-- 🎯 Floating Notification Area (Centered) -->
+                <div id="spawn-area" class="fixed inset-0 z-[100] pointer-events-none"></div>
+
                 <!-- TOP DISTRIBUTED HUD -->
-                <header class="flex justify-between items-start px-2 sm:px-5 pt-2 sm:pt-4 pointer-events-none w-full">
+                <header class="flex justify-between items-start px-4 sm:px-10 pt-2 sm:pt-6 pointer-events-none w-full">
                     <!-- Left: Profile & Info -->
                     <div id="top-left-hud" class="pointer-events-auto">
                         <div class="profile-box glass flex items-center gap-2 sm:gap-6 p-1.5 sm:p-4 rounded-xl sm:rounded-[2rem] border border-white/10 shadow-2xl relative overflow-hidden group">
@@ -66,8 +68,9 @@
                             </div>
                         </div>
                         
-                        <!-- Floating Text Area (FOR XP/Tokens Feedback) -->
-                        <div id="spawn-area" class="absolute inset-0 z-0 pointer-events-none"></div>
+                        <!-- 🛡️ Buff Bar Container (Moved from bottom to here) -->
+                        <div id="buff-bar" class="flex gap-2 mt-2 ml-1 pointer-events-none overflow-visible"></div>
+                        
                     </div>
 
 
@@ -225,15 +228,13 @@
                                         <span id="lbl-stat-stamina" class="text-[7px] sm:text-[10px] font-black text-emerald-400/60 uppercase tracking-tighter">พลังงาน</span>
                                     </div>
                                     
-                                    <!-- Buff Bar Container -->
-                                    <div id="buff-bar" class="flex gap-1 ml-2 pointer-events-none"></div>
                                 </div>
 
                                 <!-- Central Divider -->
                                 <div class="w-px h-7 bg-white/10 mx-0.5 sm:mx-4 shrink-0"></div>
 
                                 <!-- Action Buttons Group (Right) -->
-                                <div class="flex flex-row items-center justify-end gap-1 flex-1">
+                                <div class="flex flex-row items-center justify-end gap-1 flex-1 pr-2 sm:pr-6">
                                     <button onclick="doAction('feed')" class="flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 active:scale-95 transition-all group relative">
                                         <span id="icon-act-feed" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🍖</span>
                                         <span id="lbl-act-feed" class="text-[7px] sm:text-[11px] font-black text-orange-400/50 uppercase mt-1">ป้อนอาหาร</span>
@@ -248,11 +249,6 @@
                                         <span id="icon-act-clean" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🧼</span>
                                         <span id="lbl-act-clean" class="text-[7px] sm:text-[11px] font-black text-cyan-400/50 uppercase mt-1">อาบน้ำ</span>
                                         <span class="absolute -top-1 -right-1 bg-black/60 px-1 rounded text-[7px] sm:text-[9px] text-cyan-400 border border-cyan-500/20">⚡5</span>
-                                    </button>
-                                    <button id="btn-repair" onclick="doAction('repair')" class="hidden flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 active:scale-95 transition-all group relative">
-                                        <span id="icon-act-repair" class="text-base sm:text-2xl group-hover:scale-110 transition-transform">🔧</span>
-                                        <span id="lbl-act-repair" class="text-[7px] sm:text-[11px] font-black text-white/30 uppercase mt-1">ซ่อมเครื่อง</span>
-                                        <span class="absolute -top-1 -right-1 bg-black/60 px-1 rounded text-[7px] text-blue-400 border border-blue-500/20">⚡10</span>
                                     </button>
                                     <div class="w-px h-8 bg-white/5 mx-0.5"></div>
                                     <button onclick="toggleRanking()" class="flex flex-col items-center justify-center w-8 sm:w-16 h-12 sm:h-20 rounded-xl bg-yellow-500/5 border border-yellow-500/20 hover:bg-yellow-500/10 active:scale-95 transition-all group">
@@ -271,34 +267,41 @@
 
     <!-- Ranking Modal -->
     <div id="ranking-modal" class="fixed inset-0 z-[200] transition-all duration-500 flex items-center justify-center pointer-events-none opacity-0 translate-y-8 hidden">
-        <div id="ranking-modal-container" class="w-[94%] max-w-[420px] bg-[#0c1224] rounded-[2.5rem] border border-white/20 flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] pointer-events-auto relative overflow-hidden">
-            <div class="px-5 pt-4 pb-2 shrink-0 flex flex-col gap-3 border-b border-white/5 bg-white/5">
+        <div id="ranking-modal-container" class="w-[94%] max-w-[420px] bg-[#0c1224] rounded-[2.5rem] border border-white/20 flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] pointer-events-auto relative">
+            <div class="px-5 pt-4 pb-2 shrink-0 flex flex-col gap-3 border-b border-white/5 bg-white/5 rounded-t-[2.5rem]">
                 <div class="flex items-center justify-between">
                     <div class="flex flex-col">
                         <h2 id="season-badge" class="text-[8px] font-black text-neon-purple uppercase tracking-[0.3em]">Season 1</h2>
-                        <h3 class="text-xl font-black text-white italic tracking-tighter uppercase leading-none">อันดับโลก</h3>
+                        <h3 id="ranking-title-text" class="text-xl font-black text-white italic tracking-tighter uppercase leading-none">อันดับโลก</h3>
                     </div>
                     <button onclick="toggleRanking(true)" class="w-8 h-8 bg-white/10 hover:bg-white/20 active:scale-95 rounded-full flex items-center justify-center transition-all border border-white/10">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-4 h-4 text-white"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 
-                <!-- 🏆 Ranking Tabs -->
+                <!-- 🏆 Ranking Tabs (Refactored) -->
                 <div class="flex gap-1 bg-black/60 p-1 rounded-xl border border-white/5 w-full mb-1">
-                    <button id="btn-rank-live" onclick="switchRankingTab('live')" class="flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all bg-neon-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]">🔥 Live</button>
-                    <button id="btn-rank-history" onclick="switchRankingTab('history')" class="flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all text-white/30 hover:bg-white/5">📜 History</button>
+                    <button id="btn-rank-world" onclick="switchRankingTab('world')" class="flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all bg-neon-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]">🏆 อันดับโลก</button>
+                    <button id="btn-rank-boss" onclick="switchRankingTab('boss')" class="flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all text-white/30 hover:bg-white/5">👹 นักล่าบอส</button>
                 </div>
-
-                <!-- 📅 Season Selector (Always visible to maintain layout stability) -->
-                <div id="season-selector-container" class="flex items-center justify-between bg-white/5 px-4 py-2 rounded-xl mb-1 group">
-                    <span id="rank-season-label" class="text-[9px] font-black text-white/40 uppercase tracking-widest">ซีซั่นปัจจุบัน:</span>
-                    <select id="rank-season-select" onchange="refreshRankingList()" class="bg-transparent text-white font-black text-xs outline-none cursor-pointer border-none p-0 transition-opacity">
-                        <option value="current">กำลังแข่งขัน...</option>
-                    </select>
+ 
+                <!-- 📅 Custom Season Selector (Only for World Tab) -->
+                <div id="season-selector-container" class="flex items-center justify-between bg-white/5 px-4 py-2 rounded-xl mb-1 group relative">
+                    <span id="rank-season-label" class="text-[9px] font-black text-white/40 uppercase tracking-widest">เลือกซีซั่น:</span>
+                    <div id="custom-season-dropdown" class="relative">
+                        <button onclick="toggleCustomDropdown(event)" id="rank-season-btn" class="flex items-center gap-2 bg-transparent text-white font-black text-xs outline-none cursor-pointer border-none p-0">
+                            <span id="rank-season-current">ซีซั่น 1</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-3 h-3 opacity-50"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+                        </button>
+                        <!-- Dropdown Menu -->
+                        <div id="rank-season-options" class="hidden absolute top-full right-0 mt-2 w-32 bg-[#1b2238] border border-white/20 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] z-[300] py-1 overflow-hidden animate-pop-in">
+                            <!-- Options will be injected here -->
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div id="ranking-list" class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar min-h-0">
+            <div id="ranking-list" class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar min-h-[300px]">
                 <div class="text-white/30 text-center py-10 animate-pulse">⏳ กำลังโหลด...</div>
             </div>
         </div>
@@ -564,5 +567,32 @@
     <button id="reopen-btn" onclick="toggleMinimize()" class="hidden fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-[0_0_20px_rgba(79,70,229,0.6)] flex items-center justify-center text-2xl z-[9999] hover:scale-110 active:scale-95 transition-all border-2 border-white/20">
         🎮
     </button>
+
+    <!-- 👹 BOSS VICTORY MODAL (Ranking & Rewards) -->
+    <div id="boss-victory-modal" class="hidden fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md items-center justify-center p-6 animate-in fade-in duration-500">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(225,29,72,0.15)_0%,transparent_70%)]"></div>
+        <div class="glass w-full max-w-sm rounded-[40px] p-8 border border-white/10 relative overflow-hidden flex flex-col items-center text-center">
+            <div class="w-24 h-24 bg-gradient-to-tr from-rose-500 to-orange-500 rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(225,29,72,0.4)] border-4 border-white/20 animate-bounce">
+                <span class="text-5xl">🏆</span>
+            </div>
+            <h2 class="text-3xl font-black italic tracking-tighter uppercase text-white mb-1">BOSS DEFEATED!</h2>
+            <p class="text-[10px] text-rose-400 uppercase tracking-[0.2em] font-black mb-6">สรุปอันดับดาเมจผู้กล้า</p>
+            <div class="grid grid-cols-2 gap-3 w-full mb-6">
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <div class="text-[8px] text-white/40 uppercase font-bold mb-1">Your Rank</div>
+                    <div id="my-boss-rank" class="text-2xl font-black text-white">#1</div>
+                </div>
+                <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <div class="text-[8px] text-white/40 uppercase font-bold mb-1">Your Damage</div>
+                    <div id="my-boss-damage" class="text-2xl font-black text-rose-400">0</div>
+                </div>
+            </div>
+            <div class="w-full space-y-2 mb-8 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar" id="boss-rank-list"></div>
+            <button onclick="closeBossVictoryModal()" class="w-full py-4 bg-gradient-to-r from-rose-500 to-orange-500 rounded-2xl font-black uppercase text-xs tracking-widest text-white shadow-xl shadow-rose-500/20 active:scale-95 transition-all">
+                รับรางวัลและปิดหน้าต่าง 🎁
+            </button>
+        </div>
+    </div>
+
 </body>
 </html>

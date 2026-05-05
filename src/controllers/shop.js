@@ -33,8 +33,6 @@ export function initShop() {
             let currentModel = '';
             if (STATE.inventory && STATE.inventory.equipped_skins && STATE.inventory.equipped_skins[currentTpl]) {
                 currentModel = STATE.inventory.equipped_skins[currentTpl];
-            } else if (STATE.inventory && STATE.inventory.equipped_skin) {
-                currentModel = STATE.inventory.equipped_skin;
             } else {
                 currentModel = STATE.config.custom_model || '';
             }
@@ -86,21 +84,26 @@ export function initShop() {
                 html += `
                     <div id="skin-card-${s.id}" onclick="buyOrEquipSkin('${s.id}')" class="shop-card glass p-3 sm:p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow overflow-hidden group border border-${glowColor}/30 transition-all duration-500">
                         <div class="absolute inset-0 bg-gradient-to-br from-${glowColor}/10 to-transparent pointer-events-none"></div>
-                        <div class="w-full h-24 sm:h-28 bg-${glowColor}/10 rounded-2xl flex items-center justify-center mb-3 shadow-inner group-hover:scale-105 transition-transform drop-shadow-xl relative overflow-hidden pointer-events-none">
+                        <div class="w-full h-24 sm:h-28 bg-${glowColor}/20 rounded-2xl flex items-center justify-center mb-3 shadow-inner group-hover:scale-105 transition-transform drop-shadow-xl relative overflow-hidden pointer-events-none">
+                            <!-- Placeholder Icon while loading -->
+                            <div class="absolute inset-0 flex items-center justify-center text-4xl opacity-20 group-hover:opacity-40 transition-opacity">
+                                ${s.icon}
+                            </div>
+
                             <!-- Skeleton Loader (Shimmer) -->
-                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer"></div>
+                            <div id="skeleton-${s.id}" class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer"></div>
                             
                             <model-viewer 
                                 src="${s.model}" 
-                                loading="eager" 
+                                loading="lazy" 
                                 reveal="auto"
-                                class="w-full h-full object-contain opacity-0 transition-opacity duration-700" 
-                                onprogress="if(this.getAttribute('loaded')==='true') this.style.opacity='1'"
-                                onload="this.style.opacity='1'; this.setAttribute('loaded','true')"
+                                class="model-preview w-full h-full object-contain opacity-0 transition-opacity duration-1000" 
                                 disable-zoom disable-pan auto-rotate rotation-per-second="45deg" 
                                 shadow-intensity="0.5" camera-orbit="45deg 75deg 105%" 
-                                environment-image="neutral" style="background-color: transparent;">
+                                environment-image="neutral" style="background-color: transparent;"
+                                onrender="this.classList.remove('opacity-0'); document.getElementById('skeleton-${s.id}').style.display='none';">
                             </model-viewer>
+                            <div class="absolute bottom-2 text-[8px] font-bold text-white/20 uppercase tracking-tighter">Loading 3D...</div>
                             
                             <div id="skin-badge-${s.id}" class="absolute top-1 right-1 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce z-10 shadow-lg" style="display: none;">ใช้งานอยู่</div>
                         </div>
@@ -240,7 +243,9 @@ export function initShop() {
         }
 
         STATE.tokens -= cost;
-        STATE.stamina += amt; 
+        // 🛡️ [FIX] จำกัดไม่ให้ Stamina เกินค่าสูงสุด (Max Stamina)
+        const maxStam = STATE.max_stamina || 100;
+        STATE.stamina = Math.min(maxStam, STATE.stamina + amt); 
         
         logScoreAction(currentUserId, 'SHOP_PURCHASE', 0, -cost, `ซื้อแพ็คเกจ ${tier.toUpperCase()}`);
 
@@ -306,7 +311,7 @@ window.applyBuff = (type, durationMin) => {
     STATE.buffs[`${type}_mult`] = b.mult;
     STATE.buffs[`${type}_expiry`] = baseStart + (durationMin * 60 * 1000);
     
-    saveState();
+    saveState(false, true); // 🔥 บันทึกทันทีเมื่อได้รับบัฟ
     if (window.renderShopBoosters) window.renderShopBoosters();
 };
 

@@ -10,7 +10,7 @@ class SoundManager {
         this.musicEnabled = localStorage.getItem('pw3d_music_enabled') !== 'false';
         
         // --- ส่วนที่ปรับความดังได้ง่ายๆ ตรงนี้ครับ ---
-        this.masterVolume = 0.25; // ลดเสียงลงจาก 0.5 → 0.25 ตามคำสั่งพี่
+        this.masterVolume = 0.5; // 🔊 เพิ่มความดังขึ้นเป็น 0.5 (จาก 0.25)
         this.bgmVolume = 0.05;   // ความดังเพลงพื้นหลัง (0.0 - 1.0)
         
         this.assets = {};
@@ -30,6 +30,7 @@ class SoundManager {
     playLevelUp() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return; // 🛡️ [FIX] กันพังกรณีโหลด Context ไม่ทัน
         const now = this.ctx.currentTime;
         
         // ทำนองแบบ Arpeggio (C4 -> E4 -> G4 -> C5)
@@ -81,6 +82,7 @@ class SoundManager {
     playJingle() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
         
         const now = this.ctx.currentTime;
         const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
@@ -106,6 +108,7 @@ class SoundManager {
     playCoin() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
@@ -126,6 +129,7 @@ class SoundManager {
     playSpawn() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
@@ -146,6 +150,7 @@ class SoundManager {
     playClick() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
@@ -166,6 +171,7 @@ class SoundManager {
     playError() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
@@ -187,6 +193,7 @@ class SoundManager {
     playHonk() {
         if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
         const now = this.ctx.currentTime;
         
         // ความถี่คู่ (Major Third) ทำให้เสียงแตรดูมีน้ำหนักและสมจริง
@@ -238,17 +245,33 @@ class SoundManager {
     }
 
     playAsset(name) {
-        if (!this.enabled) return;
+        if (!this.enabled) {
+            console.warn(`🔊 [SFX] Playback skipped: Sound is disabled. (name: ${name})`);
+            return;
+        }
         this.init(); 
 
-        const now = this.ctx.currentTime;
+        if (!this.ctx && name !== 'meow') return; // meow plays via HTML Audio, others via Web Audio
+        const now = this.ctx ? this.ctx.currentTime : 0;
 
         // --- 🐱 เล่นเสียงแมวจริงจากไฟล์ ---
         if (name === 'meow') {
-            if (!this.assets.meow) return;
-            const audio = this.assets.meow.cloneNode();
-            audio.volume = 0.6 * this.masterVolume;
-            audio.play().catch(e => console.warn("Cat sound blocked:", e));
+            if (!this.assets.meow) {
+                console.error("❌ [SFX] meow asset missing!");
+                return;
+            }
+            try {
+                const audio = this.assets.meow.cloneNode();
+                audio.volume = 1.0 * this.masterVolume; // 🔊 เพิ่มความดังขึ้นเป็น 1.0 (จาก 0.6)
+                audio.play().catch(e => {
+                    console.warn("⚠️ [SFX] Cat sound blocked or failed:", e);
+                    // ถ้าโดนบล็อก ลองเล่นผ่านตัวต้นฉบับตรงๆ (Fallback)
+                    this.assets.meow.volume = 1.0 * this.masterVolume;
+                    this.assets.meow.play().catch(() => {});
+                });
+            } catch (err) {
+                console.error("❌ [SFX] meow playback error:", err);
+            }
             return;
         }
 

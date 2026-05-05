@@ -1,14 +1,17 @@
 import * as THREE from 'three';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 
+// 🛡️ [INSTANCING FIX] ยกเลิกตัวแปร Global ที่แชร์ข้ามจอ
 let scene, camera, renderer, petModel, particles, groundMesh, debugDropPoint;
 let ambientLight, sunLight, purpleLight, pinkLight, mixer;
-const gltfLoader = new GLTFLoader();
 let currentTemplate = 'pet';
 let currentDropOffset = { x: 0, y: 0.1, z: -0.2 };
 let currentAction = null;
 let envConfig = { sky: 'day', ground: 'grass' };
+let currentContainerId = null; // 🛡️ [AUDIT FIX] เก็บไว้ใช้ตอน Resize
+let currentModelPath = ""; 
+let isCurrentlyLoading = false; // 👈 ตัวเดียวคุมทั้งไฟล์
 
 // --- 🏃 Walking & Animation state ---
 let targetPos = new THREE.Vector3(0, -1.2, 0);
@@ -18,11 +21,9 @@ let walkActions = [];
 let idleActions = [];
 let animState = 'idle';
 let modelBaseScale = 1;
-let targetPetScale = 1;
+let currentScale = 1.0; // 📏 [AUDIT FIX] Consolidated scaling variable
 
-// --- ❄️ Cache & Seamless Swap ---
-const modelCache = new Map();
-let isCurrentlyLoading = false;
+// --- ❄️ Seamless Swap (No Global Cache to prevent Snatching) ---
 let raycaster = new THREE.Raycaster();
 let occludedObjects = [];
 
@@ -75,11 +76,13 @@ function addParticle(x, y, z, velocity, color, size, lifetime) {
     dynamicParticles.push({ mesh, velocity, lifetime, maxLifetime: lifetime });
 }
 
-function updateDynamicParticles() {
+function updateDynamicParticles(delta = 1/60) {
     for (let i = dynamicParticles.length - 1; i >= 0; i--) {
         const p = dynamicParticles[i];
         p.lifetime--;
-        p.mesh.position.add(p.velocity);
+        // 🛡️ [AUDIT FIX] ทำให้พาร์ทิเคิลขยับตามเวลาจริง ไม่ขึ้นกับ FPS
+        const moveStep = p.velocity.clone().multiplyScalar(delta * 60);
+        p.mesh.position.add(moveStep);
         p.mesh.material.opacity = p.lifetime / p.maxLifetime;
         p.mesh.scale.multiplyScalar(0.98);
         if (p.lifetime <= 0) {
@@ -99,26 +102,6 @@ let engineConfig = { poop_lifetime: 180, reward_lifetime: 150, max_poops: 3, max
 let targetItemToCollect = null;
 let userInvokedCollect = false; // 🔒 เพิ่มตัวแปรเช็คว่าคนกดเองไหม
 
-function disposeObject(obj) {
-    if (!obj) return;
-    const el = indicatorElements.get(obj);
-    if (el) { el.remove(); indicatorElements.delete(obj); }
-    obj.traverse(node => {
-        if (node.isMesh) {
-            if (node.geometry) node.geometry.dispose();
-            if (node.material) {
-                const materials = Array.isArray(node.material) ? node.material : [node.material];
-                materials.forEach(mat => {
-                    mat.dispose();
-                    // Dispose associated textures
-                    ['map', 'lightMap', 'bumpMap', 'normalMap', 'specularMap', 'envMap', 'emissiveMap', 'metalnessMap', 'roughnessMap'].forEach(mapName => {
-                        if (mat[mapName] && mat[mapName].dispose) mat[mapName].dispose();
-                    });
-                });
-            }
-        }
-    });
-}
 
 const SKY_COLORS = { day: 0x87CEEB, sunset: 0x4a2040, night: 0x0a0e1a, space: 0x020208 };
 const GROUND_COLORS = { grass: 0x3a8c4a, sand: 0xc2a55a, snow: 0xd0dde8, stone: 0x555560 };
@@ -130,18 +113,25 @@ const LIGHT_PRESETS = {
 };
 
 export function init3D(containerId, templateType = 'pet', env = {}) {
+    if (renderer) {
+        console.warn("🚀 [3D Engine] Already initialized. Skipping...");
+        return;
+    }
     currentTemplate = templateType;
-    const customModel = env.customModel || '';
-    const customRotationY = env.customRotationY || 0;
-    if (env.sky) envConfig.sky = env.sky;
-    if (env.ground) envConfig.ground = env.ground;
-
+    currentContainerId = containerId; 
+    // 🛡️ [SYNC FIX] อัปเดตค่า Config ส่วนกลาง
+    Object.assign(envConfig, env || {});
+    
     const container = document.getElementById(containerId);
     if (!container) return;
 
     const preset = LIGHT_PRESETS[envConfig.sky] || LIGHT_PRESETS.day;
+    
+    // 🛡️ [SINGLETON FIX] บังคับใช้ THREE ตัวเดียวกับที่โหลด Loader มา
     scene = new THREE.Scene();
-    window._scene = scene; // 🔥 เก็บไว้ใน window เพื่อให้เรียกใช้ได้พิกัดเดียวกันเสมอ
+    console.log("✅ [3D Engine] Scene Created:", scene);
+    window._scene = scene; 
+    window.THREE = THREE; // 🔗 ผูกไว้กับ window เพื่อให้ไฟล์อื่นใช้ตัวเดียวกันเป๊ะๆ
     scene.background = new THREE.Color(SKY_COLORS[envConfig.sky] || SKY_COLORS.day);
     scene.fog = new THREE.FogExp2(SKY_COLORS[envConfig.sky] || SKY_COLORS.day, preset.fog);
 
@@ -157,14 +147,23 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     scene.add(debugDropPoint);
     debugDropPoint.visible = window.location.search.includes('admin=true');
 
-    renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", precision: 'mediump' });
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", precision: 'mediump', alpha: true });
+    
+    // 🛡️ [BUGFIX] ป้องกันปัญหาจอขาว/โมเดลไม่ขึ้นในจอเล็ก (Zero Size Guard)
+    const initialWidth = container.clientWidth || 300;
+    const initialHeight = container.clientHeight || 300;
+    
+    renderer.setSize(initialWidth, initialHeight);
     renderer.setPixelRatio(isMobile() ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.BasicShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = preset.exposure;
     container.appendChild(renderer.domElement);
+    
+    // บังคับให้ Camera Update อีกรอบเผื่อขนาดผิด
+    camera.aspect = initialWidth / initialHeight;
+    camera.updateProjectionMatrix();
 
     ambientLight = new THREE.AmbientLight(preset.ambient, preset.ambientI);
     scene.add(ambientLight);
@@ -181,7 +180,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     createGround();
     createDecorations();
     createParticles();
-    createPetObject(customModel, customRotationY);
+    // 🛡️ [AUDIT FIX] ย้ายการโหลดโมเดลไปไว้ท้ายสุดเพื่อให้ฉากพร้อม 100% ก่อน
 
     const actionChannel = new BroadcastChannel('like-gotchi-action-sync');
     actionChannel.onmessage = (e) => {
@@ -193,8 +192,8 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
             nextAutoWalkTime = (performance.now() / 1000) + 12;
         }
         else if (type === 'TOUCH' && petModel) {
-            if (window.doTouch) window.doTouch();
-            petModel.scale.setScalar(targetPetScale * 1.15);
+            if (window.doTouch) window.doTouch(true);
+            petModel.scale.setScalar(currentScale * 1.15);
         }
         else if (type === 'SPAWN_POOP') {
             const mesh = createPoopMesh(x, z, itemType);
@@ -231,9 +230,34 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
                 }
             }
         }
+        else if (type === 'REFRESH_PET') {
+            if (window.refreshPetModel) window.refreshPetModel();
+        }
     };
 
     window._actionChannel = actionChannel; // เก็บไว้ใช้ในฟังก์ชันอื่น
+
+    // 🛡️ [SYNC FIX] ตรวจสอบความพร้อมของทุกอย่างหลัง Init เสร็จ
+    if (window._worldBoss) {
+        scene.add(window._worldBoss);
+        console.log("🔥 Recovered Boss into New Scene");
+    }
+    
+    // 🔄 รีโหลดแมวและสภาพแวดล้อมให้ถูกต้องตาม Config ล่าสุดทันที
+    updateEnvironment(envConfig.sky, envConfig.ground);
+    
+    // 🔥 [SINGLE LOAD FIX] โหลดโมเดลที่นี่จุดเดียว เพื่อกันปัญหา Scene Not Ready
+    if (envConfig.customModel) {
+        console.log("🐈 [3D Engine] Starting Pet Load:", envConfig.customModel);
+        createPetObject(envConfig.customModel, envConfig.customRotationY);
+    }
+
+    // 👹 [DEEP AUDIT FIX] รันบอสที่ค้างอยู่ในคิวทันทีที่ฉากพร้อม
+    if (window._pendingBossConfig) {
+        console.log("🚀 [3D Engine] Processing pending boss spawn...");
+        updateBossModel(window._pendingBossConfig);
+        window._pendingBossConfig = null;
+    }
 
     const handleGlobalInput = (clientX, clientY) => {
         const rect = renderer.domElement.getBoundingClientRect();
@@ -241,17 +265,40 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
         const ray = new THREE.Raycaster();
         ray.setFromCamera(mouse, camera);
 
-        // [Physical Update] ยกเลิกการคลิกแล้วเก็บทันที เพื่อให้ต้องเดินเข้าไปชนจริงๆ เท่านั้น
-        // (Removing Direct Click Collection Loop)
+        // ud83cudfaf [DIRECT CLICK COLLECTION] u0e15u0e23u0e27u0e0au0e2au0e2du0e1au0e27u0e48u0e32u0e08u0e34u0e49u0e21u0e42u0e14u0e19u0e44u0e2du0e40u0e17u0e21u0e42u0e14u0e22u0e15u0e23u0e07u0e44u0e2bu0e21
+        const rewardMeshes = rewardObjects.map(r => r.mesh);
+        const poopMeshes = poopObjects.map(p => p.mesh);
+        const itemHits = ray.intersectObjects([...rewardMeshes, ...poopMeshes], true);
 
-            if (petModel) {
+        if (itemHits.length > 0) {
+            let root = itemHits[0].object;
+            while (root.parent && root.parent !== scene && !root.userData.syncId) root = root.parent;
+            const syncId = root.userData.syncId;
+
+            if (syncId) {
+                const pIdx = poopObjects.findIndex(p => p.mesh.userData.syncId === syncId);
+                const rIdx = rewardObjects.findIndex(r => r.mesh.userData.syncId === syncId);
+
+                if (pIdx !== -1) {
+                    const p = poopObjects[pIdx];
+                    if (onPoopCollected) onPoopCollected(p.type, false);
+                    scene.remove(p.mesh); disposeObject(p.mesh); poopObjects.splice(pIdx, 1);
+                } else if (rIdx !== -1) {
+                    const r = rewardObjects[rIdx];
+                    if (onRewardCollected) onRewardCollected(r.type, r.value);
+                    scene.remove(r.mesh); disposeObject(r.mesh); rewardObjects.splice(rIdx, 1);
+                }
+                if (window._actionChannel) window._actionChannel.postMessage({ type: "COLLECT", syncId });
+                return;
+            }
+        }
+
+        if (petModel) {
             const groundHit = ray.intersectObject(groundMesh);
             if (ray.intersectObject(petModel, true).length > 0 || (groundHit.length > 0 && groundHit[0].point.distanceTo(petModel.position) < 1.3)) {
                 if (window.doTouch) window.doTouch();
-                petModel.scale.setScalar(targetPetScale * 1.15);
-                
-                // กระจายท่าทาง "โดนจิ้ม" ให้จออื่นเด้งตาม
-                if (window._actionChannel) window._actionChannel.postMessage({ type: 'TOUCH' });
+                petModel.scale.setScalar(currentScale * 1.15);
+                if (window._actionChannel) window._actionChannel.postMessage({ type: "TOUCH" });
                 return;
             }
             if (groundHit.length > 0) {
@@ -259,9 +306,7 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
                 targetPos.copy(hit); targetPos.y = -1.2; isWalking = true;
                 nextAutoWalkTime = (performance.now() / 1000) + 12;
                 targetItemToCollect = null;
-                
-                // กระจายคำสั่งเดินให้จออื่น
-                actionChannel.postMessage({ type: 'MOVE', x: hit.x, z: hit.z });
+                actionChannel.postMessage({ type: "MOVE", x: hit.x, z: hit.z });
             }
         }
     };
@@ -379,22 +424,20 @@ let pendingModelLoad = null;
 function createPetObject(path = '', rotationY = 0) {
     if (!path) return;
     
-    // ถ้าเคยโหลดแล้ว ให้ดึงจาก Cache (เด้งขึ้นทันใจ)
-    if (modelCache.has(path)) {
-        const cached = modelCache.get(path);
-        swapModel(cached.model, cached.mixer, cached.animations, rotationY, path);
-        return;
-    }
-
+    // 🛡️ [OPTIMIZATION] ป้องกันการโหลดโมเดลเดิมซ้ำซ้อนขณะกำลังทำงาน
+    if (path === currentModelPath && petModel && !isCurrentlyLoading) return;
+    
     if (isCurrentlyLoading) {
-        // Queue the request if something is already downloading
         pendingModelLoad = { path, rotationY };
         return;
     }
     isCurrentlyLoading = true;
+    currentModelPath = path; 
 
-    new GLTFLoader().load(path, (gltf) => {
+    const loader = new GLTFLoader();
+    loader.load(path, (gltf) => {
         const m = gltf.scene;
+        m.name = "PET_MODEL";
         m.traverse(c => {
             if (c.isMesh) {
                 c.castShadow = c.receiveShadow = true;
@@ -405,35 +448,18 @@ function createPetObject(path = '', rotationY = 0) {
             }
         });
         
-        // --- 🧠 LRU Cache Management ---
-        // ถ้า Cache ใหญ่เกินไป (เกิน 6 ตัว) ให้ลบตัวที่เก่าที่สุด
-        if (modelCache.size >= 6) {
-            const oldestPath = modelCache.keys().next().value;
-            const oldestItem = modelCache.get(oldestPath);
-            // ห้ามลบตัวที่กำลังใช้งานอยู่!
-            if (oldestItem && oldestItem.model !== petModel) {
-                console.log("♻️ Evicting old model from cache:", oldestPath);
-                disposeObject(oldestItem.model);
-                modelCache.delete(oldestPath);
-            }
-        }
-
-        // เก็บเข้า Cache
-        modelCache.set(path, { model: m, mixer: null, animations: gltf.animations });
         isCurrentlyLoading = false;
-        
         swapModel(m, null, gltf.animations, rotationY, path);
         
-        // Process next in queue if any
         if (pendingModelLoad) {
             const nextLoad = pendingModelLoad;
             pendingModelLoad = null;
             createPetObject(nextLoad.path, nextLoad.rotationY);
         }
-        
     }, null, (err) => {
-        console.error("Load failed:", err);
+        console.error("❌ Model load failed:", err);
         isCurrentlyLoading = false;
+        currentModelPath = ""; // 🛡️ [BUGFIX] รีเซ็ต Path เพื่อให้สามารถกดโหลดใหม่ (Retry) ได้ถ้าครั้งแรกเฟล
         
         if (pendingModelLoad) {
             const nextLoad = pendingModelLoad;
@@ -524,15 +550,36 @@ function swapModel(newModelContent, existingMixer, animations, rotationY, path) 
     // --- ✨ ทำการสลับตัวละคร (Swap) ✨ ---
     if (petModel) {
         scene.remove(petModel);
-        // เราจะไม่ dispose ตัวเก่าทิ้ง เพื่อให้ถ้าสลับกลับมาจะเร็วขึ้น
+        // 🛡️ [MEMORY HARDENING] แทนที่จะทิ้งไว้เฉยๆ เราจะจัดการ Cache ให้ไม่บวม
+        if (!window._skinCache) window._skinCache = new Map();
+        
+        // ถ้ามีสกินในแคชเกิน 3 ตัว ให้ Dispose ตัวที่เก่าที่สุดทิ้ง
+        if (window._skinCache.size >= 3) {
+            const firstKey = window._skinCache.keys().next().value;
+            const oldModel = window._skinCache.get(firstKey);
+            disposeObject(oldModel);
+            window._skinCache.delete(firstKey);
+        }
     }
     
     petModel = newGroup;
-    window._petModel = petModel; // 🔥 Ensure window sync
+    petModel.name = "PET_MODEL"; // 🐱 ติดป้ายชื่อกันโดนลบผิดตัว
+    window._petModel = petModel; 
     petModel.position.y = -1.2;
-    scene.add(petModel);
     
-    // รีเซ็ตสถานะการเดิน
+    // 🛡️ [AUDIT FIX] นำขนาดที่คำนวณจากเลเวลมาใส่ให้โมเดลใหม่ทันที
+    const safeScale = isNaN(currentScale) ? 1.0 : currentScale;
+    petModel.scale.set(safeScale, safeScale, safeScale);
+    
+
+    const activeScene = scene || window._scene;
+    if (activeScene) {
+        activeScene.add(petModel);
+        console.log("✅ [3D Engine] Model added to scene:", path);
+    } else {
+        console.error("❌ [3D Engine] CRITICAL: Scene still not ready in swapModel!");
+    }
+    
     isWalking = false;
     animState = 'idle';
 }
@@ -546,7 +593,7 @@ function animate() {
     if (mixer) mixer.update(delta);
     if (window._worldBoss && window._worldBoss.userData.mixer) window._worldBoss.userData.mixer.update(delta);
     updateProjectiles(delta);
-    updateDynamicParticles();
+    updateDynamicParticles(delta);
     
     if (petModel) {
         if (isWalking) {
@@ -559,16 +606,9 @@ function animate() {
                 const love = window.STATE?.love || 100;
                 const stam = window.STATE?.stamina || 100;
 
-                // คำนวณ Mood Factor: หิวมาก=เดินช้า, อารมณ์ดี=เดินกระฉับกระเฉง
-                let moodFactor = 1.0;
-                if (hunger < 25) moodFactor *= 0.65; // หิวโซ จนไม่มีแรง
-                else if (love > 85 && hunger > 70) moodFactor *= 1.25; // แฮปปี้สุดๆ เดินไวกว่าปกติ
-                
-                const stamFactor = stam < 20 ? 0.6 : (stam < 50 ? 0.85 : 1.0);
-                
                 // --- 👹 Boss Skill Speed Support ---
                 const speedMult = window._bossSpeedMult || 1.0;
-                const finalSpeed = baseSpeedFromState * stamFactor * moodFactor * speedMult;
+                const finalSpeed = baseSpeedFromState * speedMult; // 🚀 [FIX] กลับมาวิ่งไวคงที่ 100%
 
                 _dir.normalize().multiplyScalar(finalSpeed); petModel.position.add(_dir);
                 const targetRot = Math.atan2(_dir.x, _dir.z);
@@ -585,7 +625,7 @@ function animate() {
                 // 🛑 เช็คระยะห่างจริงๆ ก่อนเก็บ (ต้องใกล้พอ) และต้องเป็นการสั่งจากคนเล่นเท่านั้น
                 if (targetItemToCollect && userInvokedCollect) { 
                     const distToItem = petModel.position.distanceTo(targetItemToCollect.position);
-                    if (distToItem < 1.0) {
+                    if (distToItem < 2.0) { // 🏹 [FIX] ขยายระยะเก็บให้กว้างขึ้นเป็น 2.0 เพื่อให้เก็บง่ายชัวร์ๆ
                         collectItemAtPet(); 
                     }
                     targetItemToCollect = null; 
@@ -632,7 +672,7 @@ function animate() {
                 nextAutoWalkTime = now + (8 + Math.random() * 10) * restMult;
             }
         }
-        const s = petModel.scale.x, goal = targetPetScale, n = s + (goal - s) * 0.03;
+        const s = petModel.scale.x, goal = currentScale, n = s + (goal - s) * 0.03;
         petModel.scale.set(n, n, n);
         if (camera) {
             _camTarget.set(petModel.position.x, petModel.position.y + 4.7, petModel.position.z + 8);
@@ -887,8 +927,8 @@ export function showEmoticon(emoji, duration = 3000) {
     
     currentEmotion = emoji;
     container.innerHTML = `
-        <div class="emotion-bubble animate-pop-in">
-            <span class="text-2xl">${emoji}</span>
+        <div class="emotion-bubble animate-pop-in flex items-center justify-center min-w-[50px] min-h-[50px] sm:min-w-[80px] sm:min-h-[80px]">
+            <span class="text-3xl sm:text-5xl md:text-6xl">${emoji}</span>
             <div class="bubble-tail"></div>
         </div>
     `;
@@ -974,7 +1014,7 @@ export function spawnPoop(type = 'normal', fromSync = false, syncId = null, x = 
     mesh.userData.syncId = sid;
     mesh.userData.createdAt = performance.now(); // 🕒 บันทึกเวลาเกิด
     scene.add(mesh);
-    poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, tier: type }); 
+    poopObjects.push({ mesh, elapsed: 0, x: px, z: pz, type: type }); 
 
     if (!fromSync && window._actionChannel) {
         window._actionChannel.postMessage({ type: 'SPAWN_POOP', x: px, z: pz, syncId: sid, itemType: type });
@@ -1042,7 +1082,7 @@ export function spawnReward(type = 'silver', value = 0, syncId = null, x = null,
     group.position.set(rx, -0.9, rz);
     group.userData.syncId = sid;
     scene.add(group); 
-    rewardObjects.push({ mesh: group, tier: type, value, startY: -0.9, elapsed: 0 }); 
+    rewardObjects.push({ mesh: group, type: type, value, startY: -0.9, elapsed: 0 }); 
 
     if (!fromSync && window._actionChannel) {
         window._actionChannel.postMessage({ type: 'SPAWN_REWARD', x: rx, z: rz, syncId: sid, itemType: type, value });
@@ -1050,35 +1090,49 @@ export function spawnReward(type = 'silver', value = 0, syncId = null, x = null,
     return true;
 }
 export function updatePetScale(level) { 
-    if (!petModel) return;
+    const safeLvl = parseInt(level) || 1;
     const tpl = window.STATE?.config?.template || 'pet';
     const diff = window.STATE?.config?.difficulty_mode || 'normal';
     const matrix = window.STATE?.config?.matrix?.[tpl]?.[diff];
     
-    // ดึงค่าสเกล: สกินรายตัว > ค่าพื้นฐานใน Matrix > 1.0 (Fallback)
     const skins = window.STATE?.config?.available_skins || [];
     const activeSkin = skins.find(s => s.model === window.STATE?.config?.custom_model);
     const baseScale = activeSkin?.scale || matrix?.physics?.scale || 1.0;
     
-    // ปรับให้โตช้าลง (0.5% ต่อเลเวล) และจำกัดขนาดสูงสุดไม่ให้เกิน 1.35 เท่าของขนาดฐาน
-    const growth = (level - 1) * 0.005;
-    const targetPetScale = Math.min(baseScale * 1.35, baseScale + (baseScale * growth));
-    
-    // 🔥 บัคฟิกซ์: ต้องสั่ง set scale ให้กับโมเดลจริงๆ ด้วย!
+    const growth = (safeLvl - 1) * 0.005;
+    currentScale = Math.min(baseScale * 1.35, baseScale + (baseScale * growth));
+    if (isNaN(currentScale)) currentScale = 1.0;
+
     if (petModel) {
-        petModel.scale.set(targetPetScale, targetPetScale, targetPetScale);
+        petModel.scale.set(currentScale, currentScale, currentScale);
     }
 }
 export function updateEnvironment(sky, ground) { 
+    if(!scene) return; // 🛡️ [SAFETY GUARD] กันพังถ้าฉากยังไม่โหลด
     if(sky && SKY_COLORS[sky]) scene.background = new THREE.Color(SKY_COLORS[sky]);
-    if(ground && groundMesh) groundMesh.material.color.set(GROUND_COLORS[ground]);
+    if(ground && groundMesh) {
+        const col = GROUND_COLORS[ground] || GROUND_COLORS.grass;
+        groundMesh.material.color.set(col);
+    }
 }
 export function updateEngineConfig(c) { 
-    if (!c) return;
-    Object.assign(engineConfig, c);
-    if (c.drop_offset) {
-        currentDropOffset = c.drop_offset;
-        window._currentSkinOffset = c.drop_offset;
+    const config = c || window.STATE?.config;
+    if (!config) return;
+    
+    Object.assign(engineConfig, config);
+    
+    // 🌍 [DEEP AUDIT FIX] อัปเดตสภาพแวดล้อม (ท้องฟ้า/พื้น) เฉพาะเมื่อมีการส่งค่ามาใหม่จริงๆ
+    if (c?.sky || c?.ground) {
+        updateEnvironment(c.sky || engineConfig.sky || 'day', c.ground || engineConfig.ground || 'grass');
+    }
+
+    if (config.custom_model) {
+        updateBossModel(config.custom_model);
+    }
+    
+    if (config.drop_offset) {
+        currentDropOffset = config.drop_offset;
+        window._currentSkinOffset = config.drop_offset;
     }
 }
 export function updateTemplate(type, path = '', rotationY = 0) { currentTemplate = type; createPetObject(path, rotationY); }
@@ -1162,7 +1216,7 @@ export function collectPoopByUI() {
     // 🔥 [BUGFIX] เพิ่มการ Sync ให้หน้าจออื่นลบตามเมื่อกดจากปุ่ม
     if (window._actionChannel) window._actionChannel.postMessage({ type: 'COLLECT', syncId: sid });
     
-    return p.tier || 'normal'; 
+    return p.type || 'normal'; 
 }
 function collectItemAtPet() {
     if (!targetItemToCollect) return;
@@ -1189,7 +1243,7 @@ function collectItemAtPet() {
             if (arr === poopObjects) {
                 if (onPoopCollected) onPoopCollected(item.type, false); // เก็บเอง (false)
             }
-            else if (onRewardCollected) onRewardCollected(item.tier, item.value, sid); 
+            else if (onRewardCollected) onRewardCollected(item.type, item.value, sid); 
         }
     });
 }
@@ -1199,50 +1253,74 @@ function isMobile() { return /Android|iPhone|iPad/i.test(navigator.userAgent); }
 window._worldRocks = [];
 window._projectiles = [];
 
-export function updateBossModel(config) {
-    if (!config || !config.active) {
+export async function updateBossModel(wb) {
+    if (!wb) return;
+
+    // 1. 🛡️ [DEEP AUDIT FIX] ถ้า Scene ยังไม่พร้อม ให้เก็บ Config ไว้โหลดภายหลังอัตโนมัติ
+    if (!scene) {
+        console.log("⏳ [3D Engine] Scene not ready, boss will be spawned once initialized.");
+        window._pendingBossConfig = wb;
+        return;
+    }
+
+    // 2. 🛑 [VISIBILITY CHECK] ถ้าบอสไม่ Active หรือตายแล้ว ให้ลบออก
+    if (!wb || !wb.active || wb.hp <= 0) {
         if (window._worldBoss) {
-            const ob = window._worldBoss;
-            if (ob.parent) ob.parent.remove(ob);
+            scene.remove(window._worldBoss);
+            disposeObject(window._worldBoss);
             window._worldBoss = null;
         }
         return;
     }
 
-    if (window._worldBoss && window._worldBoss.userData.path === config.model_path) {
-        window._worldBoss.scale.setScalar(20);
+    // 3. 🛡️ [SMART SYNC] ถ้ามีบอสอยู่แล้วและเป็นโมเดลเดิม (Path เดียวกัน) ห้ามลบ ห้ามโหลดใหม่!
+    if (window._worldBoss && window._worldBoss.userData.path === wb.model_path) {
+        // แค่อัปเดตการตั้งค่าพื้นฐาน (ถ้ามี)
+        window._worldBoss.scale.setScalar(2.5); 
+        window._worldBoss.position.set(0, -1.2, -6); 
         return;
     }
 
+    // 4. 🧹 [CLEAN UP] ถ้ามาถึงตรงนี้แสดงว่าต้องเปลี่ยนโมเดลใหม่จริงๆ หรือยังไม่มีบอส
     if (window._worldBoss) {
-        const ob = window._worldBoss;
-        if (ob.parent) ob.parent.remove(ob);
+        scene.remove(window._worldBoss);
+        disposeObject(window._worldBoss);
         window._worldBoss = null;
     }
 
-    if (!config.model_path || window._isBossLoading) return;
+    if (window._isBossLoading) return;
+    if (!wb.model_path) return;
 
-    console.log("🎬 Loading Boss Model:", config.model_path);
+    console.log("🎬 Loading Boss Model:", wb.model_path);
     window._isBossLoading = true;
 
-    gltfLoader.load(config.model_path, (gltf) => {
-        console.log("✅ Boss Model Loaded:", config.model_path);
+    const loader = new GLTFLoader();
+    loader.load(wb.model_path, (gltf) => {
+        console.log("✅ Boss Model Loaded:", wb.model_path);
         window._isBossLoading = false;
 
         const boss = gltf.scene;
-        boss.userData.path = config.model_path; 
-        boss.scale.setScalar(45); // 🦅 ใหญ่ขึ้นสะใจ
-        boss.position.set(0, 1.5, -5); // 🛰️ ขยับขึ้นและเยื้องไปข้างหน้าเพื่อให้เห็นชัด
+        boss.name = "WORLD_BOSS_MODEL"; // 🏷️ [CRITICAL] ติดป้ายชื่อเพื่อให้ระบบลบสแกนเจอ
+        boss.userData.path = wb.model_path; 
+        
+        // 📏 [PERFECT SCALE]
+        boss.scale.setScalar(2.5); 
+        boss.position.set(0, -1.2, -6); // 📍 [GROUNDED] ถอยไปที่ระยะ -6 เพื่อไม่ให้ทับแมว
         boss.rotation.y = Math.PI; 
         
         boss.traverse(node => {
             if (node.isMesh) {
-                node.visible = true; // 👁️ Force visibility
-                node.frustumCulled = false;
+                node.visible = true; 
+                node.frustumCulled = false; 
                 node.castShadow = true;
                 node.receiveShadow = true;
+                // บังคับความสว่างโมเดล (กรณีไฟไม่พอ)
                 if (node.material) {
                     node.material.side = THREE.DoubleSide;
+                    if (node.material.emissive) {
+                        node.material.emissive.setHex(0x333333); // ให้เรืองแสงนิดๆ จะได้เห็นในที่มืด
+                        node.material.emissiveIntensity = 0.5;
+                    }
                 }
             }
         });
@@ -1251,7 +1329,7 @@ export function updateBossModel(config) {
         if (gltf.animations.length > 0) {
             const action = mixer.clipAction(gltf.animations[0]);
             action.play();
-            action.timeScale = config.anim_speed || 1.0;
+            action.timeScale = wb.anim_speed || 1.0;
         }
         boss.userData.mixer = mixer;
         window._worldBoss = boss;
@@ -1259,7 +1337,9 @@ export function updateBossModel(config) {
         const activeScene = window._scene || scene;
         if (activeScene) {
             activeScene.add(boss);
-            console.log("🦅 PHOENIX BOSS DEPLOYED AT CENTER:", activeScene.uuid);
+            console.log("👹 BOSS RENDERED AT:", boss.position.x, boss.position.z);
+        } else {
+            console.warn("⚠️ [AUDIT] Scene still not ready for Boss. Deferring...");
         }
     }, undefined, (err) => {
         console.error("❌ Boss Load Error:", err);
@@ -1281,17 +1361,42 @@ export function clearWorldRocks() {
     if (window._worldRocks && scene) {
         window._worldRocks.forEach(rock => {
             scene.remove(rock);
-            if (rock.geometry) rock.geometry.dispose();
-            if (rock.material) rock.material.dispose();
-            // Dispose indicators if registered
-            const indicator = indicatorElements?.get(rock);
-            if (indicator) {
-                indicator.remove();
-                indicatorElements.delete(rock);
-            }
+            disposeObject(rock);
         });
         window._worldRocks = [];
     }
+}
+
+/**
+ * 🧹 [DEEP AUDIT FIX] ฟังก์ชันล้างหน่วยความจำ 3D ที่สมบูรณ์ที่สุด
+ * ป้องกัน Memory Leak 100% โดยการล้างทั้ง Geometry, Material และ Texture
+ */
+export function disposeObject(obj) {
+    if (!obj) return;
+    
+    obj.traverse(node => {
+        if (!node.isMesh) return;
+        
+        // ล้าง Geometry
+        if (node.geometry) node.geometry.dispose();
+        
+        // ล้าง Material
+        if (node.material) {
+            if (Array.isArray(node.material)) {
+                node.material.forEach(mat => disposeMaterial(mat));
+            } else {
+                disposeMaterial(node.material);
+            }
+        }
+    });
+}
+
+function disposeMaterial(mat) {
+    Object.keys(mat).forEach(prop => {
+        if (!mat[prop] || typeof mat[prop].dispose !== 'function') return;
+        if (mat[prop] instanceof THREE.Texture) mat[prop].dispose();
+    });
+    mat.dispose();
 }
 
 export function throwRockAtBoss(startPos, onHit) {
@@ -1303,10 +1408,14 @@ export function throwRockAtBoss(startPos, onHit) {
     const targetPos = new THREE.Vector3(0, 1.5, 0); 
     const direction = new THREE.Vector3().subVectors(targetPos, startPos).normalize();
     
+    // 🛡️ [AUDIT FIX] ทำให้ความเร็วของหินแปรผันตามสกิล Speed
+    const speedMult = window._bossSpeedMult || 1.0;
+    const velocity = direction.multiplyScalar(0.25 * speedMult);
+
     scene.add(rock);
     window._projectiles.push({
         mesh: rock,
-        velocity: direction.multiplyScalar(0.25),
+        velocity: velocity,
         onHit
     });
 }
@@ -1323,6 +1432,40 @@ export function collectWorldRockAtPet(syncId) {
     return false;
 }
 
+/**
+ * 💥 [VISUAL JUICE] ทำให้บอสกระพริบสีแดงเมื่อโดนดาเมจ
+ */
+export function flashBoss() {
+    if (!window._worldBoss) return;
+    
+    window._worldBoss.traverse(node => {
+        if (node.isMesh && node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material];
+            mats.forEach(m => {
+                if (m.emissive) {
+                    // เก็บค่าเดิมไว้ก่อน
+                    if (!node.userData._origEmissive) {
+                        node.userData._origEmissive = m.emissive.clone();
+                        node.userData._origIntensity = m.emissiveIntensity;
+                    }
+                    
+                    // เปลี่ยนเป็นสีแดงฉาน
+                    m.emissive.setHex(0xff0000);
+                    m.emissiveIntensity = 2.5;
+                    
+                    // คืนค่าหลังจาก 120ms
+                    setTimeout(() => {
+                        if (node.userData._origEmissive) {
+                            m.emissive.copy(node.userData._origEmissive);
+                            m.emissiveIntensity = node.userData._origIntensity;
+                        }
+                    }, 120);
+                }
+            });
+        }
+    });
+}
+
 export function _getPetPosition() {
     return (petModel) ? petModel.position.clone() : new THREE.Vector3(0, -1.2, 0);
 }
@@ -1331,7 +1474,10 @@ export function updateProjectiles(delta) {
     if (!window._projectiles) return;
     for (let i = window._projectiles.length - 1; i >= 0; i--) {
         const p = window._projectiles[i];
-        p.mesh.position.add(p.velocity);
+        
+        // 🛡️ [AUDIT FIX] ทำให้หินขยับตามเวลาจริง ไม่ขึ้นกับ FPS
+        const moveStep = p.velocity.clone().multiplyScalar(delta * 60);
+        p.mesh.position.add(moveStep);
         
         const dist = p.mesh.position.distanceTo(new THREE.Vector3(0, 1.5, 0));
         if (dist < 1.0) {
@@ -1359,3 +1505,26 @@ window.createExplosion = (pos, color) => {
         addParticle(pos.x, pos.y, pos.z, vel, color, 0.08, 30);
     }
 };
+
+// 📱 [DEEP AUDIT FIX] ระบบรักษาความถูกต้องของภาพเมื่อขนาดหน้าจอเปลี่ยน (Responsive Engine)
+window.addEventListener('state-synced', () => {
+    // 🔥 [AUDIT FIX] อัปเดตโมเดลให้ตรงกับ Level และ Skin ล่าสุดทันทีที่ได้รับสัญญาณซิงค์
+    if (window.STATE) updatePetScale(window.STATE.level);
+    if (window.refreshPetModel) window.refreshPetModel();
+});
+window.addEventListener('resize', () => {
+    if (!renderer || !camera || !currentContainerId) return;
+    const container = document.getElementById(currentContainerId);
+    if (!container) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(isMobile() ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
+    
+    console.log(`📏 Engine Resized: ${width}x${height}`);
+});

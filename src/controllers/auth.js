@@ -66,8 +66,25 @@ window.confirmUsername = async () => {
     // โหลดข้อมูลจาก Cloud/Local
     await loadState();
     
-    // บังคับให้ใช้ชื่อที่กรอกมาเป็นชื่อในเกมด้วย (ป้องกันค่าเริ่มต้นมาทับ)
-    STATE.username = name;
+    // 🛡️ [FINAL AUDIT] ตรวจสอบการโดนแบน (Ban Enforcement)
+    if (STATE.is_banned) {
+        spawnAlert('🚫 บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ', 'text-red-500 font-black');
+        sessionStorage.removeItem('pw3d_session_user');
+        localStorage.removeItem('last_user_id');
+        return;
+    }
+    
+    // 🛡️ [AUDIT FIX] ตรวจสอบว่าโหลดสำเร็จจริงหรือไม่ (กันเหตุการณ์เน็ตล่มแล้วเซฟทับ)
+    if (!window._isStateLoaded) {
+        spawnAlert('❌ โหลดข้อมูลไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่ครับ', 'text-red-400');
+        return;
+    }
+    
+    // 🛡️ [FIX] ป้องกันการเขียนทับชื่อเดิม: ถ้าโหลด Data มาแล้วมีชื่อเดิมอยู่ ให้ใช้ชื่อเดิม
+    // แต่ถ้าเป็นผู้เล่นใหม่ (ชื่อยังเป็น "ผู้เล่นทั่วไป") ให้ใช้ชื่อที่กรอกมา
+    if (!STATE.username || STATE.username === "ผู้เล่นทั่วไป") {
+        STATE.username = name;
+    }
     
     // อัปเดต UI PIN และหน้าจอหลัก
     updatePinUI();
@@ -150,6 +167,9 @@ function unlockScreen() {
         // 🔥 [BUGFIX] รีเฟรชโมเดลสัตว์เลี้ยงทันทีที่ปลดล็อค เพื่อให้สกินที่ใส่อยู่แสดงผลถูกต้อง
         if (window.refreshPetModel) window.refreshPetModel();
         
+        // 🌅 [AUDIT FIX] เช็คเควสรายวันทันทีหลังจากโหลด STATE เสร็จและเข้าเกม
+        if (window.resetDailyQuests) window.resetDailyQuests();
+
         setTimeout(() => screen.remove(), 500); 
         spawnAlert('🔓 ปลดล็อคระบบสำเร็จ!', 'text-emerald-400');
     }
@@ -206,6 +226,18 @@ export const initAuth = async () => {
         setUserId(userId);
         await loadState();
         
+        // 🛡️ [AUDIT FIX] ตรวจสอบว่าโหลดสำเร็จจริงหรือไม่สำหรับ Auto-login
+        if (!window._isStateLoaded) {
+            console.error("❌ Auto-login failed: State not loaded.");
+            // ถ้าเป็น Admin Preview อาจจะให้ผ่านไปก่อน แต่ถ้าเล่นจริงควรให้ล็อคอินใหม่
+            if (!isAdminPreview) {
+                spawnAlert('⚠️ ข้อมูลล่าสุดยังไม่พร้อมใช้งาน กรุณาลองใหม่อีกครั้ง', 'text-amber-400');
+                // อาจจะเคลียร์ session เพื่อให้กลับไปหน้าแรก
+                sessionStorage.removeItem('pw3d_session_user');
+                return;
+            }
+        }
+
         STATE.username = userNameParam || userId;
         updatePinUI();
         

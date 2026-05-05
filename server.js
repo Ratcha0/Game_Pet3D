@@ -18,7 +18,8 @@ app.use((req, res, next) => {
     res.removeHeader('X-Frame-Options');
     
     // 3. อนุญาตเรื่อง CORS
-    res.setHeader("Access-Control-Allow-Origin", "OPTION", "DELETE");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
     next();
 });
 
