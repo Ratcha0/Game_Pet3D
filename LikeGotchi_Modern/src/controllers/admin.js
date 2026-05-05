@@ -987,22 +987,29 @@ window.deleteScheduleSlot = (index) => {
     window.saveBossConfig();
 };
 
-(async () => {
-    // loadLocal เดิมถูกปิดการทำงานแล้ว
+// --- 🔐 Security & Authentication Logic (BYPASS MODE) ---
+window.handleAdminLogin = () => {
+    // ซ่อนหน้าจอทันทีถ้ามีการกดปุ่ม
+    const overlay = $('admin-login-overlay');
+    if (overlay) overlay.remove();
+    window.spawn?.("🔓 ระบบ Admin Bypass: เข้าใช้งานได้ทันที", "text-cyan-400 font-black");
+};
 
-    // 👑 [TESTING MODE] บายพาสระบบ Login เพื่อความรวดเร็วในการเทสตามคำสั่งพี่
-    window.isAuthoritativeAdmin = () => true; 
+window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์สูงสุดเสมอสำหรับการทดสอบ
+
+(async () => {
+    // 🛡️ ซ่อนหน้าจอ Login อัตโนมัติ (Bypass)
+    const overlay = $('admin-login-overlay');
+    if (overlay) overlay.classList.add('hidden');
+
     highlightUI();
     syncInputsWithMatrix();
-    // renderGallery(); // 👈 [OPTIMIZE] อย่าเพิ่งโหลดจนกว่า Config จริงจะมา
     switchView('settings');
 
     const { data, error } = await loadGameConfig();
     if (data && data.config) {
-        // 🔥 [SYNC FIX] รวมค่าจาก Cloud เข้ากับ State ของเรา
         deepMerge(ADMIN_STATE, data.config);
         
-        // [AUDIT] ถ้าโหลดมาแล้วไม่มีโมเดลที่เลือกไว้ ให้เลือกตัวแรกของเทมเพลตปัจจุบัน
         if (!ADMIN_STATE.custom_model) {
             const firstSkin = (ADMIN_STATE.available_skins || []).find(s => s.template === ADMIN_STATE.template);
             if (firstSkin) {
@@ -1011,29 +1018,23 @@ window.deleteScheduleSlot = (index) => {
             }
         }
 
-        // บังคับให้ช่องกรอกข้อมูล (Inputs) และ UI ทั้งหมดอัปเดตตามค่าจาก Cloud
         syncInputsWithMatrix();
         highlightUI();
         renderGallery();
-        sendPreview(); // 🔄 ส่งข้อมูลครั้งแรก
+        sendPreview(); 
         
-        // 🔥 [DASHBOARD SYNC FIX] รับสัญญาณ READY จาก iframe เพื่อส่งซ้ำป้องกันพรีวิวไม่ขึ้น
         window.addEventListener('message', (e) => {
             if (e.data && e.data.type === 'PW3D_READY') {
-                console.log("📺 Preview Ready Signal Received - Resending Config...");
                 sendPreview();
             }
         });
 
-        console.log("☁️ Cloud Config Sync: [SUCCESS + UI REFRESHED]", ADMIN_STATE);
-
-        // 👹 [REAL-TIME BOSS SYNC] ติดตามสถานะบอสเพื่อให้ปุ่ม Spawn เด้งกลับมาทันที
         BossService.subscribe((wb) => {
             ADMIN_STATE.world_boss = wb;
             window.renderBossConfig(); 
         });
     }
     
-    IS_CLOUDSYNC_READY = true; // ✅ Ready to Save
+    IS_CLOUDSYNC_READY = true; 
     if(window.twemoji) twemoji.parse(document.body);
 })();
