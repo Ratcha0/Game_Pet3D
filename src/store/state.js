@@ -31,7 +31,7 @@ export function createDefaultSettings(template, mode) {
             },
             mechanics: {
                 dec_hunger: 0.12, dec_clean: 0.03, dec_happy: 0.06,
-                reg_stamina: 0.35, max_stamina: 120, rare_rate: 8
+                reg_stamina: 0.35, max_stamina: 100, rare_rate: 8
             },
             rewards: { silver_min: 20, silver_max: 45, rare_token_min: 150, rare_token_max: 400 }
         },
@@ -44,7 +44,7 @@ export function createDefaultSettings(template, mode) {
             },
             mechanics: {
                 dec_hunger: 0.05, dec_clean: 0.06, dec_happy: 0.03,
-                reg_stamina: 0.55, max_stamina: 80, rare_rate: 12
+                reg_stamina: 0.55, max_stamina: 100, rare_rate: 12
             },
             rewards: { silver_min: 10, silver_max: 25, rare_token_min: 80, rare_token_max: 200 }
         }

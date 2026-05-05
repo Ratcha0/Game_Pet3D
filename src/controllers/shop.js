@@ -243,9 +243,8 @@ export function initShop() {
         }
 
         STATE.tokens -= cost;
-        // 🛡️ [FIX] จำกัดไม่ให้ Stamina เกินค่าสูงสุด (Max Stamina)
-        const maxStam = STATE.max_stamina || 100;
-        STATE.stamina = Math.min(maxStam, STATE.stamina + amt); 
+        // ✅ [FIX] อนุญาตให้ Stamina เกินค่าสูงสุดได้จากการซื้อ (Overstack)
+        STATE.stamina += amt; 
         
         logScoreAction(currentUserId, 'SHOP_PURCHASE', 0, -cost, `ซื้อแพ็คเกจ ${tier.toUpperCase()}`);
 
