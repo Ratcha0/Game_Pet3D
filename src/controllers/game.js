@@ -1529,7 +1529,7 @@ function updateLoading(progress) {
     // Reusing urlParams from top scope
     const userId = sessionUser || urlParams.get('userId');
 
-    loadAdminConfigLocal();
+    // loadAdminConfigLocal();
     updateLoading(60);
     setWorldSeed(userId || 'GUEST_USER');
     
