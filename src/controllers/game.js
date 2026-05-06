@@ -1,3 +1,4 @@
+import '@google/model-viewer';
 import '../styles.css';
 import { init3D, updateTemplate, updateEnvironment, spawnPoop, setPoopCallbacks, collectPoopByUI, spawnReward, setRewardCallback, updateEngineConfig, updatePetScale, triggerLevelUpEffect, setWorldSeed, showEmoticon, refreshPetAura, spawnWorldRock, clearWorldRocks, throwRockAtBoss, collectWorldRockAtPet, _getPetPosition, updateBossModel, flashBoss } from '../engine/3d_engine.js';
 import { initBossController } from './boss_controller.js';
@@ -160,8 +161,11 @@ window.updateUI = function() {
         const actBtnIcons = [['icon-act-feed', ai.feed], ['icon-act-clean', ai.clean], ['icon-act-play', ai.play]];
         actBtnIcons.forEach(([id, val]) => { const el = $(id); if(el) el.innerText = val; });
 
-        // 🛍️ [SHOP REFRESH] อัปเดตรายการสกินในร้านค้าทันทีเมื่อ Template เปลี่ยน
-        if (window.renderShopSkins) window.renderShopSkins();
+        // 🛍️ [SHOP REFRESH] อัปเดตรายการสกินเฉพาะเมื่อ Template เปลี่ยน และหน้าต่างร้านค้าเปิดอยู่เท่านั้น (Performance)
+        const isShopOpen = !document.getElementById('shop-modal')?.classList.contains('hidden');
+        if (window.renderShopSkins && isShopOpen) {
+            window.renderShopSkins();
+        }
     } else if (window._forceRerender) {
         // กรณีที่ Config เปลี่ยนแต่ Template เดิม (เช่น Admin เพิ่มสกินใหม่)
         if (window.renderShopSkins) {
@@ -1032,9 +1036,10 @@ window.addEventListener('storage', (e) => {
                 drop_offset: cfg.drop_offset || {x:0, y:0.1, z:-0.2}
             });
 
-        // 🔥 [FIX] อัปเดตโมเดลบอสในหน้าพรีวิวด้วย!
-        if (STATE.config.world_boss && typeof updateBossModel === 'function') {
-            updateBossModel(STATE.config.world_boss);
+        // 🔥 [FIX] อัปเดตโมเดลบอสและ HUD ในหน้าพรีวิวด้วย!
+        if (STATE.config.world_boss) {
+            if (typeof updateBossModel === 'function') updateBossModel(STATE.config.world_boss);
+            if (typeof window.updateBossHUD === 'function') window.updateBossHUD(STATE.config.world_boss);
         }
         
         if (typeof unlockScreen === 'function' && $('pin-lock-screen')) unlockScreen();
@@ -1103,8 +1108,10 @@ window.claimQuestReward = () => {
     
     // Regen buff also scales with difficulty: Hard mode is more challenging
     const buffPower = isHardMode() ? 1.5 : (isEasyMode() ? 2.5 : 1.8);
+    const rewardDuration = (active.quests?.reward_duration !== undefined) ? parseInt(active.quests.reward_duration) : 15;
+    
     STATE.buffs.regen_mult = buffPower;
-    STATE.buffs.regen_expiry = Date.now() + (2 * 60 * 60 * 1000); 
+    STATE.buffs.regen_expiry = Date.now() + (rewardDuration * 60 * 1000); 
 
     logScoreAction(currentUserId, 'QUEST_CLAIM', gainedScore, gainedTokens, `สำเร็จภารกิจ (${STATE.config.difficulty_mode})`);
     saveState(false, true); // 🔥 บันทึกทันทีป้องกันข้อมูลหาย
@@ -1318,9 +1325,13 @@ window.toggleLoginReward = (close) => {
     // Update Content
     const config = getActiveConfig();
     const rewards = config.login_rewards || [];
-    // 🛡️ [AUDIT FIX] ดึงจาก LocalStorage เสมอถ้า Cloud เป็น 0 เพื่อให้ข้อมูลที่หน้าจอไม่ "ถอยหลัง"
+    // 🛡️ [AUDIT FIX] ดึงจาก LocalStorage เสมอถ้า Cloud เป็น 0 หรือเก่ากว่า เพื่อให้หน้าจอ "คงที่" ที่สุด
+    const localLastClaimDate = localStorage.getItem('last_login_verified_' + currentUserId);
     const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + currentUserId)) || 0;
-    const streak = Math.max(STATE.login_streak || 0, localStreak);
+    const today = new Date().toDateString();
+    
+    // ถ้าในเครื่องบอกว่าเช็คอินวันนี้ไปแล้ว ให้ยึด Streak จากในเครื่องไว้ก่อนเลย
+    const streak = (localLastClaimDate === today) ? Math.max(STATE.login_streak || 0, localStreak) : (STATE.login_streak || 0);
     const duration = STATE.config?.season_duration || 7;
 
     const subtitle = $('login-reward-subtitle');
@@ -1361,7 +1372,6 @@ window.toggleLoginReward = (close) => {
 
     const statusMsg = $('login-status-msg');
     const claimBtn = $('login-claim-btn');
-    const today = new Date().toDateString();
     // 🛡️ [FIX] ยุบรวมการเช็คให้เหลือที่เดียวผ่าน STATE.last_login_date
     const canClaim = STATE.last_login_date !== today;
 
@@ -1444,6 +1454,10 @@ window.claimDailyReward = async () => {
     }
 
     STATE.last_login_date = today;
+    
+    // 🛡️ [AUDIT FIX] บันทึกหลักฐานการเช็คอินลงเครื่องทันที (Double-Layer Protection)
+    localStorage.setItem('last_login_verified_' + currentUserId, today);
+    localStorage.setItem('login_streak_verified_' + currentUserId, STATE.login_streak.toString());
     
     updateUI();
     saveState(false, true); 
@@ -1618,7 +1632,7 @@ function updateLoading(progress) {
     
     // 🛡️ [AUDIT FIX] ย้ายการเช็คเควสไปไว้หลังสุด เพื่อให้แน่ใจว่าโหลดข้อมูล STATE จาก Cloud ครบแล้ว
     // ป้องกันการรีเซ็ตเควสเป็น 0 เพราะข้อมูลยังมาไม่ถึง
-    resetDailyQuests(); 
+    // resetDailyQuests(); // 🛡️ [CLEANUP] ปิดตัวเรียกซ้ำซ้อน เพราะระบบมี Interval และตัวเช็คตอนเปิดจออยู่แล้ว
 
     setTimeout(() => {
         if (window.refreshPetModel) window.refreshPetModel();
@@ -1939,7 +1953,7 @@ function updateLoading(progress) {
     });
 
     checkLoginReward(); 
-    resetDailyQuests(); // เช็คทันทีที่โหลดเสร็จ
+    // resetDailyQuests(); // 🛡️ [CLEANUP] ย้ายไปรันเฉพาะตอนปลดล็อคจอหรือโหลดข้อมูลเสร็จจริงเท่านั้น เพื่อลด Warning ใน Log
 
     // 🕒 ตรวจเช็คการข้ามวันทุกๆ 5 นาที
     setInterval(() => {

@@ -91,19 +91,17 @@ export function initShop() {
                             </div>
 
                             <!-- Skeleton Loader (Shimmer) -->
-                            <div id="skeleton-${s.id}" class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer"></div>
-                            
                             <model-viewer 
                                 src="${s.model}" 
-                                loading="lazy" 
+                                loading="eager" 
                                 reveal="auto"
-                                class="model-preview w-full h-full object-contain opacity-0 transition-opacity duration-1000" 
+                                class="model-preview w-full h-full" 
+                                style="background: transparent; --progress-bar-color: transparent;"
                                 disable-zoom disable-pan auto-rotate rotation-per-second="45deg" 
                                 shadow-intensity="0.5" camera-orbit="45deg 75deg 105%" 
-                                environment-image="neutral" style="background-color: transparent;"
-                                onrender="this.classList.remove('opacity-0'); document.getElementById('skeleton-${s.id}').style.display='none';">
+                                environment-image="neutral">
                             </model-viewer>
-                            <div class="absolute bottom-2 text-[8px] font-bold text-white/20 uppercase tracking-tighter">Loading 3D...</div>
+                            <div class="absolute bottom-2 text-[8px] font-bold text-white/10 uppercase tracking-tighter">Preview 3D</div>
                             
                             <div id="skin-badge-${s.id}" class="absolute top-1 right-1 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce z-10 shadow-lg" style="display: none;">ใช้งานอยู่</div>
                         </div>

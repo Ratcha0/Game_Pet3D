@@ -67,7 +67,8 @@ export function createDefaultSettings(template, mode) {
     
     config.quests = {
         reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4),
-        base_tokens: 400, base_score: 5000, base_xp: 2000
+        base_tokens: 400, base_score: 5000, base_xp: 2000,
+        reward_duration: 15 // ⏳ [NEW] ระยะเวลาบัฟ (นาที)
     };
 
     const mult = (mode === 'easy') ? 0.7 : (mode === 'hard' ? 1.5 : 1.0);
@@ -190,7 +191,10 @@ export async function saveState(isLocalOnly = false, forceCloud = false) {
         level: STATE.level,
         score: STATE.score,
         inventory: STATE.inventory,
-        quests_claimed: STATE.quests.claimed
+        quests_claimed: STATE.quests.claimed,
+        current_season: STATE.current_season,
+        login_streak: STATE.login_streak, // 🛡️ [AUDIT FIX] ให้เซฟทันทีถ้าความต่อเนื่องเช็คอินเปลี่ยน
+        last_login_date: STATE.last_login_date // 🛡️ [AUDIT FIX] ให้เซฟทันทีถ้าวันที่เช็คอินเปลี่ยน
     };
     const currentSig = JSON.stringify(significantFields);
     
@@ -211,6 +215,7 @@ export async function saveState(isLocalOnly = false, forceCloud = false) {
 
 export async function loadState() {
     window._isStateLoaded = false; // เริ่มต้นโหลดใหม่
+    window._isConfigLoaded = false; // 🛡️ [AUDIT FIX] เพิ่มสถานะโหลด Config แยกต่างหาก
     if (!currentUserId) return;
     const local = localStorage.getItem('likegotchi_state_' + currentUserId);
     if (local) {
@@ -241,7 +246,10 @@ export async function loadState() {
                 const localProgress = (parseInt(STATE.level) || 1) * 10000000 + (parseInt(STATE.score) || 0);
                 const cloudProgress = (parseInt(mappedData.level) || 1) * 10000000 + (parseInt(mappedData.score) || 0);
                 
-                if (localProgress > cloudProgress) {
+                // 🛡️ [AUDIT FIX] เปลี่ยนจาก > เป็น >= 
+                // เพื่อให้กรณีที่เลเวลและคะแนนเท่าเดิม (เช่น พึ่งกดรับรางวัลเช็คอิน) 
+                // ระบบจะยังคงเชื่อข้อมูลล่าสุดในเครื่อง และไม่โดน Cloud ตัวเก่ามาเขียนทับ
+                if (localProgress >= cloudProgress) {
                     console.warn("⚠️ [STATE] Local data is newer than Cloud! Keeping local and forcing sync...");
                     if (window.SupabaseSvc) window.SupabaseSvc.savePetState(currentUserId, STATE);
                 } else {
@@ -378,7 +386,11 @@ export function applyConfigToState(newConfig) {
  * ย้ายมาเป็นฟังก์ชันแยกเพื่อให้เรียกใช้ได้ทั้งตอนโหลดเกมและตอน Config อัปเดต Real-time
  */
 export function checkSeasonReset() {
-    if (!window._isStateLoaded) return; // 🛡️ ห้ามเช็คถ้าข้อมูลผู้เล่นยังโหลดไม่เสร็จ
+    // 🛡️ [AUDIT FIX] ต้องโหลดเสร็จทั้งข้อมูลผู้เล่น และ Config กลาง ถึงจะเริ่มเช็คซีซั่นได้
+    if (!window._isStateLoaded || !window._isConfigLoaded) {
+        console.log("⏳ [SEASON] Skip check: Waiting for both State and Config to load...");
+        return;
+    }
 
     const newSeasonNum = parseInt(STATE.config.season_number) || 1;
     const playerSeasonNum = parseInt(STATE.current_season) || 1;
@@ -388,7 +400,7 @@ export function checkSeasonReset() {
         
         // 1. บันทึกประวัติซีซั่นเดิม (ถ้ามีคะแนน)
         if (STATE.score > 0 && window.SupabaseSvc && currentUserId) {
-            window.SupabaseSvc.logSeasonHistory(currentUserId, playerSeasonNum, STATE.score);
+            window.SupabaseSvc.logSeasonHistory(currentUserId, playerSeasonNum, STATE.score, STATE.level);
         }
         
         // 2. รีเซ็ตข้อมูลผู้เล่น (Full Season Reset)
@@ -435,6 +447,9 @@ export async function loadGameConfigCloud() {
             const { data: cloudConfig } = await window.SupabaseSvc.loadGameConfig();
             if (cloudConfig && cloudConfig.config) applyConfigToState(cloudConfig.config);
             else if (cloudConfig) applyConfigToState(cloudConfig);
+            
+            window._isConfigLoaded = true; // ✅ [AUDIT FIX] ยืนยันว่าโหลด Config สำเร็จแล้ว
+            checkSeasonReset(); // 🚀 เช็คทันทีหลังจากทั้งคู่พร้อม
             
             // 🔥 [LIVE SYNC] Subscribe to configuration changes
             subscribeToGameConfig();

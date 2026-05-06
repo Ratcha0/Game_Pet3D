@@ -36,7 +36,7 @@ export async function savePetState(userId, stateData) {
             boss_skills: stateData.boss_skills || { points: 0, xp: 0, lvl: 1 },
             quests_data: stateData.quests || {},
             last_quest_date: stateData.last_quest_date,
-            current_season: stateData.config?.season_number || 1, // 🏆 [AUDIT FIX] เพิ่มเพื่อรองรับการกรอง Ranking
+            current_season: stateData.current_season || 1, // 🏆 [AUDIT FIX] ดึงจากสถานะจริงของผู้เล่น ไม่ใช่อ้างอิงจาก Config กลาง เพื่อป้องกัน Reset Loop
             // 🚀 [CLOUD SYNC FIX] เปิดใช้งานการเซฟฟิลด์ใหม่ๆ ทั้งหมดจริง
             config: stateData.config || {},
             buffs: stateData.buffs || { score_mult: 1, score_expiry: 0, decay_mult: 1, decay_expiry: 0, luck_mult: 1, luck_expiry: 0, regen_mult: 1, regen_expiry: 0 },
@@ -131,13 +131,14 @@ export async function logScoreAction(userId, actionType, scoreGain, tokenGain, d
 /**
  * บันทึกสรุปผลงานเมื่อจบซีซั่น (Season Reset)
  */
-export async function logSeasonHistory(userId, seasonNum, score, rank = null) {
+export async function logSeasonHistory(userId, seasonNum, score, level, rank = null) {
     const { data, error } = await supabase
         .from('season_history')
         .insert({
             player_id: userId,
             season_number: seasonNum,
             final_score: Math.floor(score),
+            final_level: level,
             final_rank: rank
         });
         
@@ -166,7 +167,7 @@ export async function fetchLeaderboard(seasonNum = 1) {
 export async function fetchSeasonRankings(seasonNum) {
     const { data, error } = await supabase
         .from('season_history')
-        .select('player_id, final_score, created_at')
+        .select('player_id, final_score, created_at, final_level')
         .eq('season_number', seasonNum)
         .order('final_score', { ascending: false })
         .limit(20);
@@ -181,7 +182,7 @@ export async function fetchSeasonRankings(seasonNum) {
 export async function fetchLiveRankings(seasonNum) {
     const { data, error } = await supabase
         .from('pet_states')
-        .select('player_id, score, last_interaction_at, pet_name')
+        .select('player_id, score, last_interaction_at, pet_name, level')
         .eq('current_season', seasonNum)
         .order('score', { ascending: false })
         .limit(20);

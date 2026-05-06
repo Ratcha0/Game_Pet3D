@@ -138,6 +138,14 @@ export function init3D(containerId, templateType = 'pet', env = {}) {
     camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
     camera.position.set(0, 4, 8);
     camera.lookAt(0, 0, 0);
+
+    // 🛡️ [RACE CONDITION FIX] ถ้ามีงานค้างอยู่ (จาก Admin) ให้โหลดทันทีที่ Scene พร้อม
+    if (window._pendingTemplate) {
+        const p = window._pendingTemplate;
+        console.log("🚀 [3D Engine] Executing pending template load:", p);
+        updateTemplate(p.type, p.path, p.rotationY);
+        delete window._pendingTemplate;
+    }
     
     // สร้างจุดเล็งสีแดงเพื่อช่วย Admin กะระยะ (Debug Hotspot)
     const debugGeo = new THREE.SphereGeometry(0.04, 8, 8);
@@ -823,7 +831,7 @@ function updateIndicators() {
         });
     }
 
-    const edgeTasks = [];
+    const finalTasks = [];
     tasks.forEach(t => {
         const pObj = poopObjects.find(p => p.mesh === t.mesh);
         const rObj = rewardObjects.find(r => r.mesh === t.mesh);
@@ -831,24 +839,38 @@ function updateIndicators() {
         const elapsed = obj ? obj.elapsed : 0;
         const maxLife = pObj ? engineConfig.poop_lifetime : engineConfig.reward_lifetime;
         const lifeLeft = Math.max(0, maxLife - elapsed);
-        _tempVec.copy(t.mesh.position); _tempVec.y += 0.8; _tempVec.project(camera);
-        let x = _tempVec.x, y = -_tempVec.y; if (_tempVec.z > 1) { x = -x; y = -y; }
-        edgeTasks.push({ ...t, angle: Math.atan2(y, x), lifeLeft });
+        
+        _tempVec.copy(t.mesh.position); _tempVec.y += 0.4; _tempVec.project(camera);
+        let x = _tempVec.x, y = -_tempVec.y; 
+        const isBehind = _tempVec.z > 1;
+        if (isBehind) { x = -x; y = -y; }
+
+        // 🛡️ [HYBRID LOGIC] เช็คว่าอยู่บนหน้าจอหรือไม่
+        const isOnScreen = !isBehind && x >= -0.85 && x <= 0.85 && y >= -0.75 && y <= 0.75;
+        
+        if (isOnScreen) {
+            // กรณีอยู่บนหน้าจอ: ใช้ตำแหน่งจริง (ลอยเหนือหัว)
+            finalTasks.push({ ...t, x, y, angle: 0, lifeLeft, isOnScreen: true });
+        } else {
+            // กรณีอยู่นอกหน้าจอ: ใช้ระบบ Radar (ลูกศรขอบจอ)
+            const angle = Math.atan2(y, x);
+            finalTasks.push({ ...t, x: Math.cos(angle) * 0.78, y: Math.sin(angle) * 0.78, angle, lifeLeft, isOnScreen: false });
+        }
     });
 
-    if (edgeTasks.length > 1) {
-        edgeTasks.sort((a, b) => a.angle - b.angle);
-        for (let i = 0; i < edgeTasks.length * 2; i++) {
-            const a = edgeTasks[i % edgeTasks.length], b = edgeTasks[(i + 1) % edgeTasks.length];
+    // 🛡️ [RADAR OVERLAP FIX] ป้องกันลูกศรเรดาร์ทับกัน (ทำเฉพาะตัวที่อยู่นอกจอ)
+    const radarTasks = finalTasks.filter(t => !t.isOnScreen);
+    if (radarTasks.length > 1) {
+        radarTasks.sort((a, b) => a.angle - b.angle);
+        for (let i = 0; i < radarTasks.length * 2; i++) {
+            const a = radarTasks[i % radarTasks.length], b = radarTasks[(i + 1) % radarTasks.length];
             let diff = b.angle - a.angle; if (diff < 0) diff += Math.PI * 2;
-            if (diff < 0.52) { const overlap = 0.52 - diff; a.angle -= overlap / 2; b.angle += overlap / 2; }
+            if (diff < 0.52) { const overlap = 0.52 - diff; a.angle -= overlap / 2; b.angle += overlap / 2; a.x = Math.cos(a.angle) * 0.78; a.y = Math.sin(a.angle) * 0.78; b.x = Math.cos(b.angle) * 0.78; b.y = Math.sin(b.angle) * 0.78; }
         }
     }
 
-    edgeTasks.forEach(t => {
-        // บีบวงโคจรให้แคบลง (0.68) เพื่อไม่ให้ทับ HUD ด้านบนและล่าง
-        const x = Math.cos(t.angle) * 0.68, y = Math.sin(t.angle) * 0.68;
-        renderIndicator(t, container, x, y, t.angle);
+    finalTasks.forEach(t => {
+        renderIndicator(t, container, t.x, t.y, t.angle);
     });
 
     // 🧹 Cleanup: ลบไอคอนของวัตถุที่ไม่อยู่บนแมพแล้ว
@@ -911,7 +933,7 @@ function renderIndicator(t, container, x, y, angle) {
     el.innerHTML = `
         <div class="indicator-wrapper ${dyingClass}" style="position: relative; scale: 1.1;">
             <div class="indicator-inner" style="border: 2.5px solid ${isDying ? '#dc2626' : navColor}; box-shadow: ${isDying ? '0 0 20px #dc2626' : glow}; font-size: 1.4rem;">${displayIcon}</div>
-            <div class="indicator-arrow" style="border-bottom-color: ${isDying ? '#dc2626' : navColor}; transform: translateX(-50%) rotate(${angle + Math.PI/2}rad); transform-origin: 50% 36px;"></div>
+            <div class="indicator-arrow" style="border-bottom-color: ${isDying ? '#dc2626' : navColor}; transform: translateX(-50%) rotate(${angle + Math.PI/2}rad); transform-origin: 50% 36px; display: ${t.isOnScreen ? 'none' : 'block'};"></div>
         </div>
     `;
     
@@ -1135,7 +1157,15 @@ export function updateEngineConfig(c) {
         window._currentSkinOffset = config.drop_offset;
     }
 }
-export function updateTemplate(type, path = '', rotationY = 0) { currentTemplate = type; createPetObject(path, rotationY); }
+export function updateTemplate(type, path = '', rotationY = 0) { 
+    currentTemplate = type; 
+    if (!scene) {
+        // 🛡️ [QUEUE SYSTEM] หากฉากยังไม่พร้อม ให้จดจำงานไว้ทำตอนโหลดเสร็จ
+        window._pendingTemplate = { type, path, rotationY };
+        return;
+    }
+    createPetObject(path, rotationY); 
+}
 export function triggerLevelUpEffect() {
     if (!petModel) return;
     const level = window.STATE?.level || 1;

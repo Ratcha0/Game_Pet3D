@@ -1,3 +1,4 @@
+import '@google/model-viewer';
 import '../styles.css';
 import { supabase, saveGameConfig, loadGameConfig, fetchSeasonRankings, fetchLiveRankings, fetchAllUsers, setUserBanStatus } from '../services/supabase.js';
 import { BossService } from '../services/boss_sync.js';
@@ -60,6 +61,7 @@ const createDefaultSettings = (template, diff) => {
             base_tokens: isEasy ? 300 : (isHard ? 400 : 430),
             base_score: isEasy ? 4000 : (isHard ? 6000 : 7150),
             base_xp: isEasy ? 1000 : (isHard ? 3000 : 2000),
+            reward_duration: 15, // ⏳ [NEW] ระยะเวลาบัฟ (นาที)
             // Special Quest Targets
             target_scoop: isEasy ? 3 : (isHard ? 15 : 8),
             target_fever: isEasy ? 1 : (isHard ? 4 : 2),
@@ -773,8 +775,8 @@ window.renderHistoryRankings = async () => {
                             </div>
                         </div>
                         <div class="text-right pr-4">
-                            <div class="${isLive ? 'text-cyan-400' : 'text-neon-gold'} font-black text-2xl tracking-tighter">${score.toLocaleString()}</div>
-                            <div class="text-[7px] text-white/30 uppercase font-black tracking-widest mt-0.5">${isLive ? 'คะแนนปัจจุบัน (LIVE)' : 'คะแนนสรุป (FINAL)'}</div>
+                            <div class="${isLive ? 'text-cyan-400' : 'text-neon-gold'} font-black text-2xl tracking-tighter">${score.toLocaleString()}${isLive ? '<span class="text-[10px] ml-1 opacity-50">คะแนน</span>' : ''}</div>
+                            <div class="text-[7px] text-white/30 uppercase font-black tracking-widest mt-0.5">${isLive ? `LV. ${player.level || 1}` : `LV. ${player.final_level || 1} (SEASON FINAL)`}</div>
                         </div>
                     </div>
                 `;
@@ -998,6 +1000,14 @@ window.handleAdminLogin = () => {
 window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์สูงสุดเสมอสำหรับการทดสอบ
 
 (async () => {
+    // 🛡️ [RACE CONDITION FIX] เริ่มฟังคำสั่งจาก Preview ทันทีตั้งแต่เริ่มโหลด
+    window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'PW3D_READY') {
+            console.log("📺 [PREVIEW] Ready signal received, sending initial config...");
+            sendPreview();
+        }
+    });
+
     // 🛡️ ซ่อนหน้าจอ Login อัตโนมัติ (Bypass)
     const overlay = $('admin-login-overlay');
     if (overlay) overlay.classList.add('hidden');
@@ -1021,13 +1031,9 @@ window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์ส�
         syncInputsWithMatrix();
         highlightUI();
         renderGallery();
-        sendPreview(); 
         
-        window.addEventListener('message', (e) => {
-            if (e.data && e.data.type === 'PW3D_READY') {
-                sendPreview();
-            }
-        });
+        // 🚀 ส่งข้อมูลครั้งแรกทันทีที่โหลด Config เสร็จ (เผื่อ Iframe พร้อมรออยู่แล้ว)
+        setTimeout(sendPreview, 500); 
 
         BossService.subscribe((wb) => {
             ADMIN_STATE.world_boss = wb;

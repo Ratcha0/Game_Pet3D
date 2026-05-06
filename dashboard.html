@@ -38,7 +38,7 @@
         /* 🎨 Force Dropdown Options to be readable */
         select option { background: #1a1c2e; color: white; padding: 10px; }
     </style>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <!-- 🛡️ [INSTANCING FIX] นำ CDN ออก เพื่อไปใช้แบบ npm แทน ป้องกัน Three.js ซ้อนกัน -->
 </head>
 <body class="font-sans text-white flex">
 
@@ -420,10 +420,11 @@
                             <div class="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10"><label class="text-[8px] text-indigo-300 uppercase block mb-1">เป้าหมายรัก (Love 100%)</label><input type="number" data-path="quests.target_pure_love" class="matrix-input w-full"></div>
                             <div class="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10"><label class="text-[8px] text-indigo-300 uppercase block mb-1">เป้าหมายใช้สตามิน่า</label><input type="number" data-path="quests.target_spend" class="matrix-input w-full"></div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 border-t border-white/5 pt-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 border-t border-white/5 pt-6">
                             <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base Token Reward</label><input type="number" data-path="quests.base_tokens" class="matrix-input !py-1 text-xs"></div>
                             <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base Score Reward</label><input type="number" data-path="quests.base_score" class="matrix-input !py-1 text-xs"></div>
-                            <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base XP Reward</label><input type="number" data-path="quests.base_xp" class="matrix-input !py-1 text-xs text-neon-gold"></div>
+                            <div class="p-3 bg-white/5 rounded-xl border border-white/5"><label class="text-[8px] opacity-40 uppercase">Base XP Reward</label><input type="number" data-path="quests.base_xp" class="matrix-input !py-1 text-xs"></div>
+                            <div class="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20"><label class="text-[8px] text-indigo-300 uppercase">ระยะเวลาบัฟ (นาที)</label><input type="number" data-path="quests.reward_duration" class="matrix-input !py-1 text-xs text-white"></div>
                         </div>
                     </div>
                 </section>

@@ -19,7 +19,10 @@ export const initBossController = (STATE, engineHelpers) => {
         const throwBtn = document.getElementById('btn-throw-rock');
         
         // 🔥 [STRICT VISIBILITY] บอสต้องเปิดใช้งาน และ มีเลือดเหลืออยู่ ถึงจะแสดง
+        // 🛡️ [PREVIEW FIX] ถ้าอยู่ใน Iframe (Admin Preview) ให้เชื่อค่า active จากที่ส่งมา
         const isActive = !!(wb && wb.active === true && (wb.hp > 0));
+
+        window.updateBossHUD = updateBossHUD; // 🛡️ [DASHBOARD FIX] ส่งออกให้เรียกจากภายนอกได้
 
         if (isActive) {
             if (bossHPContainer) bossHPContainer.classList.remove('hidden');
@@ -329,13 +332,13 @@ export const initBossController = (STATE, engineHelpers) => {
 
     let _isVictoryReported = false;
     BossService.subscribe((wb) => {
+        // 🛡️ [PREVIEW FIX] ถ้าอยู่ในหน้า Admin Preview ไม่ต้องรับอัปเดตจาก Cloud ทับ
+        if (window.parent !== window) return;
+
         STATE.config.world_boss = wb;
         
         if (wb.hp <= 0 && wb.active && !_isVictoryReported) {
             _isVictoryReported = true;
-            // 🛡️ [REFACTORED] นำระบบแจกรางวัลแบบ Manual ออก เพื่อไปใช้ระบบ RPC ใน BossRewardController แทน
-            // ป้องกันการได้รางวัลซ้ำซ้อน
-            
             BossService.updateBossStatus(false, 0);
         }
 
