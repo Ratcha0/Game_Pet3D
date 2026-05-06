@@ -795,6 +795,9 @@ function updatePoops(delta) {
 }
 
 function updateRewards(t, delta) {
+    const minLifetime = 60; // 🛡️ [SAFETY FLOOR] ห้ามหายไวกว่า 1 นาที
+    const effectiveLifetime = Math.max(minLifetime, engineConfig.reward_lifetime || 0);
+
     for (let i = rewardObjects.length - 1; i >= 0; i--) {
         const r = rewardObjects[i];
         r.elapsed += delta; 
@@ -805,7 +808,7 @@ function updateRewards(t, delta) {
             r.mesh.position.y = r.startY + Math.sin(t * 5) * 0.15; // ขยับขึ้นลงชัดๆ
         }
 
-        if (r.elapsed >= engineConfig.reward_lifetime) { 
+        if (r.elapsed >= effectiveLifetime) { 
             scene.remove(r.mesh); 
             disposeObject(r.mesh); 
             rewardObjects.splice(i, 1); 

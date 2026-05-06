@@ -1029,8 +1029,8 @@ window.addEventListener('storage', (e) => {
             updateTemplate(tpl, model, rot);
             updateEnvironment(cfg.sky, cfg.ground);
             updateEngineConfig({
-                poop_lifetime: active.mechanics?.poop_lifetime || 30,
-                reward_lifetime: active.mechanics?.reward_lifetime || 20,
+                poop_lifetime: active.mechanics?.poop_lifetime || 180,
+                reward_lifetime: active.mechanics?.reward_lifetime || 150,
                 max_poops: active.mechanics?.max_poops || 3,
                 max_rewards: active.mechanics?.max_rewards || 3,
                 drop_offset: cfg.drop_offset || {x:0, y:0.1, z:-0.2}
