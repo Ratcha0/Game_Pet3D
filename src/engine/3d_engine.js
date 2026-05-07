@@ -1297,12 +1297,31 @@ export async function updateBossModel(wb) {
     }
 
     // 2. 🛑 [VISIBILITY CHECK] ถ้าบอสไม่ Active หรือตายแล้ว ให้ลบออก
-    if (!wb || !wb.active || wb.hp <= 0) {
+    const activeScene = window._scene || scene;
+    
+    // 🛡️ [ROBUST GUARD] เช็คจากข้อมูล Config โดยตรง และสำรองด้วย Global Flag
+    const isBossCurrentlyActive = wb?.active === true && (wb?.hp > 0);
+    
+    if (!wb || !isBossCurrentlyActive) {
+        console.log("🎬 [3D Engine] Boss cleanup triggered (Inactive/Dead)");
+        
+        // 1. ลบจากตัวแปร Global
         if (window._worldBoss) {
-            scene.remove(window._worldBoss);
+            if (activeScene) activeScene.remove(window._worldBoss);
             disposeObject(window._worldBoss);
             window._worldBoss = null;
         }
+        
+        // 2. [FALLBACK] สแกนหาในฉากตามชื่อ เผื่อมีตัวค้าง (Ghost Boss)
+        if (activeScene) {
+            const ghost = activeScene.getObjectByName("WORLD_BOSS_MODEL");
+            if (ghost) {
+                activeScene.remove(ghost);
+                disposeObject(ghost);
+                console.log("🎬 [3D Engine] Ghost Boss removed by name.");
+            }
+        }
+        
         return;
     }
 
@@ -1329,8 +1348,17 @@ export async function updateBossModel(wb) {
 
     const loader = new GLTFLoader();
     loader.load(wb.model_path, (gltf) => {
-        console.log("✅ Boss Model Loaded:", wb.model_path);
         window._isBossLoading = false;
+        
+        // 🛡️ [FINAL ROBUST GUARD] วินาทีสุดท้ายก่อนวาง
+        // ถ้าสั่งปิดไปแล้ว (ผ่านตัวแปร Global) ห้าม Render เด็ดขาด!
+        if (!window._bossActive) {
+            console.warn("🎬 [3D Engine] Aborted render: Boss is INACTIVE.");
+            disposeObject(gltf.scene);
+            return;
+        }
+
+        console.log("✅ Boss Model Loaded:", wb.model_path);
 
         const boss = gltf.scene;
         boss.name = "WORLD_BOSS_MODEL"; // 🏷️ [CRITICAL] ติดป้ายชื่อเพื่อให้ระบบลบสแกนเจอ
@@ -1391,9 +1419,10 @@ export function spawnWorldRock(id, pos) {
 }
 
 export function clearWorldRocks() {
-    if (window._worldRocks && scene) {
+    const activeScene = window._scene || scene;
+    if (window._worldRocks && activeScene) {
         window._worldRocks.forEach(rock => {
-            scene.remove(rock);
+            activeScene.remove(rock);
             disposeObject(rock);
         });
         window._worldRocks = [];

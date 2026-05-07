@@ -1,4 +1,4 @@
-import { STATE, saveState, currentUserId, getActiveConfig } from '../store/state.js';
+import { STATE, saveState, getActiveConfig } from '../store/state.js';
 import { logScoreAction } from '../services/supabase.js';
 import { SFX } from '../services/sound.js';
 import { updateTemplate } from '../engine/3d_engine.js';
@@ -20,6 +20,9 @@ export function initShop() {
     window._forceRerender = true;
 
     window.updateSkinButtons = () => {
+        const modal = document.getElementById('shop-modal');
+        if (!modal || modal.classList.contains('hidden')) return;
+
         const currentTpl = STATE.config.template || 'pet';
         const filteredSkins = getAvailableSkins().filter(s => s.template === currentTpl);
         
@@ -41,25 +44,26 @@ export function initShop() {
 
             const glowColor = s.colorCls === 'neon-cyan' ? 'cyan-500' : 'emerald-500';
             
-            // Update Badge
-            if (badgeBox) badgeBox.style.display = isEquipped ? 'block' : 'none';
+            // Update Badge only if needed
+            const badgeVisible = isEquipped ? 'block' : 'none';
+            if (badgeBox && badgeBox.style.display !== badgeVisible) badgeBox.style.display = badgeVisible;
 
-            // Update Card Border
-            if (isEquipped) {
-                cardBox.className = `shop-card glass p-3 sm:p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow overflow-hidden group border border-${glowColor}/80`;
-                btnBox.className = `cost-box bg-black/80 px-3 py-2 rounded-xl border border-${glowColor}/20 font-black text-neon-gold text-[10px] sm:text-xs w-full flex justify-center items-center gap-1 ring-1 ring-white/50`;
-                btnBox.innerText = 'สวมใส่อยู่';
-            } else {
-                cardBox.className = `shop-card glass p-3 sm:p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow overflow-hidden group border border-${glowColor}/30`;
-                btnBox.className = `cost-box bg-black/50 px-3 py-2 rounded-xl border border-${glowColor}/20 font-black text-neon-gold text-[10px] sm:text-xs w-full flex justify-center items-center gap-1`;
-                btnBox.innerText = isOwned ? 'สวมใส่สกินนี้' : `${s.cost} 🪙`;
-            }
+            // Update Card & Button only if needed
+            const newBtnText = isEquipped ? 'สวมใส่อยู่' : (isOwned ? 'สวมใส่สกินนี้' : `${s.cost} 🪙`);
+            if (btnBox.innerText !== newBtnText) btnBox.innerText = newBtnText;
+
+            const newCardClass = isEquipped 
+                ? `shop-card glass p-3 sm:p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow overflow-hidden group border border-${glowColor}/80`
+                : `shop-card glass p-3 sm:p-4 rounded-3xl flex flex-col items-center text-center active:scale-[0.95] cursor-pointer glow overflow-hidden group border border-${glowColor}/30`;
+            
+            if (cardBox.className !== newCardClass) cardBox.className = newCardClass;
         });
     };
 
     window.renderShopSkins = () => {
         const grid = document.getElementById('shop-skins-grid');
-        if (!grid) return;
+        const modal = document.getElementById('shop-modal');
+        if (!grid || !modal || modal.classList.contains('hidden')) return;
         
         const currentTpl = STATE.config.template || 'pet';
         
@@ -196,18 +200,21 @@ export function initShop() {
 
         if (!isOwned) {
             if (STATE.tokens < skin.cost) {
+                console.warn(`🪙 [SHOP] Not enough tokens to buy ${skin.name}. Cost: ${skin.cost}, Owned: ${STATE.tokens}`);
                 if(window.spawn) window.spawn('🪙 เหรียญไม่พอซื้อสกินครับ!'); 
                 SFX.playAsset('error');
                 return;
             }
+            console.log(`🎁 [SHOP] Buying skin: ${skin.name} for ${skin.cost} tokens.`);
             STATE.tokens -= skin.cost;
             STATE.inventory.skins.push(skin.id);
-            logScoreAction(currentUserId, 'SKIN_PURCHASE', 0, -skin.cost, `ซื้อสกิน ${skin.name}`);
+            logScoreAction(STATE.username, 'SKIN_PURCHASE', 0, -skin.cost, `ซื้อสกิน ${skin.name}`);
             if(window.spawn) window.spawn(`🎁 ปลดล็อคสกิน ${skin.name} สำเร็จ!`);
             SFX.playAsset('bell');
         }
 
         // Equip logic
+        console.log(`🪄 [SHOP] Equipping skin: ${skin.name} (${skin.model})`);
         if (!STATE.inventory) STATE.inventory = { skins: [], equipped_skins: {} };
         if (!STATE.inventory.equipped_skins) STATE.inventory.equipped_skins = {};
         STATE.inventory.equipped_skins[STATE.config.template] = skin.model;
@@ -244,7 +251,8 @@ export function initShop() {
         // ✅ [FIX] อนุญาตให้ Stamina เกินค่าสูงสุดได้จากการซื้อ (Overstack)
         STATE.stamina += amt; 
         
-        logScoreAction(currentUserId, 'SHOP_PURCHASE', 0, -cost, `ซื้อแพ็คเกจ ${tier.toUpperCase()}`);
+        console.log(`📦 [SHOP] Package ${tier} purchased. Cost: ${cost}, Tokens Left: ${STATE.tokens}, New Stamina: ${STATE.stamina}`);
+        logScoreAction(STATE.username, 'SHOP_PURCHASE', 0, -cost, `ซื้อแพ็คเกจ ${tier.toUpperCase()}`);
 
         if(window.spawn) window.spawn(`📦 ซื้อแพ็ค ${tier.toUpperCase()} สำเร็จ! (+${amt})`);
         SFX.playAsset('bell');
@@ -256,7 +264,9 @@ export function initShop() {
 
     window.renderShopBoosters = () => {
         const grid = document.getElementById('shop-boosters-grid');
-        if (!grid) return;
+        const modal = document.getElementById('shop-modal');
+        if (!grid || !modal || modal.classList.contains('hidden')) return;
+        
         const config = getActiveConfig().boosters || {};
         
         const types = [
@@ -308,7 +318,7 @@ window.applyBuff = (type, durationMin) => {
     STATE.buffs[`${type}_mult`] = b.mult;
     STATE.buffs[`${type}_expiry`] = baseStart + (durationMin * 60 * 1000);
     
-    saveState(false, true); // 🔥 บันทึกทันทีเมื่อได้รับบัฟ
+    saveState(true); // 🔥 บันทึกทันทีเมื่อได้รับบัฟ
     if (window.renderShopBoosters) window.renderShopBoosters();
 };
 
@@ -330,7 +340,7 @@ window.buyBooster = (type) => {
     STATE.tokens -= b.cost;
     window.applyBuff(type, b.duration);
 
-    logScoreAction(currentUserId, 'BUFF_PURCHASE', 0, -b.cost, `ซื้อบัฟ ${type}`);
+    logScoreAction(STATE.username, 'BUFF_PURCHASE', 0, -b.cost, `ซื้อบัฟ ${type}`);
     if(window.spawn) window.spawn(`🌟 เปิดใช้งานบัฟ ${type.toUpperCase()} สำเร็จ!`);
     SFX.playAsset('bell');
     

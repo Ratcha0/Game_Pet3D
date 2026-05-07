@@ -18,13 +18,15 @@ export const BossRewardController = {
         BossService.subscribe((wb) => {
             if (!wb) return;
 
-            // ตรวจสอบว่าบอสตายหรือยัง (HP <= 0 และ บอส active อยู่)
+            // 🏆 [ROBUST VICTORY CHECK]
+            // ต้อง Active และ HP <= 0 ถึงจะโชว์ (ป้องกันการเด้งตอน Refresh)
             if (wb.hp <= 0 && wb.active) {
                 if (!this.isVictoryShown) {
+                    console.log("🏆 [REWARD] Boss HP is 0. Triggering victory...");
                     this.handleBossDefeat();
                 }
             } else {
-                // ถ้าบอสเกิดใหม่ หรือยังไม่ตาย ให้รีเซ็ตสถานะการโชว์ Popup
+                // ถ้าบอสมีเลือด หรือ หายไปแล้ว ให้รีเซ็ตเพื่อให้โชว์ได้อีกครั้ง
                 this.isVictoryShown = false;
             }
         });
@@ -42,10 +44,10 @@ export const BossRewardController = {
             // 2. หาอันดับของตัวเอง
             const myPlayerId = localStorage.getItem('last_user_id') || 'GUEST';
             const { data: myData } = await supabase
-                .from('pet_states')
+                .from('pet_progression')
                 .select('boss_damage')
                 .eq('player_id', myPlayerId)
-                .single();
+                .maybeSingle();
 
             const myDamage = myData?.boss_damage || 0;
             const myRank = leaderboard.findIndex(p => p.player_id === myPlayerId) + 1;

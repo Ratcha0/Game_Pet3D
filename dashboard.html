@@ -605,14 +605,22 @@
                     </div>
                     <div class="collapsible-content">
                         <div class="flex items-center justify-between p-6 bg-black/40 rounded-2xl border border-white/5 mb-6">
-                            <div class="flex items-center gap-4">
-                                <div id="boss-status-indicator" class="w-4 h-4 rounded-full bg-slate-500 animate-pulse"></div>
+                            <div class="flex items-center gap-6">
+                                <div class="flex items-center gap-4">
+                                    <div id="boss-status-indicator" class="w-4 h-4 rounded-full bg-slate-500 animate-pulse"></div>
+                                    <div>
+                                        <div id="boss-status-text" class="text-xl font-black text-white uppercase italic leading-none">OFFLINE</div>
+                                        <div class="text-[8px] text-white/30 font-bold uppercase tracking-widest mt-1">บอสยังไม่ถูกอัญเชิญ</div>
+                                    </div>
+                                </div>
+                                <div class="h-8 w-px bg-white/5"></div>
                                 <div>
-                                    <div id="boss-status-text" class="text-xl font-black text-white uppercase italic leading-none">OFFLINE</div>
-                                    <div class="text-[8px] text-white/30 font-bold uppercase tracking-widest mt-1">บอสยังไม่ถูกอัญเชิญ</div>
+                                    <div id="boss-override-badge" class="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-black uppercase tracking-widest">MANUAL MODE</div>
+                                    <div class="text-[7px] text-white/20 uppercase mt-1">สถานะปัจจุบัน</div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
+                                <button onclick="resetToSchedule()" id="btn-boss-auto" class="px-3 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[8px] font-black uppercase text-indigo-400 hover:bg-indigo-500/20 transition-all hidden">คืนสู่ตารางเวลา</button>
                                 <button onclick="resetBossHP()" class="px-3 py-3 rounded-xl bg-white/5 border border-white/10 text-[8px] font-black uppercase text-white/60 hover:bg-white/10 transition-all">รีเซ็ตเลือด</button>
                                 <button onclick="toggleBossSpawn()" id="btn-boss-spawn" class="px-5 py-3 rounded-xl bg-rose-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all glow">อัญเชิญบอส</button>
                                 <button onclick="saveBossConfig()" class="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all">บันทึกค่า</button>

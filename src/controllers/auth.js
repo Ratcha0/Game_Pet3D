@@ -57,6 +57,7 @@ window.confirmUsername = async () => {
     }
 
     const name = input.value.trim().substring(0, 15);
+    console.log(`👤 [AUTH] Confirming Username: ${name}`);
     STATE.username = name;
     setUserId(name); // ใช้ชื่อเป็น ID
 
@@ -64,7 +65,14 @@ window.confirmUsername = async () => {
     sessionStorage.setItem('pw3d_session_user', name);
 
     // โหลดข้อมูลจาก Cloud/Local
+    if (window.clearPin) window.clearPin(); 
     await loadState();
+    console.log(`👤 [AUTH] State loaded for ${name}. PIN required: ${!!STATE.pin_code}`);
+    
+    // 🛡️ [NEW] หากเป็นการสมัครใหม่ (ไม่มีรหัส PIN) ให้บังคับ Sanitize เพื่อล้างค่าขยะ
+    if (!STATE.pin_code || STATE.pin_code === "") {
+        if (window.sanitizeState) window.sanitizeState();
+    }
     
     // 🛡️ [FINAL AUDIT] ตรวจสอบการโดนแบน (Ban Enforcement)
     if (STATE.is_banned) {
@@ -118,14 +126,21 @@ window.backToStep1 = () => {
     }
 };
 
-function verifyPin() {
+async function verifyPin() {
     const dots = document.querySelectorAll('.pin-dot');
     const isNew = !STATE.pin_code || STATE.pin_code === "";
     
     if (isNew) {
         // --- 1. โหมดตั้งรหัสใหม่ ---
+        console.log("🆕 [AUTH] Registering new PIN for user...");
         STATE.pin_code = currentPin;
-        saveState(); // บันทึกดึงขึ้น Database ทันที
+        if (window.sanitizeState) window.sanitizeState(); 
+        const saved = await saveState(true);
+        if (!saved) {
+            spawnAlert('🚨 บันทึกข้อมูลสมัครใหม่ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+            dots.forEach(d => d.classList.add('pin-error'));
+            return;
+        }
         
         dots.forEach(d => d.classList.add('pin-success'));
         $('pin-msg').innerText = "สร้างรหัสสำเร็จ! กำลังเข้าสู่ระบบ...";
@@ -136,12 +151,14 @@ function verifyPin() {
     } else {
         // --- 2. โหมดปลดล็อคปกติ ---
         if (currentPin === STATE.pin_code) {
+            console.log("🔑 [AUTH] PIN Verified successfully.");
             dots.forEach(d => d.classList.add('pin-success'));
             $('pin-msg').innerText = "รหัสถูกต้อง! กำลังเข้าสู่ระบบ...";
             $('pin-msg').classList.remove('text-white/50', 'text-red-400');
             $('pin-msg').classList.add('text-green-400');
             setTimeout(unlockScreen, 600);
         } else {
+            console.warn("⚠️ [AUTH] Invalid PIN attempt.");
             dots.forEach(d => d.classList.add('pin-error'));
             $('pin-msg').innerText = "รหัสผิด! กรุณาลองใหม่...";
             $('pin-msg').classList.remove('text-white/50', 'text-green-400');
@@ -155,6 +172,11 @@ function verifyPin() {
 }
 
 function unlockScreen() {
+    console.log("🔓 [AUTH] Unlocking game screen...");
+    
+    // 🔥 [DEEP AUDIT FIX] บันทึกเวลาเข้าใช้งานล่าสุดลง Cloud ทันทีที่ปลดล็อค
+    if (STATE.username) SupabaseSvc.updateLoginTime(STATE.username);
+
     const screen = $('pin-lock-screen');
     if(screen) {
         screen.classList.add('opacity-0');
@@ -163,6 +185,7 @@ function unlockScreen() {
         
         // เริ่มต้นชีวิตสัตว์เลี้ยง (Start Lifecycles)
         isGameActive = true;
+        console.log("🎮 [GAME] Game Loop is now ACTIVE.");
         
         // 🔥 [BUGFIX] รีเฟรชโมเดลสัตว์เลี้ยงทันทีที่ปลดล็อค เพื่อให้สกินที่ใส่อยู่แสดงผลถูกต้อง
         if (window.refreshPetModel) window.refreshPetModel();
@@ -223,8 +246,14 @@ export const initAuth = async () => {
     const step2 = $('login-step-2');
 
     if (userId) {
-        setUserId(userId);
-        await loadState();
+        // 🛡️ [ISOLATION] ถ้าเป็น Admin Mode ให้ใช้ ID ชั่วคราว ไม่บันทึกลง LocalStorage 
+        // เพื่อป้องกันการทับซ้อนกับหน้าเล่นเกมหลักใน Tab อื่น
+        if (isAdminPreview) {
+            console.log("📺 [PREVIEW] Running in Admin Preview mode (ID: " + userId + ")");
+        } else {
+            setUserId(userId);
+        }
+        await loadState(userId); // โหลดข้อมูลโดยระบุ ID เจาะจง
         
         // 🛡️ [AUDIT FIX] ตรวจสอบว่าโหลดสำเร็จจริงหรือไม่สำหรับ Auto-login
         if (!window._isStateLoaded) {

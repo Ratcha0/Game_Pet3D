@@ -2,6 +2,8 @@ import '@google/model-viewer';
 import '../styles.css';
 import { supabase, saveGameConfig, loadGameConfig, fetchSeasonRankings, fetchLiveRankings, fetchAllUsers, setUserBanStatus } from '../services/supabase.js';
 import { BossService } from '../services/boss_sync.js';
+import { STATE, setUserId } from '../store/state.js';
+import { createDefaultSettings } from '../store/defaults.js';
 
 const $ = id => document.getElementById(id);
 
@@ -20,100 +22,9 @@ window.spawn = (msg, cls = "text-white") => {
     }, 3000);
 };
 
-// --- ⚙️ Hyper-Granular Settings Factory ---
-const createDefaultSettings = (template, diff) => {
-    const isHard = diff === 'hard';
-    const isEasy = diff === 'easy';
-    
-    // ตั้งค่าพื้นฐานตามชนิดตัวละคร (Physics Base)
-    const baseSpeed = template === 'car' ? 0.085 : (template === 'plant' ? 0.055 : 0.065);
-    const baseScale = template === 'car' ? 0.4 : (template === 'plant' ? 1.2 : 1.0);
-
-    return {
-        // 1. กิจกรรม (Activities) - [+ฟื้นฟู, -ใช้ไฟ, SCORE/XP]
-        // ปรับให้โหมดยากได้แต้มเยอะกว่าชัดเจนเพื่อจูงใจการไต่อันดับ
-        activities: {
-            feed:   { r: isEasy ? 15 : (isHard ? 10 : 12), s: isEasy ? 3 : (isHard ? 10 : 6), xp: isEasy ? 50 : (isHard ? 180 : 100) },
-            clean:  { r: isEasy ? 18 : (isHard ? 10 : 14), s: isEasy ? 3 : (isHard ? 8 : 5), xp: isEasy ? 40 : (isHard ? 150 : 80) },
-            repair: { r: isEasy ? 12 : (isHard ? 8 : 10), s: isEasy ? 2 : (isHard ? 6 : 4), xp: isEasy ? 30 : (isHard ? 120 : 70) },
-            play:   { r: isEasy ? 20 : (isHard ? 12 : 18), s: isEasy ? 8 : (isHard ? 20 : 15), xp: isEasy ? 100 : (isHard ? 450 : 200) }
-        },
-        // 2. รางวัลไอเทมบนแมพ (Economy)
-        rewards: {
-            silver_min: isHard ? 10 : (isEasy ? 50 : 20),
-            silver_max: isHard ? 50 : (isEasy ? 150 : 100),
-            silver_xp: isHard ? 20 : (isEasy ? 60 : 40),
-            gold_min: isHard ? 100 : (isEasy ? 300 : 200),
-            gold_max: isHard ? 300 : (isEasy ? 600 : 400),
-            gold_rate: isEasy ? 25 : (isHard ? 8 : 15),
-            gold_xp: isHard ? 100 : (isEasy ? 300 : 200),
-            diamond_min: isHard ? 500 : (isEasy ? 1000 : 800),
-            diamond_max: isHard ? 1000 : (isEasy ? 2500 : 1500),
-            diamond_rate: isEasy ? 5 : (isHard ? 1 : 2),
-            diamond_xp: isHard ? 500 : (isEasy ? 1500 : 1000)
-        },
-        // 3. ภารกิจรายวัน (Quests)
-        quests: {
-            target_feed: isEasy ? 2 : (isHard ? 8 : 4),
-            target_clean: isEasy ? 1 : (isHard ? 6 : 3),
-            target_play: isEasy ? 1 : (isHard ? 3 : 2),
-            reward_mult: isEasy ? 1.0 : (isHard ? 2.5 : 1.4),
-            base_tokens: isEasy ? 300 : (isHard ? 400 : 430),
-            base_score: isEasy ? 4000 : (isHard ? 6000 : 7150),
-            base_xp: isEasy ? 1000 : (isHard ? 3000 : 2000),
-            reward_duration: 15, // ⏳ [NEW] ระยะเวลาบัฟ (นาที)
-            // Special Quest Targets
-            target_scoop: isEasy ? 3 : (isHard ? 15 : 8),
-            target_fever: isEasy ? 1 : (isHard ? 4 : 2),
-            target_spend: isEasy ? 500 : (isHard ? 2000 : 1000)
-        },
-        // 4. ร้านค้า (Shop Economy)
-        shop: {
-            small_tokens: isHard ? 500 : 350, small_amount: 50,
-            medium_tokens: isHard ? 1200 : 800, medium_amount: 120,
-            large_tokens: isHard ? 2800 : 2000, large_amount: 300
-        },
-        // 5. กลไกหลัก (Mechanics)
-        mechanics: {
-            dec_hunger: isHard ? 0.18 : (isEasy ? 0.04 : 0.08),
-            dec_clean:  isHard ? 0.10 : (isEasy ? 0.02 : 0.05),
-            dec_happy:  isHard ? 0.12 : (isEasy ? 0.03 : 0.06),
-            max_stamina: isEasy ? 150 : (isHard ? 80 : 100),
-            reg_stamina: isEasy ? 1.2 : (isHard ? 0.45 : 0.75),
-            sp_min: isHard ? 15 : (isEasy ? 30 : 20),
-            sp_max: isHard ? 45 : (isEasy ? 90 : 60),
-            rare_rate: isHard ? 12 : (isEasy ? 5 : 8),
-            poop_lifetime: isEasy ? 300 : (isHard ? 90 : 180),
-            reward_lifetime: isEasy ? 240 : (isHard ? 80 : 150),
-            max_poops: 3,
-            max_rewards: 3,
-            dec_happy_poop: isHard ? 30 : (isEasy ? 5 : 15),
-            fever_threshold: isEasy ? 70 : (isHard ? 90 : 80),
-            fever_mult: isEasy ? 2.0 : (isHard ? 1.5 : 1.8)
-        },
-        // 6. บัฟและไอเทมเสริม (Boosters) - [ราคา, ตัวคูณ, ระยะเวลา(นาที)]
-        boosters: {
-            score: { cost: 300, mult: 1.10, duration: 15 }, // +10% Score / 15m
-            decay: { cost: 450, mult: 0.80, duration: 20 }, // -20% Hunger Decay / 20m
-            luck:  { cost: 500, mult: 1.50, duration: 10 }  // x1.5 Rare Rate / 10m
-        },
+// --- ⚙️ Hyper-Granular Settings Factory (MOVED TO src/store/defaults.js) ---
         // 7. ฟิสิกส์ (Physics)
-        physics: {
-            speed: isHard ? baseSpeed * 1.15 : baseSpeed,
-            scale: baseScale
-        },
-        // 8. รางวันเช็คอินรายวัน (Login Rewards)
-        login_rewards: [
-            { day: 1, reward_type: 'gold', reward_value: isHard ? 100 : (isEasy ? 300 : 200) },
-            { day: 2, reward_type: 'gold', reward_value: isHard ? 150 : (isEasy ? 450 : 300) },
-            { day: 3, reward_type: 'score', reward_value: 15 },
-            { day: 4, reward_type: 'gold', reward_value: isHard ? 250 : (isEasy ? 750 : 500) },
-            { day: 5, reward_type: 'decay', reward_value: 20 },
-            { day: 6, reward_type: 'gold', reward_value: isHard ? 400 : (isEasy ? 1200 : 800) },
-            { day: 7, reward_type: 'luck', reward_value: 30 }
-        ]
-    };
-};
+
 
 let ADMIN_STATE = {
     template: 'pet',
@@ -126,9 +37,9 @@ let ADMIN_STATE = {
     season_name: '',
     season_duration: 15,
     world_boss: {
-        active: true,
-        hp: 250000,
-        max_hp: 250000,
+        active: false,
+        hp: 0,
+        max_hp: 1000000,
         reward_tokens: 5000,
         reward_xp: 5000,
         model_path: '/models/truffle_man.glb',
@@ -617,7 +528,7 @@ window.switchView = (view) => {
     const nb = $('nav-boss');
     const preview = document.querySelector('aside.w-\\[850px\\]');
 
-    // Reset all
+    // Reset all with safety
     [vs, vh, vu, vb].forEach(v => v?.classList.add('hidden'));
     [ns, nh, nu, nb].forEach(n => {
         n?.classList.remove('active', 'bg-neon-purple/10', 'border-neon-purple/20');
@@ -625,30 +536,30 @@ window.switchView = (view) => {
     });
 
     if (view === 'settings') {
-        vs.classList.remove('hidden');
-        ns.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
-        ns.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
+        vs?.classList.remove('hidden');
+        ns?.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
+        ns?.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
         if(preview) preview.classList.remove('hidden');
     } else if (view === 'history') {
-        vh.classList.remove('hidden');
-        nh.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
-        nh.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
+        vh?.classList.remove('hidden');
+        nh?.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
+        nh?.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
         if(preview) preview.classList.remove('hidden');
-        window.initSeasonDropdown();
-        window.renderHistoryRankings();
-        window.renderBossHistoryRankings();
+        window.initSeasonDropdown?.();
+        window.renderHistoryRankings?.();
+        window.renderBossHistoryRankings?.();
     } else if (view === 'users') {
-        vu.classList.remove('hidden');
-        nu.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
-        nu.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
-        if(preview) preview.classList.add('hidden'); // ซ่อนพรีวิวมือถือเพื่อใช้พื้นที่ฝั่งขวาแทน
-        window.refreshUserLists();
-    } else if (view === 'boss') {
-        vb.classList.remove('hidden');
-        nb.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
-        nb.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
+        vu?.classList.remove('hidden');
+        nu?.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
+        nu?.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
         if(preview) preview.classList.add('hidden');
-        window.renderBossConfig();
+        window.refreshUserLists?.();
+    } else if (view === 'boss') {
+        vb?.classList.remove('hidden');
+        nb?.classList.add('active', 'bg-neon-purple/10', 'border-neon-purple/20');
+        nb?.classList.remove('text-white/40', 'bg-white/5', 'border-white/5');
+        if(preview) preview.classList.add('hidden');
+        window.renderBossConfig?.();
     }
 };
 
@@ -844,6 +755,21 @@ window.renderBossConfig = () => {
         bsp.className = `px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all glow ${wb.active ? 'bg-slate-700 text-white' : 'bg-rose-600 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]'}`;
     }
 
+    // 🛡️ [OVERRIDE UI]
+    const badge = $('boss-override-badge');
+    const autoBtn = $('btn-boss-auto');
+    if (badge) {
+        if (wb.manual_override) {
+            badge.innerText = 'MANUAL MODE';
+            badge.className = 'px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[8px] font-black uppercase tracking-widest';
+            if (autoBtn) autoBtn.classList.remove('hidden');
+        } else {
+            badge.innerText = 'AUTO SCHEDULE';
+            badge.className = 'px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[8px] font-black uppercase tracking-widest';
+            if (autoBtn) autoBtn.classList.add('hidden');
+        }
+    }
+
     if ($('boss-cur-hp-disp')) $('boss-cur-hp-disp').innerText = (wb.hp || 0).toLocaleString();
     if ($('boss-max-hp-input')) $('boss-max-hp-input').value = wb.max_hp || 1000000;
     if ($('boss-reward-tokens')) $('boss-reward-tokens').value = wb.reward_tokens || 5000;
@@ -907,14 +833,38 @@ window.updateBossPreview = () => {
 
 window.toggleBossSpawn = async () => {
     if(!ADMIN_STATE.world_boss) ADMIN_STATE.world_boss = { active: false, hp: 1000000, max_hp: 1000000 };
-    ADMIN_STATE.world_boss.active = !ADMIN_STATE.world_boss.active;
-    if (ADMIN_STATE.world_boss.active) {
+    
+    const newState = !ADMIN_STATE.world_boss.active;
+    ADMIN_STATE.world_boss.active = newState;
+    
+    // 🛡️ [MANUAL OVERRIDE] เมื่อมีการสั่งการด้วยมือ ให้ล็อคโหมด Manual ไว้เสมอ
+    // เพื่อไม่ให้ระบบ Schedule มาสั่งเปิด/ปิดทับซ้อนจนบอสรวน
+    ADMIN_STATE.world_boss.manual_override = true;
+    
+    console.log(`⚙️ [ADMIN] Toggling boss spawn: ${newState ? 'ON' : 'OFF'} (Manual Override LOCKED: true)`);
+
+    if (newState) {
         ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
-        // 🔥 ล้างดาเมจทุกคนเมื่อเริ่มบอสใหม่
         await supabase.rpc('reset_all_boss_damage');
         window.spawn?.("👹 เริ่มศึกบอสใหม่! ล้างอันดับดาเมจแล้ว", "text-yellow-400 font-bold");
+    } else {
+        ADMIN_STATE.world_boss.hp = 0;
+        window.spawn?.("🌬️ บอสถูกถอนตัวออกไปแล้ว (Manual Despawn)", "text-slate-400 font-bold");
     }
+    
     await window.saveBossConfig();
+};
+
+window.resetToSchedule = async () => {
+    if(!ADMIN_STATE.world_boss) return;
+    
+    if (confirm("คุณต้องการคืนการควบคุมบอสให้กับระบบตารางเวลาอัตโนมัติใช่หรือไม่?")) {
+        ADMIN_STATE.world_boss.manual_override = false;
+        console.log("⚙️ [ADMIN] Manual Override DISABLED. Returning to schedule.");
+        
+        window.spawn?.("📅 คืนการควบคุมให้ระบบตารางเวลาแล้ว", "text-indigo-400 font-bold");
+        await window.saveBossConfig();
+    }
 };
 
 window.resetBossHP = async () => {
@@ -927,6 +877,10 @@ window.resetBossHP = async () => {
 };
 
 window.saveBossConfig = async () => {
+    if(!IS_CLOUDSYNC_READY) {
+        console.warn("⚠️ [ADMIN] Cannot save: Cloud sync not ready.");
+        return;
+    }
     if(!ADMIN_STATE.world_boss) return;
     ADMIN_STATE.world_boss.max_hp = parseInt($('boss-max-hp-input')?.value || 1000000);
     ADMIN_STATE.world_boss.reward_tokens = parseInt($('boss-reward-tokens')?.value || 5000);
@@ -942,6 +896,7 @@ window.saveBossConfig = async () => {
     const { error } = await saveGameConfig(ADMIN_STATE);
     if (!error) {
         window.renderBossConfig();
+        if (typeof sendPreview === 'function') sendPreview();
         window.spawn?.('บันทึกการตั้งค่าบอสเรียบร้อย!', 'text-emerald-400 font-bold');
     }
 };
@@ -1000,6 +955,20 @@ window.handleAdminLogin = () => {
 window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์สูงสุดเสมอสำหรับการทดสอบ
 
 (async () => {
+    // 🛡️ [ADMIN ISOLATION] บังคับให้หน้า Dashboard เป็น Admin เสมอ แยกจากหน้าเล่นเกม
+    setUserId('ADMIN_DASHBOARD');
+    STATE.username = 'ADMIN_DASHBOARD';
+    console.log("🛠️ [ADMIN] Dashboard Session Initialized: ADMIN_DASHBOARD");
+
+    // 🎨 [UI UPDATE] แสดงสถานะ Admin บนหน้าจอ
+    const headerTitle = document.querySelector('header h1');
+    if (headerTitle) {
+        const adminBadge = document.createElement('span');
+        adminBadge.className = "ml-3 text-[9px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter align-middle shadow-[0_0_10px_rgba(225,29,72,0.5)] animate-pulse";
+        adminBadge.innerText = "ADMIN MODE";
+        headerTitle.appendChild(adminBadge);
+    }
+
     // 🛡️ [RACE CONDITION FIX] เริ่มฟังคำสั่งจาก Preview ทันทีตั้งแต่เริ่มโหลด
     window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'PW3D_READY') {
@@ -1012,9 +981,11 @@ window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์ส�
     const overlay = $('admin-login-overlay');
     if (overlay) overlay.classList.add('hidden');
 
-    highlightUI();
-    syncInputsWithMatrix();
-    switchView('settings');
+    if ($('nav-settings')) {
+        highlightUI();
+        syncInputsWithMatrix();
+        switchView('settings');
+    }
 
     const { data, error } = await loadGameConfig();
     if (data && data.config) {
@@ -1038,8 +1009,9 @@ window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์ส�
         BossService.subscribe((wb) => {
             ADMIN_STATE.world_boss = wb;
             window.renderBossConfig(); 
+            if (typeof sendPreview === 'function') sendPreview();
         });
-    }
+    };
     
     IS_CLOUDSYNC_READY = true; 
     if(window.twemoji) twemoji.parse(document.body);

@@ -15,14 +15,17 @@ export const initBossController = (STATE, engineHelpers) => {
     const updateBossHUD = (wb) => {
         const bossHPContainer = document.getElementById('world-boss-hud');
         const skillPanel = document.getElementById('boss-skill-panel');
-        const toggleArea = document.getElementById('boss-skill-toggle-area');
         const throwBtn = document.getElementById('btn-throw-rock');
         
-        // 🔥 [STRICT VISIBILITY] บอสต้องเปิดใช้งาน และ มีเลือดเหลืออยู่ ถึงจะแสดง
-        // 🛡️ [PREVIEW FIX] ถ้าอยู่ใน Iframe (Admin Preview) ให้เชื่อค่า active จากที่ส่งมา
+        // 🔥 [AUTHORITATIVE VISIBILITY]
+        // บอสจะแสดงผลก็ต่อเมื่อ: มีการเปิดใช้งาน (active) และ เลือดมากกว่า 0 (hp > 0)
         const isActive = !!(wb && wb.active === true && (wb.hp > 0));
+        window._bossActive = isActive; // Sync global flag for 3D engine
 
-        window.updateBossHUD = updateBossHUD; // 🛡️ [DASHBOARD FIX] ส่งออกให้เรียกจากภายนอกได้
+        console.log(`👹 [BOSS-UI] Syncing state: active=${wb?.active}, hp=${wb?.hp}, isActive=${isActive}`);
+        
+        // Export for external calls (like Admin Dashboard preview)
+        window.updateBossHUD = updateBossHUD;
 
         if (isActive) {
             if (bossHPContainer) bossHPContainer.classList.remove('hidden');
@@ -31,16 +34,12 @@ export const initBossController = (STATE, engineHelpers) => {
 
             const hp = wb?.hp ?? 0;
             const max = wb?.max_hp ?? 1000000;
-            
-            // 🔥 [UI SAFETY FIX] ป้องกันหลอดเลือดเอ๋อ (หลอดดำ) ถ้าเลือดปัจจุบันมากกว่าเลือดสูงสุด
-            const rawPercent = (hp / max) * 100;
-            const hpPercent = Math.max(0, Math.min(100, rawPercent));
+            const hpPercent = Math.max(0, Math.min(100, (hp / max) * 100));
             
             const bar = document.getElementById('boss-hp-bar');
             const text = document.getElementById('boss-hp-text');
             if (bar) {
                 bar.style.width = `${hpPercent}%`;
-                // เปลี่ยนสีหลอดตามความวิกฤต (ชมพู -> แดง)
                 if (hpPercent < 20) bar.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
                 else bar.style.background = 'linear-gradient(90deg, #ec4899, #8b5cf6)';
             }
@@ -62,25 +61,25 @@ export const initBossController = (STATE, engineHelpers) => {
             }
             window.updateSkillUI();
         } else {
-            // 🛑 ซ่อนทุกอย่างที่เกี่ยวกับบอสทันที
+            // 🛑 [STRICT CLEANUP] บอสไม่อยู่ ต้องหายวับไปจากทุกที่
+            console.log("👹 [BOSS-UI] Boss is INACTIVE. Cleaning up UI elements...");
             if (bossHPContainer) bossHPContainer.classList.add('hidden');
             if (skillPanel) skillPanel.classList.add('hidden');
-            if (toggleArea) toggleArea.classList.add('hidden');
             if (throwBtn) throwBtn.classList.add('hidden');
             
-            // 🛡️ [BUGFIX] บอสตาย ต้องลบตัวบอสออกจากฉากทันที
-            if (typeof updateBossModel === 'function') {
-                updateBossModel(null); // ส่ง null เพื่อสั่งลบออกจากฉาก 3D
-            }
+            // 🔴 [FIX] ซ่อนจุดแจ้งเตือนสกิลบอสด้วย (จุดแดงบนแถบย่อ)
+            const skillNoti = document.getElementById('skill-noti-dot');
+            if (skillNoti) skillNoti.classList.add('hidden');
 
-            if (wb && wb.hp <= 0) {
-                // 🛡️ [AUDIT FIX] ลบ resetBossSkills() ออก เพื่อให้ผู้เล่นเก็บเลเวลสกิลไว้สู้บอสตัวถัดไปได้
-                // จะรีเซ็ตจริงเฉพาะตอน "จบซีซั่น" (Season Reset) เท่านั้น
-            }
+            // ล้างหลอดเลือดเพื่อความเรียบร้อย
+            const bar = document.getElementById('boss-hp-bar');
+            if (bar) bar.style.width = '0%';
 
+            // 🛡️ [ENGINE SYNC] ลบโมเดลและหินออกจากฉาก 3D ทันที
+            if (typeof updateBossModel === 'function') updateBossModel(null);
             if (typeof clearWorldRocks === 'function') clearWorldRocks();
             
-            // หยุดการเกิดของหิน
+            // หยุดระบบเกิดหิน
             if (window._rockSpawner) {
                 clearInterval(window._rockSpawner);
                 window._rockSpawner = null;
@@ -91,6 +90,13 @@ export const initBossController = (STATE, engineHelpers) => {
 
     let _lastSkillState = "";
     window.updateSkillUI = () => {
+        // 🔥 [AUTHORITATIVE CHECK] ถ้าบอสไม่อยู่ ห้ามโชว์จุดแดงแจ้งเตือนเด็ดขาด
+        if (!window._bossActive) {
+            const globalDot = document.getElementById('skill-noti-dot');
+            if (globalDot) globalDot.classList.add('hidden');
+            return;
+        }
+
         const currentState = JSON.stringify(STATE.boss_skills);
         if (currentState === _lastSkillState) return;
         _lastSkillState = currentState;
@@ -129,7 +135,8 @@ export const initBossController = (STATE, engineHelpers) => {
         // --- 🔴 Update Global Skill Noti Dot ---
         const globalDot = document.getElementById('skill-noti-dot');
         if (globalDot) {
-            if (STATE.boss_skills.points > 0) {
+            const isBossActive = !!(STATE.config?.world_boss?.active && STATE.config?.world_boss?.hp > 0);
+            if (STATE.boss_skills.points > 0 && isBossActive) {
                 globalDot.classList.remove('hidden');
             } else {
                 globalDot.classList.add('hidden');
@@ -297,6 +304,12 @@ export const initBossController = (STATE, engineHelpers) => {
         const wb = STATE.config?.world_boss;
         if (!wb || !wb.schedules || wb.schedules.length === 0) return;
 
+        // 🛡️ [ADMIN PRIORITY] ถ้ามีการสั่งการด้วยมือ (Manual Override) ห้ามระบบอัตโนมัติทำงานทับ
+        if (wb.manual_override === true) {
+            console.log("⚙️ [BOSS-SCHEDULE] Manual Override is ON. Skipping automatic schedule.");
+            return;
+        }
+
         const now = new Date();
         const day = now.getDay();
         
@@ -318,8 +331,10 @@ export const initBossController = (STATE, engineHelpers) => {
         }
 
         if (shouldBeActive && !wb.active) {
+            console.log("⏰ [BOSS-SCHEDULE] Time reached! Spawning boss...");
             await BossService.updateBossStatus(true, (wb.hp <= 0) ? wb.max_hp : wb.hp);
         } else if (!shouldBeActive && wb.active) {
+            console.log("⏰ [BOSS-SCHEDULE] Time expired! Despawning boss...");
             await BossService.updateBossStatus(false, wb.max_hp);
         }
     };
@@ -332,16 +347,28 @@ export const initBossController = (STATE, engineHelpers) => {
 
     let _isVictoryReported = false;
     BossService.subscribe((wb) => {
-        // 🛡️ [PREVIEW FIX] ถ้าอยู่ในหน้า Admin Preview ไม่ต้องรับอัปเดตจาก Cloud ทับ
+        // 🛡️ [PREVIEW FIX] ในโหมดพรีวิว (Iframe) ให้ทำตามคำสั่ง Dashboard เท่านั้น ไม่เอาจาก Cloud มาทับซ้อน
         if (window.parent !== window) return;
 
         STATE.config.world_boss = wb;
         
+        // 🔄 Sync UI & 3D Model
+        updateBossHUD(wb);
+        updateBossModel(wb);
+        
+        // 🏆 [VICTORY CONDITION] เมื่อบอสเลือดหมด
         if (wb.hp <= 0 && wb.active && !_isVictoryReported) {
             _isVictoryReported = true;
-            BossService.updateBossStatus(false, 0);
+            console.log("🏆 [BOSS] Victory! Delaying despawn for 5s to sync rewards...");
+            
+            // 🛡️ [SYNC FIX] รอ 5 วินาทีเพื่อให้ทุกคนได้รับข่าวสารและโชว์หน้าจอรางวัลทัน
+            setTimeout(() => {
+                // สั่งปิดสถานะบอสใน Cloud (บอสพ่ายแพ้)
+                BossService.updateBossStatus(false, 0);
+            }, 5000);
         }
 
+        // 🧹 [STATE RESET] เมื่อบอสหายไป (Despawned หรือ Defeated)
         if (!wb.active) {
             if (_isVictoryReported || (STATE.boss_skills && STATE.boss_skills.lvl > 1)) {
                  resetBossSkills();
@@ -349,6 +376,7 @@ export const initBossController = (STATE, engineHelpers) => {
             _isVictoryReported = false;
         }
 
+        // ทุกครั้งที่ข้อมูลเปลี่ยน ให้ล้าง UI และ Model ให้เรียบร้อย
         updateBossHUD(wb);
         updateBossModel(wb);
     });
