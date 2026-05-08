@@ -7,7 +7,7 @@ const { logScoreAction, fetchLeaderboard, fetchSeasonRankings } = SupabaseSvc;
 window.SupabaseSvc = SupabaseSvc;
 
 import { 
-    STATE, SPECIAL_QUEST_POOL, 
+    STATE, SPECIAL_QUEST_POOL, currentUserId,
     loadState, saveState, applyConfigToState, loadAdminConfigLocal, 
     loadGameConfigCloud, getActiveConfig
 } from '../store/state.js';
@@ -263,8 +263,10 @@ window.updateUI = function() {
 
         const loginDot = $('login-noti-dot');
         if (loginDot) {
+            // 🛡️ [AUDIT FIX] เช็ควันที่ล็อกอินจาก Local โดยใช้ ID
+            const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
+            const localLastLogin = localStorage.getItem('last_login_verified_' + userIdKey);
             const today = new Date().toDateString();
-            const localLastLogin = localStorage.getItem('last_login_verified_' + STATE.username);
             const canClaim = STATE.last_login_date !== today && localLastLogin !== today;
             loginDot.classList.toggle('hidden', !canClaim);
         }
@@ -1023,7 +1025,8 @@ window.resetDailyQuests = () => {
 
 window.addEventListener('storage', (e) => {
     // 🔥 [BUGFIX] ทำให้จอจำลอง 2 ขนาดใน Admin Sync ข้อมูลกันแบบ Real-time
-    if (e.key === 'likegotchi_state_' + STATE.username && e.newValue) {
+    const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
+    if (e.key === 'likegotchi_state_' + userIdKey && e.newValue) {
         try {
             const newState = JSON.parse(e.newValue);
             Object.assign(STATE, newState);
@@ -1373,9 +1376,10 @@ window.toggleLoginReward = (close) => {
     // Update Content
     const config = getActiveConfig();
     const rewards = config.login_rewards || [];
-    // 🛡️ [AUDIT FIX] ดึงจาก LocalStorage เสมอถ้า Cloud เป็น 0 หรือเก่ากว่า เพื่อให้หน้าจอ "คงที่" ที่สุด
-    const localLastClaimDate = localStorage.getItem('last_login_verified_' + STATE.username);
-    const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + STATE.username)) || 0;
+    // 🛡️ [AUDIT FIX] ดึงจาก LocalStorage โดยใช้ UserId เพื่อป้องกันข้อมูล Leak ข้ามไอดี
+    const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
+    const localLastClaimDate = localStorage.getItem('last_login_verified_' + userIdKey);
+    const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + userIdKey)) || 0;
     const today = new Date().toDateString();
     
     // ถ้าในเครื่องบอกว่าเช็คอินวันนี้ไปแล้ว ให้ยึด Streak จากในเครื่องไว้ก่อนเลย
@@ -1421,8 +1425,8 @@ window.toggleLoginReward = (close) => {
     const statusMsg = $('login-status-msg');
     const claimBtn = $('login-claim-btn');
 
-    // 🛡️ [HYBRID CHECK] ตรวจสอบทั้ง Cloud และ Local
-    const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + STATE.username);
+    // 🛡️ [HYBRID CHECK] ตรวจสอบทั้ง Cloud และ Local โดยใช้ ID
+    const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + userIdKey);
     const canClaim = lastLoginSaved !== today;
 
     if (statusMsg) {
@@ -1460,8 +1464,9 @@ window.claimDailyReward = async () => {
 
     const today = now.toDateString();
     
-    // 🛡️ [HYBRID CHECK] ดึงข้อมูลจาก Cloud ก่อน ถ้าไม่มีให้ใช้ Local (กัน Migration Error)
-    const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + STATE.username);
+    // 🛡️ [HYBRID CHECK] ดึงจาก LocalStorage โดยใช้ UserId เพื่อป้องกันข้อมูล Leak
+    const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
+    const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + userIdKey);
     
     if (lastLoginSaved === today) {
         spawn('⚠️ คุณได้รับรางวัลของวันนี้ไปแล้วครับ', 'text-amber-400');
@@ -1475,7 +1480,7 @@ window.claimDailyReward = async () => {
 
     // กู้คืนค่า Streak จาก Local ถ้าใน Cloud ไม่มี
     if (!STATE.last_login_date || STATE.last_login_date === "") {
-        const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + STATE.username)) || 0;
+        const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + userIdKey)) || 0;
         if (lastLoginSaved === yesterdayStr && localStreak > 0) {
             console.log("💾 [AUTH] Recovering login streak from Local Storage...");
             STATE.login_streak = localStreak;
@@ -1517,9 +1522,9 @@ window.claimDailyReward = async () => {
 
     STATE.last_login_date = today;
     
-    // 🛡️ [AUDIT FIX] บันทึกหลักฐานการเช็คอินลงเครื่องทันที (Double-Layer Protection)
-    localStorage.setItem('last_login_verified_' + STATE.username, today);
-    localStorage.setItem('login_streak_verified_' + STATE.username, STATE.login_streak.toString());
+    // 🛡️ [AUDIT FIX] บันทึกหลักฐานการเช็คอินลงเครื่องทันที โดยใช้ ID เป็น Key
+    localStorage.setItem('last_login_verified_' + userIdKey, today);
+    localStorage.setItem('login_streak_verified_' + userIdKey, STATE.login_streak.toString());
     
     updateUI();
     saveState(true); 

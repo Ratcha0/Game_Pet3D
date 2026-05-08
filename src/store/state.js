@@ -86,14 +86,18 @@ export function resetStateToDefaults() {
     STATE.xp = 0;
     STATE.max_exp = 200;
     
-    // 🔥 [AUDIT FIX] ล้างข้อมูลกิจกรรมทั้งหมด
+    // 🔥 [AUDIT FIX] ล้างข้อมูลกิจกรรมและการล็อกอินทั้งหมด (ป้องกันการ Leak ข้ามไอดี)
     STATE.last_quest_date = ""; 
     STATE.last_login_date = "";
+    STATE.login_streak = 0; // 🛡️ เพิ่มจุดนี้เพื่อให้ไอดีใหม่เริ่มที่วันที่ 1 เสมอ
     STATE.achievements = [];
 
     // 🛡️ [ZERO-LEAKAGE HARDENING] ล้างข้อมูลเชิงลึกทั้งหมด
     STATE.carrying_rock = 0;
-    STATE.boss_skills = { points: 0, xp: 0, lvl: 1 };
+    STATE.boss_skills = { 
+        lvl: 1, xp: 0, next: 5000, points: 0,
+        damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
+    };
     STATE.inventory = {
         equipped_skins: { pet: null, car: null, plant: null },
         skins: [], boosters: {}
@@ -113,6 +117,14 @@ export function resetStateToDefaults() {
         decay_mult: 1, decay_expiry: 0,
         luck_mult: 1, luck_expiry: 0,
         regen_mult: 1, regen_expiry: 0
+    };
+
+    STATE.config = {
+        template: 'pet', difficulty_mode: 'normal',
+        sky: 'day', ground: 'grass',
+        custom_model: '', custom_rotation_y: 0,
+        available_skins: [],
+        matrix: {}
     };
 }
 
@@ -191,6 +203,7 @@ export async function loadState(forceId = null) {
             if (window.updateUI) window.updateUI();
         } else {
             console.log("🆕 [STATE] New User or No Cloud Data. Using defaults.");
+            STATE.username = currentUserId; // 👈 [FIX] ตั้งชื่อตาม ID ตั้งแต่เริ่ม
             localStorage.removeItem('likegotchi_state_' + currentUserId);
             sanitizeState();
         }
@@ -290,6 +303,26 @@ export function sanitizeState() {
     
     const maxStam = STATE.max_stamina || 100;
     STATE.stamina = Math.min(maxStam, Math.max(0, parseFloat(STATE.stamina)));
+
+    // 🛡️ [DEEP HEALING] ซ่อมแซมโครงสร้างที่อาจจะหายไปจากการโหลด Cloud
+    if (!STATE.boss_skills || !STATE.boss_skills.damage) {
+        STATE.boss_skills = { 
+            lvl: STATE.boss_skills?.lvl || 1, 
+            xp: STATE.boss_skills?.xp || 0, 
+            next: STATE.boss_skills?.next || 5000, 
+            points: STATE.boss_skills?.points || 0,
+            damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
+        };
+    }
+    if (!STATE.inventory) {
+        STATE.inventory = { equipped_skins: { pet: null, car: null, plant: null }, skins: [], boosters: {} };
+    }
+    if (!STATE.quests) {
+        STATE.quests = { feed: 0, feed_max: 5, clean: 0, clean_max: 3, play: 0, play_max: 3, claimed: false, special: { label: 'สะสม Stamina', type: 'spend', current: 0, target: 100 }, special_claimed: false };
+    }
+    if (!STATE.config) {
+        STATE.config = { template: 'pet', difficulty_mode: 'normal', sky: 'day', ground: 'grass', custom_model: '', custom_rotation_y: 0, available_skins: [], matrix: {} };
+    }
 }
 
 export async function loadGameConfigCloud() {

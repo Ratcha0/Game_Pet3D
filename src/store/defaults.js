@@ -117,6 +117,16 @@ export const createDefaultSettings = (template, diff) => {
             score: { cost: 300, mult: 1.10, duration: 15 },
             decay: { cost: 450, mult: 0.80, duration: 20 },
             luck:  { cost: 500, mult: 1.50, duration: 10 }
-        }
+        },
+        // 7. รางวัลเช็คอินรายวัน (Daily Login RESTORED)
+        login_rewards: [
+            { day: 1, reward_type: 'gold', reward_value: 500 },
+            { day: 2, reward_type: 'gold', reward_value: 1000 },
+            { day: 3, reward_type: 'score', reward_value: 15 },
+            { day: 4, reward_type: 'gold', reward_value: 1500 },
+            { day: 5, reward_type: 'decay', reward_value: 20 },
+            { day: 6, reward_type: 'gold', reward_value: 2000 },
+            { day: 7, reward_type: 'gold', reward_value: 5000 }
+        ]
     };
 };
