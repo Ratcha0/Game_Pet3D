@@ -743,9 +743,10 @@ window.onPoopCollectedManual = (type, isRemote = false) => {
         xp: safeNum(actRaw.xp, 10)
     };
 
-    // รางวัลจากการเก็บไอเทม (Manual Collection)
-    const tokenReward = type === 'golden' ? 50 : 15;
-    const xpReward = Math.floor(act.xp * 1.5); 
+    // 🎯 [ECONOMY SYNC] ดึงรางวัลมาจาก Dashboard (Matrix)
+    const matrix = getActiveConfig()?.rewards || {};
+    const tokenReward = type === 'golden' ? (matrix.scoop_golden_tokens || 50) : (matrix.scoop_tokens || 15);
+    const xpReward = type === 'golden' ? (matrix.scoop_golden_xp || 150) : (matrix.scoop_xp || 45);
 
     STATE.tokens += tokenReward;
     STATE.xp += xpReward;
@@ -935,6 +936,7 @@ async function checkLevelUp() {
         const saved = await saveState(true); 
         if (saved) {
             console.log("✅ Level Up Persisted Successfully.");
+            spawn('☁️ ข้อมูลเลเวลถูกบันทึกลง Cloud สำเร็จ!', 'text-emerald-400 text-xs');
         } else {
             console.warn("🚨 [DB] Level Up Save Failed! Data might be out of sync.");
             spawnAlert('🚨 บันทึกเลเวลลง Cloud ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ');
@@ -1400,8 +1402,10 @@ window.toggleLoginReward = (close) => {
 
     const statusMsg = $('login-status-msg');
     const claimBtn = $('login-claim-btn');
-    // 🛡️ [FIX] ยุบรวมการเช็คให้เหลือที่เดียวผ่าน STATE.last_login_date
-    const canClaim = STATE.last_login_date !== today;
+
+    // 🛡️ [HYBRID CHECK] ตรวจสอบทั้ง Cloud และ Local
+    const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + STATE.username);
+    const canClaim = lastLoginSaved !== today;
 
     if (statusMsg) {
         if (canClaim) {
@@ -1409,9 +1413,8 @@ window.toggleLoginReward = (close) => {
             statusMsg.classList.add('text-emerald-400');
             statusMsg.classList.remove('text-white/40');
         } else {
-            // 🔥 [FIX] บังคับเริ่มนับวันที่ 1 ถ้าผู้เล่นรับรางวัลแล้วแต่ระบบยังเก็บ 0
-            const displayStreak = (streak === 0) ? 1 : streak;
-            statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${displayStreak} เรียบร้อยแล้ว`;
+            // 🔥 [FIX] แสดงผลตามจริงจาก Streak ที่คำนวณแบบ Hybrid
+            statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${streak} เรียบร้อยแล้ว`;
             statusMsg.classList.remove('text-emerald-400');
             statusMsg.classList.add('text-white/40');
         }
@@ -1438,7 +1441,11 @@ window.claimDailyReward = async () => {
     }
 
     const today = now.toDateString();
-    if (STATE.last_login_date === today) {
+    
+    // 🛡️ [HYBRID CHECK] ดึงข้อมูลจาก Cloud ก่อน ถ้าไม่มีให้ใช้ Local (กัน Migration Error)
+    const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + STATE.username);
+    
+    if (lastLoginSaved === today) {
         spawn('⚠️ คุณได้รับรางวัลของวันนี้ไปแล้วครับ', 'text-amber-400');
         return;
     }
@@ -1448,7 +1455,16 @@ window.claimDailyReward = async () => {
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toDateString();
 
-    if (STATE.last_login_date === yesterdayStr) {
+    // กู้คืนค่า Streak จาก Local ถ้าใน Cloud ไม่มี
+    if (!STATE.last_login_date || STATE.last_login_date === "") {
+        const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + STATE.username)) || 0;
+        if (lastLoginSaved === yesterdayStr && localStreak > 0) {
+            console.log("💾 [AUTH] Recovering login streak from Local Storage...");
+            STATE.login_streak = localStreak;
+        }
+    }
+
+    if (lastLoginSaved === yesterdayStr) {
         STATE.login_streak = (STATE.login_streak || 0) + 1;
     } else {
         // ถ้าไม่ได้ล็อกอินต่อเนื่อง ให้เริ่มนับ 1 ใหม่
@@ -1874,8 +1890,8 @@ function updateLoading(progress) {
         const mech = active.mechanics || {};
         
         // mRaw เพื่อความเสถียรในการดึงแบบด่วน (Legacy Support)
-        const matrix = (STATE.config.matrix[tpl] && STATE.config.matrix[tpl][diff]) ? STATE.config.matrix[tpl][diff] : {};
-        const mRaw = matrix.mechanics || mech;
+        // [FIX] ใช้ค่าจาก active config โดยตรงเพื่อป้องกัน Error จากฟิลด์ matrix ที่ไม่มีอยู่จริง
+        const mRaw = mech; 
         
         if (Math.random() < 0.2) updatePetSentience();
         
@@ -1895,9 +1911,9 @@ function updateLoading(progress) {
         const decayMult = (STATE.buffs.decay_mult || 1.0);
 
         // 1. Hunger & Clean Decay
-        const d_hunger = (mRaw.dec_hunger !== undefined) ? parseFloat(mRaw.dec_hunger) : 0.04;
-        const d_clean  = (mRaw.dec_clean !== undefined) ? parseFloat(mRaw.dec_clean) : 0.03;
-        const d_happy  = (mRaw.dec_happy !== undefined) ? parseFloat(mRaw.dec_happy) : 0.035;
+        const d_hunger = (mRaw.dec_hunger !== undefined) ? parseFloat(mRaw.dec_hunger) : 0.08;
+        const d_clean  = (mRaw.dec_clean !== undefined) ? parseFloat(mRaw.dec_clean) : 0.06;
+        const d_happy  = (mRaw.dec_happy !== undefined) ? parseFloat(mRaw.dec_happy) : 0.07;
 
         STATE.hunger = Math.max(0, STATE.hunger - (d_hunger * decayMult));
         STATE.clean = Math.max(0, STATE.clean - (d_clean * decayMult));
@@ -1909,7 +1925,7 @@ function updateLoading(progress) {
 
         // 💖 Passive Love (ต้อง Happy จริงๆ ถึงจะเด้ง)
         if (STATE.hunger > 90 && STATE.clean > 90 && STATE.love < 100) {
-            STATE.love = Math.min(100, STATE.love + 0.02); // ลดการ Regen ลงให้สมดุล
+            STATE.love = Math.min(100, STATE.love + 0.005); // [BALANCED] ลดการ Regen ลงมาก เพื่อให้ความสุขไม่เต็มตลอดเวลา
         }
         
         // 🌟 Passive Emoticons

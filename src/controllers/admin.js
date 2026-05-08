@@ -26,7 +26,7 @@ window.spawn = (msg, cls = "text-white") => {
         // 7. ฟิสิกส์ (Physics)
 
 
-let ADMIN_STATE = {
+export const ADMIN_STATE = {
     template: 'pet',
     difficulty_mode: 'normal',
     sky: 'day',
@@ -61,6 +61,8 @@ let ADMIN_STATE = {
         plant: { easy: createDefaultSettings('plant', 'easy'), normal: createDefaultSettings('plant', 'normal'), hard: createDefaultSettings('plant', 'hard') }
     }
 };
+window.ADMIN_STATE = ADMIN_STATE; // 🛡️ Expose to window for inline HTML access
+
 
 let IS_CLOUDSYNC_READY = false; // 🔥 Safety Guard
 
@@ -106,7 +108,11 @@ function highlightUI() {
                 sendPreview(); 
                 saveLocal();
                 
-                if (key === 'season_duration') window.syncInputsWithMatrix();
+                if (key === 'season_duration') {
+                    console.log("📅 [ADMIN] Season duration changed to:", val);
+                    window.renderLoginRewards(val);
+                    window.syncInputsWithMatrix();
+                }
                 if (key.startsWith('world_boss.')) window.renderBossConfig(); // Update preview if boss path changed
             });
             el.dataset.boundGlobal = "true";

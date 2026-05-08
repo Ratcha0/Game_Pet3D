@@ -20,8 +20,16 @@ export const initBossController = (STATE, engineHelpers) => {
         // 🔥 [AUTHORITATIVE VISIBILITY]
         // บอสจะแสดงผลก็ต่อเมื่อ: มีการเปิดใช้งาน (active) และ เลือดมากกว่า 0 (hp > 0)
         const isActive = !!(wb && wb.active === true && (wb.hp > 0));
-        window._bossActive = isActive; // Sync global flag for 3D engine
+        
+        // 🛡️ [OPTIMIZATION] ถ้าสถานะเดิมเหมือนเดิมเป๊ะ ให้ข้ามการประมวลผลซ้ำเพื่อลด Log และ CPU
+        if (window._lastBossUIStatus === isActive && (isActive ? window._lastBossHP === wb.hp : true)) {
+            return;
+        }
+        window._lastBossUIStatus = isActive;
+        window._lastBossHP = wb?.hp || 0;
 
+        window._bossActive = isActive; // Sync global flag for 3D engine
+        
         console.log(`👹 [BOSS-UI] Syncing state: active=${wb?.active}, hp=${wb?.hp}, isActive=${isActive}`);
         
         // Export for external calls (like Admin Dashboard preview)

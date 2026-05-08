@@ -250,6 +250,7 @@ export const initAuth = async () => {
         // เพื่อป้องกันการทับซ้อนกับหน้าเล่นเกมหลักใน Tab อื่น
         if (isAdminPreview) {
             console.log("📺 [PREVIEW] Running in Admin Preview mode (ID: " + userId + ")");
+            window._isAdminPreview = true;
         } else {
             setUserId(userId);
         }

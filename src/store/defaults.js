@@ -6,7 +6,7 @@
 export const createDefaultSettings = (template, diff) => {
     const isHard = diff === 'hard';
     const isEasy = diff === 'easy';
-    const modeMult = isEasy ? 0.7 : (isHard ? 1.5 : 1.0);
+    const modeMult = isEasy ? 0.8 : (isHard ? 1.5 : 1.0);
 
     // 📊 [BACKUP DATA] ค่าพื้นฐานแยกตามชนิดตัวละคร
     const base = {
@@ -18,7 +18,7 @@ export const createDefaultSettings = (template, diff) => {
                 repair: { r: 10, s: 4, xp: 70 }
             },
             mechanics: {
-                dec_hunger: 0.08, dec_clean: 0.05, dec_happy: 0.06,
+                dec_hunger: 0.16, dec_clean: 0.12, dec_happy: 0.14,
                 reg_stamina: 0.75, max_stamina: 100, rare_rate: 8
             },
             rewards: { silver_min: 20, silver_max: 100, gold_min: 200, gold_max: 500 }
@@ -31,7 +31,7 @@ export const createDefaultSettings = (template, diff) => {
                 repair: { r: 30, s: 12, xp: 20 }
             },
             mechanics: {
-                dec_hunger: 0.12, dec_clean: 0.03, dec_happy: 0.06,
+                dec_hunger: 0.20, dec_clean: 0.08, dec_happy: 0.10,
                 reg_stamina: 0.35, max_stamina: 100, rare_rate: 8
             },
             rewards: { silver_min: 20, silver_max: 45, gold_min: 150, gold_max: 400 }
@@ -44,7 +44,7 @@ export const createDefaultSettings = (template, diff) => {
                 repair: { r: 20, s: 15, xp: 12 }
             },
             mechanics: {
-                dec_hunger: 0.05, dec_clean: 0.06, dec_happy: 0.03,
+                dec_hunger: 0.12, dec_clean: 0.14, dec_happy: 0.08,
                 reg_stamina: 0.55, max_stamina: 100, rare_rate: 12
             },
             rewards: { silver_min: 10, silver_max: 25, gold_min: 80, gold_max: 200 }
@@ -73,7 +73,12 @@ export const createDefaultSettings = (template, diff) => {
             diamond_min: 800,
             diamond_max: 1500,
             diamond_rate: isEasy ? 5 : (isHard ? 1 : 2),
-            diamond_xp: 1000
+            diamond_xp: 1000,
+            // 💩 Manual Collection Rewards (Scoop/Oil/Leaves)
+            scoop_tokens: isEasy ? 25 : (isHard ? 10 : 15),
+            scoop_xp: isEasy ? 25 : (isHard ? 80 : 45),
+            scoop_golden_tokens: isEasy ? 100 : (isHard ? 35 : 50),
+            scoop_golden_xp: isEasy ? 100 : (isHard ? 250 : 150)
         },
         // 3. ภารกิจรายวัน (Quests RESTORED)
         quests: {

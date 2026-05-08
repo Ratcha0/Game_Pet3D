@@ -158,9 +158,11 @@ export async function loadState(forceId = null) {
                 const diffMinutes = (now - lastTime) / (1000 * 60);
 
                 if (diffMinutes > 5) { // คำนวณเฉพาะถ้าหายไปนานกว่า 5 นาที
-                    const decayMult = STATE.buffs?.decay_mult || 1;
-                    const hungerDecay = (STATE.config?.mechanics?.dec_hunger || 0.08) * diffMinutes * decayMult;
-                    const cleanDecay = (STATE.config?.mechanics?.dec_clean || 0.05) * diffMinutes * decayMult;
+                    const activeCfg = getActiveConfig();
+                    const m = activeCfg.mechanics || {};
+                    const dMult = STATE.buffs?.decay_mult || 1;
+                    const hungerDecay = (m.dec_hunger || 0.08) * diffMinutes * dMult;
+                    const cleanDecay = (m.dec_clean || 0.05) * diffMinutes * dMult;
                     
                     STATE.hunger = Math.max(0, STATE.hunger - hungerDecay);
                     STATE.clean = Math.max(0, STATE.clean - cleanDecay);
@@ -187,6 +189,9 @@ export async function loadState(forceId = null) {
 }
 
 export async function saveState(force = false) {
+    // 🛡️ [PREVIEW GUARD] ไม่ต้องเซฟข้อมูลในหน้าพรีวิว Admin (ยกเว้นกดปุ่มบังคับ)
+    if (window._isAdminPreview && !force) return false;
+
     if (!currentUserId || _isSavingNow) return false;
 
     // 🛡️ [SMART CLOUD SAVE] เช็คข้อมูลสำคัญเปลี่ยน หรือถูกบังคับ
@@ -260,13 +265,18 @@ function subscribeToPlayerState() {
 
 export function sanitizeState() {
     if (!STATE.level || isNaN(STATE.level)) STATE.level = 1;
-    if (STATE.hunger === undefined || isNaN(STATE.hunger)) STATE.hunger = 80;
-    if (STATE.clean === undefined || isNaN(STATE.clean)) STATE.clean = 80;
+    if (STATE.hunger === undefined || isNaN(STATE.hunger)) STATE.hunger = 100;
+    if (STATE.clean === undefined || isNaN(STATE.clean)) STATE.clean = 100;
+    if (STATE.love === undefined || isNaN(STATE.love)) STATE.love = 100;
     if (STATE.stamina === undefined || isNaN(STATE.stamina)) STATE.stamina = 100;
     
-    STATE.hunger = Math.min(100, Math.max(0, STATE.hunger));
-    STATE.clean = Math.min(100, Math.max(0, STATE.clean));
-    STATE.stamina = Math.min(STATE.max_stamina || 100, Math.max(0, STATE.stamina));
+    // 🛡️ [DEEP AUDIT] ป้องกันค่าติดลบหรือเกิน 100
+    STATE.hunger = Math.min(100, Math.max(0, parseFloat(STATE.hunger)));
+    STATE.clean = Math.min(100, Math.max(0, parseFloat(STATE.clean)));
+    STATE.love = Math.min(100, Math.max(0, parseFloat(STATE.love)));
+    
+    const maxStam = STATE.max_stamina || 100;
+    STATE.stamina = Math.min(maxStam, Math.max(0, parseFloat(STATE.stamina)));
 }
 
 export async function loadGameConfigCloud() {

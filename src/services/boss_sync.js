@@ -69,6 +69,11 @@ export const BossService = {
                 }, payload => {
                     const newBoss = payload.new?.config?.world_boss;
                     if (newBoss) {
+                        // 🛡️ [OPTIMIZATION] บันทึกเฉพาะเมื่อค่าเปลี่ยนจริงๆ เพื่อลด Log Spam ในหน้า Console
+                        const bossKey = `${newBoss.active}_${newBoss.hp}`;
+                        if (window._lastBossSyncKey === bossKey) return;
+                        window._lastBossSyncKey = bossKey;
+
                         console.log(`📡 [BOSS] Live update: active=${newBoss.active}, hp=${newBoss.hp}`);
                         window._bossActive = !!(newBoss.active && newBoss.hp > 0);
                         currentBossState = newBoss;
