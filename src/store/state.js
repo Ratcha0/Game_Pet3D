@@ -1,16 +1,16 @@
 import { createDefaultSettings } from './defaults.js';
 import * as SupabaseSvc from '../services/supabase.js';
 
-// 📋 [QUEST POOL] รายการเควสพิเศษที่สุ่มได้
+// 📋 [QUEST POOL] รายการเควสพิเศษที่สุ่มได้ (RESTORED TO OLD VERSION)
 export const SPECIAL_QUEST_POOL = [
     { label: 'สะสม Stamina', type: 'spend', target: 100 },
-    { label: 'ป้อนอาหารน้อง', type: 'feed', target: 10 },
-    { label: 'อาบน้ำทำความสะอาด', type: 'clean', target: 8 },
-    { label: 'เล่นสนุกกับน้อง', type: 'play', target: 5 },
-    { label: 'ความรักเต็มร้อย', type: 'pure_love', target: 1 }
+    { label: 'เก็บอึผู้โชคดี', type: 'rare_poop', target: 2 },
+    { label: 'เล่นกับสัตว์เลี้ยง', type: 'play', target: 10 },
+    { label: 'ป้อนอาหารแสนอร่อย', type: 'feed', target: 10 }
 ];
 
 export const setUserId = (id) => {
+    currentUserId = id;
     localStorage.setItem('last_user_id', id);
 };
 
@@ -67,6 +67,9 @@ let _isStateLoaded = false;
 let _isConfigLoaded = false;
 let _activeChannels = [];
 let _isSavingNow = false;
+let _lastCloudSave = 0;
+let _lastSignificantData = ""; 
+
 
 export function resetStateToDefaults() {
     console.log("🧹 [STATE] Resetting to defaults...");
@@ -136,7 +139,14 @@ export async function loadState(forceId = null) {
             }
         } else if (cloudData) {
             // 🛡️ [DEEP MERGE] รวมข้อมูลจาก Cloud เข้ากับ STATE
-            Object.assign(STATE, cloudData);
+            const { config_meta, ...restData } = cloudData;
+            Object.assign(STATE, restData);
+            
+            // 🛡️ [CONFIG RESTORE] กู้คืนค่า Template และ Difficulty จาก Profile Metadata
+            if (config_meta) {
+                STATE.config.template = config_meta.template || STATE.config.template;
+                STATE.config.difficulty_mode = config_meta.difficulty_mode || STATE.config.difficulty_mode;
+            }
             
             // คำนวณความเสียหายบอส
             if (cloudData.boss_damage) STATE.boss_damage = cloudData.boss_damage;
@@ -179,11 +189,34 @@ export async function loadState(forceId = null) {
 export async function saveState(force = false) {
     if (!currentUserId || _isSavingNow) return false;
 
+    // 🛡️ [SMART CLOUD SAVE] เช็คข้อมูลสำคัญเปลี่ยน หรือถูกบังคับ
+    const significantFields = {
+        tokens: STATE.tokens,
+        xp: STATE.xp,
+        level: STATE.level,
+        score: STATE.score,
+        template: STATE.config.template,
+        difficulty: STATE.config.difficulty_mode
+    };
+    const currentSig = JSON.stringify(significantFields);
+    const now = Date.now();
+    const isCooldownOver = (now - _lastCloudSave > 5000); // 5 วินาที Cooldown
+    const hasDataChanged = currentSig !== _lastSignificantData;
+
+    if (!force && !isCooldownOver && !hasDataChanged) {
+        // บันทึกเฉพาะ Local ถ้ายังไม่ถึงเวลาเซฟ Cloud
+        localStorage.setItem('likegotchi_state_' + currentUserId, JSON.stringify(STATE));
+        return true;
+    }
+
     _isSavingNow = true;
     try {
-        const result = await SupabaseSvc.savePetState(currentUserId, STATE);
+        _lastCloudSave = now;
+        _lastSignificantData = currentSig;
+        
+        const { error } = await SupabaseSvc.savePetState(currentUserId, STATE);
         localStorage.setItem('likegotchi_state_' + currentUserId, JSON.stringify(STATE));
-        return result.success; // คืนค่าความสำเร็จจริงจาก Cloud
+        return !error; 
     } catch (e) {
         console.error("❌ saveState Error:", e);
         return false;
@@ -297,6 +330,13 @@ function checkSeasonReset() {
         console.warn(`🚨 [SEASON] Resetting user from S${userSeason} to S${cloudSeason}`);
         STATE.current_season = cloudSeason;
         STATE.level = 1; STATE.xp = 0; STATE.score = 0; STATE.tokens = 500;
+        
+        // 🛡️ [FINAL AUDIT] รีเซ็ตสกิลบอสด้วยเพื่อให้ซีซั่นใหม่เริ่มจากศูนย์เท่ากันทุกคน
+        STATE.boss_skills = {
+            lvl: 1, xp: 0, next: 5000, points: 0,
+            damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
+        };
+        
         saveState(true);
         if (window.spawn) window.spawn(`🚀 เริ่มซีซั่นใหม่ที่ ${cloudSeason}!`, "text-yellow-400 font-black");
     }

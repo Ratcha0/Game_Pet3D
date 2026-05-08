@@ -8,7 +8,8 @@ let currentBossState = null;
 export const BossService = {
     // 👹 [ACTION] ส่งดาเมจไปที่บอส
     async damageBoss(damage) {
-        const playerId = STATE.username || 'GUEST';
+        const { currentUserId } = await import('../store/state.js');
+        const playerId = currentUserId || 'GUEST';
         console.log(`👹 [BOSS] Submitting ${damage} damage for ${playerId}...`);
 
         try {

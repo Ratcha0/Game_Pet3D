@@ -28,7 +28,8 @@ window.incrementQuestProgress = (type, amount = 1) => {
 
     // 1. จัดการเควสรายวันหลัก (feed, clean, play)
     if (STATE.quests[type] !== undefined) {
-        const max = parseInt(STATE.quests[`${type}_max`]) || 5;
+        const activeCfg = getActiveConfig();
+        const max = parseInt(activeCfg?.quests?.[`target_${type}`]) || parseInt(STATE.quests[`${type}_max`]) || 5;
         STATE.quests[type] = Math.min(max, (parseInt(STATE.quests[type]) || 0) + amount);
     }
 
@@ -382,10 +383,13 @@ function updateQuestUI() {
     };
     const ql = qLabels[STATE.config.template] || qLabels.pet;
 
+    const activeCfg = getActiveConfig();
+    const qCfg = activeCfg?.quests || {};
+
     tiers.forEach(t => {
         const bar = $(`q-bar-${t}`); 
         const current = parseInt(q[t]) || 0;
-        const max = parseInt(q[`${t}_max`]) || 1; // 🛡️ [ZERO GUARD]
+        const max = parseInt(qCfg[`target_${t}`]) || parseInt(q[`${t}_max`]) || 1; 
         if(bar) bar.style.width = `${Math.min(100, (current / max) * 100)}%`;
         const val = $(`q-val-${t}`); 
         if(val) val.innerText = `${current}/${max}`;
@@ -763,9 +767,7 @@ window.onPoopCollectedManual = (type, isRemote = false) => {
     logScoreAction(STATE.username, 'COLLECT_POOP', 0, tokenReward, `เก็บอึ (${type})`);
     
     // อัปเดตเควส
-    if (STATE.quests.clean < STATE.quests.clean_max) {
-        STATE.quests.clean++;
-    }
+    incrementQuestProgress('clean', 1);
     incrementSpecialQuest('clean', 1);
     
     checkLevelUp();

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://bueyeufcfdsdgqbrtpau.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZXlldWZjZmRzZGdxYnJ0cGF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MTAyNTIsImV4cCI6MjA5MTI4NjI1Mn0.RGjyIoZnS3WL1RSyYGPqAzzTVfK0tYrdkxPnE1iA-ho';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -83,7 +83,13 @@ export async function loadPetState(userId) {
             achievements: activity.data?.achievements ?? [],
 
             // Buffs
-            buffs: buffs.data?.buffs ?? { score_mult: 1, score_expiry: 0, decay_mult: 1, decay_expiry: 0, luck_mult: 1, luck_expiry: 0, regen_mult: 1, regen_expiry: 0 }
+            buffs: buffs.data?.buffs ?? { score_mult: 1, score_expiry: 0, decay_mult: 1, decay_expiry: 0, luck_mult: 1, luck_expiry: 0, regen_mult: 1, regen_expiry: 0 },
+
+            // Config (Persisted in Inventory JSON to avoid schema cache issues)
+            config_meta: assets.data?.inventory?.config || {
+                template: profile.data?.template || "pet", // Fallback to old profile col if it existed
+                difficulty_mode: profile.data?.difficulty_mode || "normal"
+            }
         };
 
         return { data: fullData, error: null };
@@ -137,7 +143,13 @@ export async function savePetState(userId, state) {
         // 4. Assets
         const assets = {
             player_id: userId,
-            inventory: state.inventory || {},
+            inventory: {
+                ...(state.inventory || {}),
+                config: {
+                    template: state.config?.template || 'pet',
+                    difficulty_mode: state.config?.difficulty_mode || 'normal'
+                }
+            },
             boss_skills: state.boss_skills || {}
         };
 
