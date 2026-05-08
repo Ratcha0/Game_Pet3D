@@ -138,15 +138,30 @@ export async function loadState(forceId = null) {
                 Object.assign(STATE, JSON.parse(local));
             }
         } else if (cloudData) {
-            // 🛡️ [DEEP MERGE] รวมข้อมูลจาก Cloud เข้ากับ STATE
-            const { config_meta, ...restData } = cloudData;
-            Object.assign(STATE, restData);
+            // 🛡️ [SMART RECONCILIATION] เปรียบเทียบข้อมูล Cloud vs Local
+            // เพื่อป้องกันข้อมูลย้อนกลับ (Rollback) กรณีรีเฟรชหน้าจอระหว่าง Cooldown
+            const localRaw = localStorage.getItem('likegotchi_state_' + currentUserId);
+            let finalData = cloudData;
             
-            // 🛡️ [CONFIG RESTORE] กู้คืนค่า Template และ Difficulty จาก Profile Metadata
-            if (config_meta) {
-                STATE.config.template = config_meta.template || STATE.config.template;
-                STATE.config.difficulty_mode = config_meta.difficulty_mode || STATE.config.difficulty_mode;
+            if (localRaw) {
+                const local = JSON.parse(localRaw);
+                const cloudXP = parseFloat(cloudData.xp) || 0;
+                const localXP = parseFloat(local.xp) || 0;
+                const cloudTokens = parseFloat(cloudData.tokens) || 0;
+                const localTokens = parseFloat(local.tokens) || 0;
+
+                // ⚖️ ถ้าข้อมูลในเครื่องใหม่กว่า (XP หรือ Tokens เยอะกว่า) ให้ใช้ค่าในเครื่องนำทาง
+                if (localXP > cloudXP || localTokens > cloudTokens) {
+                    console.log("📦 [STATE] Local data is newer than Cloud. Using Local for session.");
+                    finalData = { ...cloudData, ...local };
+                }
             }
+
+            Object.assign(STATE, finalData);
+            
+            // 🛡️ [CONFIG AUTHORITY] ห้ามเอาข้อมูลส่วนตัวผู้เล่นมาทับค่าธีมที่แอดมินตั้งไว้ (Global Config Only)
+            // STATE.config.template = config_meta.template || STATE.config.template; 
+            // STATE.config.difficulty_mode = config_meta.difficulty_mode || STATE.config.difficulty_mode;
             
             // คำนวณความเสียหายบอส
             if (cloudData.boss_damage) STATE.boss_damage = cloudData.boss_damage;
@@ -192,38 +207,36 @@ export async function saveState(force = false) {
     // 🛡️ [PREVIEW GUARD] ไม่ต้องเซฟข้อมูลในหน้าพรีวิว Admin (ยกเว้นกดปุ่มบังคับ)
     if (window._isAdminPreview && !force) return false;
 
-    if (!currentUserId || _isSavingNow) return false;
+    if (!currentUserId) return false;
 
-    // 🛡️ [SMART CLOUD SAVE] เช็คข้อมูลสำคัญเปลี่ยน หรือถูกบังคับ
-    const significantFields = {
-        tokens: STATE.tokens,
-        xp: STATE.xp,
-        level: STATE.level,
-        score: STATE.score,
-        template: STATE.config.template,
-        difficulty: STATE.config.difficulty_mode
-    };
-    const currentSig = JSON.stringify(significantFields);
+    // 💾 [LAYER 1: LOCAL FIRST] บันทึกลง LocalStorage ทันทีทุุกครั้งที่เรียก (Zero Latency)
+    localStorage.setItem('likegotchi_state_' + currentUserId, JSON.stringify(STATE));
+
+    // 🛡️ [GUARD] ถ้ากำลังบันทึกอยู่ ให้ข้ามการส่ง Cloud ในรอบนี้ไปก่อน
+    if (_isSavingNow) return true;
+
+    // 🛡️ [LAYER 2: SMART CLOUD SAVE] เช็ค Cooldown
     const now = Date.now();
-    const isCooldownOver = (now - _lastCloudSave > 5000); // 5 วินาที Cooldown
-    const hasDataChanged = currentSig !== _lastSignificantData;
+    const CLOUD_COOLDOWN = 10000; // ⏳ ปรับเป็น 10 วินาทีเพื่อความเสถียร
+    const isCooldownOver = (now - _lastCloudSave > CLOUD_COOLDOWN);
 
-    if (!force && !isCooldownOver && !hasDataChanged) {
-        // บันทึกเฉพาะ Local ถ้ายังไม่ถึงเวลาเซฟ Cloud
-        localStorage.setItem('likegotchi_state_' + currentUserId, JSON.stringify(STATE));
+    // ถ้าไม่ถูกบังคับ (Force) และยังไม่ถึงเวลา Cooldown ให้จบงานแค่การเซฟ Local
+    if (!force && !isCooldownOver) {
         return true;
     }
 
     _isSavingNow = true;
     try {
         _lastCloudSave = now;
-        _lastSignificantData = currentSig;
         
+        // ☁️ ส่งข้อมูลขึ้น Cloud
+        console.log(`☁️ [STATE] Syncing to Cloud... (Force: ${force})`);
         const { error } = await SupabaseSvc.savePetState(currentUserId, STATE);
-        localStorage.setItem('likegotchi_state_' + currentUserId, JSON.stringify(STATE));
-        return !error; 
+        
+        if (error) throw error;
+        return true; 
     } catch (e) {
-        console.error("❌ saveState Error:", e);
+        console.error("❌ saveState Cloud Sync Error:", e);
         return false;
     } finally {
         _isSavingNow = false;
@@ -290,6 +303,8 @@ export async function loadGameConfigCloud() {
         if (cloudConfig) {
             applyConfigToState(cloudConfig);
             window._isConfigLoaded = true;
+            if (typeof window.updateUI === 'function') window.updateUI();
+            if (typeof window.updateQuestUI === 'function') window.updateQuestUI();
             checkSeasonReset();
         } else {
             console.warn("⚠️ [CONFIG] No 'current' config found in game_configs table.");

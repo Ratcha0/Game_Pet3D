@@ -258,7 +258,7 @@ export function initShop() {
         SFX.playAsset('bell');
         
         if (window.updateUI) window.updateUI(); 
-        saveState();
+        saveState(true);
         setTimeout(() => window.toggleShop(true), 500); 
     };
 
@@ -268,28 +268,51 @@ export function initShop() {
         if (!grid || !modal || modal.classList.contains('hidden')) return;
         
         const config = getActiveConfig().boosters || {};
+        const currentTpl = STATE.config.template || 'pet';
+
+        // 🎨 [DYNAMIC THEME] ปรับคำเรียกและไอคอนตามธีมที่เล่นอยู่
+        const themeLabels = {
+            pet: {
+                score: { name: 'แต้มทวีคูณ', icon: '📊', desc: (c) => `+${Math.round((c.mult-1)*100)}% Score ตลอด ${c.duration} นาที` },
+                decay: { name: 'เกราะกันหิว', icon: '🛡️', desc: (c) => `สถานะลดช้าลง ${Math.round((1-c.mult)*100)}% นาน ${c.duration} นาที` },
+                luck:  { name: 'ดวงมหาเฮง', icon: '🍀', desc: (c) => `พบของแรร์ง่ายขึ้น ${c.mult} เท่า นาน ${c.duration} นาที` }
+            },
+            car: {
+                score: { name: 'ชิปจูนเครื่องยนต์', icon: '⚡', desc: (c) => `จูนเครื่องให้ได้แต้มเพิ่ม ${Math.round((c.mult-1)*100)}% นาน ${c.duration} นาที` },
+                decay: { name: 'น้ำมันพรีเมียม', icon: '⛽', desc: (c) => `ลดการกินน้ำมันและแบต ${Math.round((1-c.mult)*100)}% นาน ${c.duration} นาที` },
+                luck:  { name: 'เรดาร์หาอะไหล่', icon: '📡', desc: (c) => `ตรวจจับไอเทมแรร์ได้ง่ายขึ้น ${c.mult} เท่า นาน ${c.duration} นาที` }
+            },
+            plant: {
+                score: { name: 'สารเร่งสังเคราะห์แสง', icon: '🍃', desc: (c) => `เพิ่มประสิทธิภาพแต้ม ${Math.round((c.mult-1)*100)}% นาน ${c.duration} นาที` },
+                decay: { name: 'ปุ๋ยออแกนิก', icon: '🧴', desc: (c) => `รักษาความชุ่มชื้นได้นานขึ้น ${Math.round((1-c.mult)*100)}% นาน ${c.duration} นาที` },
+                luck:  { name: 'ฮอร์โมนพืชแรร์', icon: '☀️', desc: (c) => `เพิ่มโอกาสออกดอกแรร์ ${c.mult} เท่า นาน ${c.duration} นาที` }
+            }
+        };
+
+        const activeLabels = themeLabels[currentTpl] || themeLabels.pet;
         
         const types = [
-            { id: 'score', name: 'แต้มทวีคูณ', getDesc: (c) => `+${Math.round((c.mult-1)*100)}% Score ตลอด ${c.duration} นาที`, icon: '📊', color: 'amber' },
-            { id: 'decay', name: 'เกราะกันหิว', getDesc: (c) => `สถานะลดช้าลง ${Math.round((1-c.mult)*100)}% นาน ${c.duration} นาที`, icon: '🛡️', color: 'blue' },
-            { id: 'luck', name: 'ดวงมหาเฮง', getDesc: (c) => `พบของแรร์ง่ายขึ้น ${c.mult} เท่า นาน ${c.duration} นาที`, icon: '🍀', color: 'emerald' }
+            { id: 'score', color: 'amber' },
+            { id: 'decay', color: 'blue' },
+            { id: 'luck', color: 'emerald' }
         ];
 
         let html = '';
         types.forEach(t => {
             const item = config[t.id];
             if (!item) return;
-            const desc = t.getDesc(item);
+            const label = activeLabels[t.id];
+            const desc = label.desc(item);
             const expiry = STATE.buffs[`${t.id}_expiry`] || 0;
             const isActive = expiry > Date.now();
             const timeStr = isActive ? `ใช้งานอยู่ในอีก ${Math.ceil((expiry - Date.now())/60000)} นาที` : 'พร้อมซื้อ';
 
             html += `
                 <div onclick="buyBooster('${t.id}')" class="glass p-3 sm:p-4 rounded-2xl flex items-center gap-3 sm:gap-4 border border-white/5 hover:bg-white/5 active:scale-[0.98] transition-all cursor-pointer group">
-                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-${t.color}-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl">${t.icon}</div>
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-${t.color}-500/10 rounded-xl flex items-center justify-center text-xl sm:text-2xl">${label.icon}</div>
                     <div class="flex-1 text-left">
                         <div class="flex justify-between items-center mb-0.5">
-                            <h4 class="font-black text-xs sm:text-sm text-white uppercase italic">${t.name}</h4>
+                            <h4 class="font-black text-xs sm:text-sm text-white uppercase italic">${label.name}</h4>
                             <span class="text-[9px] font-black ${isActive ? 'text-neon-gold animate-pulse' : 'text-white/20 uppercase tracking-tighter'}">${timeStr}</span>
                         </div>
                         <p class="text-[10px] text-white/50 leading-none">${desc}</p>

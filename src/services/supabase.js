@@ -216,14 +216,24 @@ export async function fetchLiveRankings(seasonNum = 1) {
 }
 
 export async function loadGameConfig() {
-    const { data, error } = await supabase.from('game_configs').select('config').eq('id', 'current').maybeSingle();
-    return { data: data?.config || null, error };
+    const { data, error } = await supabase.from('game_configs').select('*').eq('id', 'current').maybeSingle();
+    if (error || !data) return { data: null, error };
+    
+    // 🔥 [SCHEMA SYNC] รวมข้อมูลจากทุก Column เข้ากับก้อน Config
+    const finalConfig = {
+        ...(data.config || {}),
+        template: data.template || data.config?.template || 'pet',
+        difficulty_mode: data.difficulty_mode || data.config?.difficulty_mode || 'normal'
+    };
+    return { data: finalConfig, error: null };
 }
 
 export async function saveGameConfig(configData) {
     return await supabase.from('game_configs').upsert({
         id: 'current',
         config: configData,
+        template: configData.template, // 🛡️ [SCHEMA FIX] บันทึกแยก Column เพื่อความชัวร์
+        difficulty_mode: configData.difficulty_mode,
         updated_at: new Date().toISOString()
     });
 }

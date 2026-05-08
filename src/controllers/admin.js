@@ -31,7 +31,7 @@ export const ADMIN_STATE = {
     difficulty_mode: 'normal',
     sky: 'day',
     ground: 'grass',
-    custom_model: '/toon_cat_free.glb', // 👈 [FIX] ต้องไม่เป็นค่าว่างเพื่อให้ Preview โหลดขึ้นทันที
+    custom_model: '', // 👈 ปล่อยว่างเพื่อให้ระบบ Fallback ตามธีมทำงาน
     custom_rotation_y: 0,
     season_number: 1,
     season_name: '',
@@ -106,7 +106,8 @@ function highlightUI() {
                 setDeepValue(ADMIN_STATE, key, val);
                 
                 sendPreview(); 
-                saveLocal();
+                // 🔥 [AUTO-PERSIST] เซฟทุกค่าที่มีการเปลี่ยนแปลงขึ้น Cloud ทันที
+                if (window.saveAll) window.saveAll();
                 
                 if (key === 'season_duration') {
                     console.log("📅 [ADMIN] Season duration changed to:", val);
@@ -203,7 +204,7 @@ window.updateMatrixField = (path, value) => {
     if (!isNaN(value) && value !== '') finalVal = parseFloat(value);
 
     setDeepValue(config, path, finalVal);
-    saveLocal();
+    if (window.saveAll) window.saveAll();
 }
 
 function syncInputsWithMatrix() {
@@ -225,7 +226,7 @@ function syncInputsWithMatrix() {
                     const num = parseFloat(newVal);
                     setDeepValue(config, path, isNaN(num) ? newVal : num);
                     sendPreview();
-                    saveLocal();
+                    if (window.saveAll) window.saveAll();
                 };
                 
                 el.addEventListener('input', updateFn);
@@ -292,7 +293,7 @@ function sendPreview() {
     });
 }
 
-window.setTemplate = (t) => {
+window.setTemplate = async (t) => {
     ADMIN_STATE.template = t;
     const firstSkin = (ADMIN_STATE.available_skins || []).find(s => s.template === t);
     if (firstSkin) {
@@ -301,7 +302,13 @@ window.setTemplate = (t) => {
     } else {
         ADMIN_STATE.custom_model = '';
     }
-    highlightUI(); syncInputsWithMatrix(); renderGallery(); sendPreview(); saveLocal();
+    highlightUI(); 
+    syncInputsWithMatrix(); 
+    renderGallery(); 
+    sendPreview(); 
+    
+    // 🔥 [AUTO-PERSIST] บันทึกขึ้น Cloud ทันทีเมื่อเปลี่ยน Template เพื่อป้องกันการรีเฟรชแล้วหาย
+    if (window.saveAll) await window.saveAll();
 };
 
 window.loadPreset = (m) => {
@@ -354,6 +361,7 @@ window.updateSkinProp = (id, prop, val) => {
         skin[prop] = (prop === 'cost' || prop === 'scale') ? parseFloat(val) : val;
         if(prop === 'model' || prop === 'scale') renderGallery(); 
         sendPreview(); saveLocal();
+        if (window.saveAll) window.saveAll();
     }
 };
 
@@ -385,9 +393,9 @@ window.selectVariant = (modelPath, rotationY = 0) => {
     ADMIN_STATE.custom_rotation_y = rotationY;
     renderGallery(); 
     sendPreview(); 
-    saveLocal();
+    if (window.saveAll) window.saveAll();
     if (window.spawn) window.spawn("✨ เลือกสกินสำเร็จ", "text-neon-purple font-bold");
-};
+}
 
 window.addNewSkin = () => {
     const id = 'skin-' + Date.now();
@@ -396,15 +404,17 @@ window.addNewSkin = () => {
         drop_type: (ADMIN_STATE.template === 'car' ? 'oil' : (ADMIN_STATE.template === 'plant' ? 'leaves' : 'poop')), 
         drop_offset: {x:0, y:0.1, z: (ADMIN_STATE.template === 'car' ? -0.5 : -0.2)}
     });
-    renderGallery(); saveLocal();
+    renderGallery(); 
+    if (window.saveAll) window.saveAll();
 };
 
 window.deleteSkin = (id) => {
     if(confirm('Delete skin?')) {
         ADMIN_STATE.available_skins = ADMIN_STATE.available_skins.filter(s => s.id !== id);
-        renderGallery(); saveLocal();
+        renderGallery();
+        if (window.saveAll) window.saveAll();
     }
-};
+}
 
 function renderGallery() {
     const container = $('variant-gallery');
@@ -993,9 +1003,10 @@ window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์ส�
         switchView('settings');
     }
 
-    const { data, error } = await loadGameConfig();
-    if (data && data.config) {
-        deepMerge(ADMIN_STATE, data.config);
+    const { data: cloudConfig, error: cloudError } = await loadGameConfig();
+    if (cloudConfig) {
+        console.log("☁️ [ADMIN] Cloud config loaded successfully:", cloudConfig);
+        deepMerge(ADMIN_STATE, cloudConfig);
         
         if (!ADMIN_STATE.custom_model) {
             const firstSkin = (ADMIN_STATE.available_skins || []).find(s => s.template === ADMIN_STATE.template);
@@ -1017,7 +1028,9 @@ window.isAuthoritativeAdmin = () => true; // ✅ ให้สิทธิ์ส�
             window.renderBossConfig(); 
             if (typeof sendPreview === 'function') sendPreview();
         });
-    };
+    } else if (cloudError) {
+        console.error("🚨 [ADMIN] Failed to load cloud config:", cloudError);
+    }
     
     IS_CLOUDSYNC_READY = true; 
     if(window.twemoji) twemoji.parse(document.body);

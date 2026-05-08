@@ -124,7 +124,7 @@ export const BossRewardController = {
             STATE.score += rewardScore;
             
             if (window.updateUI) window.updateUI();
-            saveState(false, true); // บันทึกสถานะล่าสุดลง Local/Cloud ทันที
+            saveState(true); // บันทึกสถานะล่าสุดลง Local/Cloud ทันที
 
             // อัปเดตตัวเลขในหน้าจอสรุปผล
             if (document.getElementById('my-boss-damage')) document.getElementById('my-boss-damage').innerText = finalDamage.toLocaleString();

@@ -1167,7 +1167,19 @@ export function updateTemplate(type, path = '', rotationY = 0) {
         window._pendingTemplate = { type, path, rotationY };
         return;
     }
-    createPetObject(path, rotationY); 
+    
+    // 🛡️ [PREVIEW FALLBACK] ถ้าแอดมินส่งค่าว่างมา ให้ใช้โมเดลเริ่มต้นตามธีม
+    let finalPath = path;
+    if (!finalPath) {
+        const defaults = {
+            pet: '/toon_cat_free.glb',
+            car: '/car_carton.glb',
+            plant: '/stylized_tree.glb'
+        };
+        finalPath = defaults[type] || defaults.pet;
+    }
+
+    createPetObject(finalPath, rotationY); 
 }
 export function triggerLevelUpEffect() {
     if (!petModel) return;

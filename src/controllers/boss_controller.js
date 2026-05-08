@@ -157,7 +157,7 @@ export const initBossController = (STATE, engineHelpers) => {
         if (STATE.boss_skills.points > 0 && s.lvl < 5) {
             s.lvl++;
             STATE.boss_skills.points--;
-            saveState(false, true); 
+            saveState(true); 
             window.updateSkillUI();
             applySkillEffects();
             
@@ -189,7 +189,7 @@ export const initBossController = (STATE, engineHelpers) => {
         window._bossSpeedMult = 1.0;
         window.updateSkillUI();
         updateThrowButton(STATE.config?.world_boss);
-        saveState(false, true);
+        saveState(true);
         console.log("🧹 [Boss System] รีเซ็ตสกิลและสถานะการต่อสู้แล้ว");
     };
 
@@ -296,7 +296,7 @@ export const initBossController = (STATE, engineHelpers) => {
                 if (window.checkLevelUp) window.checkLevelUp();
             }
 
-            saveState(false, true); 
+            saveState(true); 
             window.updateSkillUI();
 
             const dmgStr = damage.toLocaleString();
