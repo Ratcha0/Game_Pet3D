@@ -504,30 +504,114 @@ window.finishSeason = async () => {
     const currentS = parseInt(ADMIN_STATE.season_number || 1);
     const nextS = currentS + 1;
     
-    const confirmMsg = `🔥 [คำเตือนขั้นเด็ดขาด]\n\nคุณกำลังจะเริ่ม "ซีซั่น ${nextS}"\n- ผู้เล่นทุกคนจะถูกรีเซ็ตเลเวลเป็น 1\n- เงินจะถูกปรับเป็น 500\n- คะแนนสะสมจะกลายเป็น 0\n\nต้องการดำเนินการต่อหรือไม่?`;
+    const confirmMsg = `🔥 [คำเตือนขั้นเด็ดขาด]\n\nคุณกำลังจะเริ่ม "ซีซั่น ${nextS}"\n- ผู้เล่นทุกคนจะถูกรีเซ็ตเลเวลเป็น 1\n- เงินจะถูกปรับเป็น 500\n- คะแนนสะสมจะกลายเป็น 0\n- ข้อมูลซีซั่น ${currentS} จะถูกบันทึกเป็นประวัติก่อนรีเซ็ต\n\nต้องการดำเนินการต่อหรือไม่?`;
     
     if (confirm(confirmMsg)) {
-        window.spawn("⏳ กำลังรีเซ็ตผู้เล่นทั้งเซิร์ฟเวอร์...", "text-yellow-400 animate-pulse");
+        window.spawn("⏳ กำลังบันทึกประวัติซีซั่นเก่า...", "text-yellow-400 animate-pulse");
         
-        // 🔥 เรียก RPC รีเซ็ตทั้งระบบบน Cloud
-        const { error } = await supabase.rpc('start_new_season', { 
-            p_new_season_num: nextS 
-        });
+        try {
+            // ==========================================
+            // 📜 STEP 1: บันทึกประวัติซีซั่นเก่าก่อนรีเซ็ต (Archive)
+            // ==========================================
+            const { data: allPlayers, error: fetchErr } = await supabase
+                .from('pet_progression')
+                .select('player_id, score, level')
+                .neq('player_id', '');
+            
+            if (!fetchErr && allPlayers && allPlayers.length > 0) {
+                const historyRows = allPlayers.map(p => ({
+                    player_id: p.player_id,
+                    season_number: currentS,
+                    final_score: p.score || 0,
+                    final_level: p.level || 1
+                }));
+                
+                const { error: histErr } = await supabase
+                    .from('season_history')
+                    .insert(historyRows);
+                
+                if (histErr) {
+                    console.error("⚠️ [ARCHIVE] บันทึกประวัติไม่สำเร็จ:", histErr);
+                    window.spawn("⚠️ บันทึกประวัติไม่สำเร็จ แต่จะรีเซ็ตต่อ...", "text-amber-400");
+                } else {
+                    console.log(`📜 [ARCHIVE] บันทึกประวัติซีซั่น ${currentS} สำเร็จ (${allPlayers.length} คน)`);
+                }
+            }
 
-        if (!error) {
+            // ==========================================
+            // 🔥 STEP 2: รีเซ็ตข้อมูลผู้เล่นทุกคน
+            // ==========================================
+            window.spawn("⏳ กำลังรีเซ็ตผู้เล่นทั้งเซิร์ฟเวอร์...", "text-yellow-400 animate-pulse");
+            
+            const results = await Promise.all([
+                // 1. รีเซ็ต Progression
+                supabase.from('pet_progression').update({
+                    level: 1, xp: 0, score: 0, tokens: 500,
+                    current_season: nextS, boss_damage: 0
+                }).neq('player_id', ''),
+
+                // 2. รีเซ็ตกิจกรรม
+                supabase.from('pet_activities').update({
+                    login_streak: 0, last_login_date: '',
+                    last_quest_date: '',
+                    claimed_days: [], quests: {}, achievements: []
+                }).neq('player_id', ''),
+
+                // 3. รีเซ็ตสเตตัสสัตว์เลี้ยง
+                supabase.from('pet_stats').update({
+                    hunger: 100, clean: 100, love: 100,
+                    stamina: 100, carrying_rock: 0
+                }).neq('player_id', ''),
+
+                // 4. รีเซ็ตสกิลบอส (ให้ทุกคนเริ่มจากศูนย์เท่ากัน)
+                supabase.from('pet_assets').update({
+                    boss_skills: {
+                        lvl: 1, xp: 0, next: 5000, points: 0,
+                        damage: { lvl: 1 }, crit: { lvl: 1 }, speed: { lvl: 1 }, bag: { lvl: 1 }
+                    }
+                }).neq('player_id', ''),
+
+                // 5. รีเซ็ต Buff ทั้งหมด (ไม่ให้ข้ามซีซั่น)
+                supabase.from('pet_buffs').update({
+                    buffs: {
+                        score_mult: 1, score_expiry: 0,
+                        decay_mult: 1, decay_expiry: 0,
+                        luck_mult: 1, luck_expiry: 0,
+                        regen_mult: 1, regen_expiry: 0
+                    }
+                }).neq('player_id', '')
+            ]);
+
+            // เช็คว่ามี Error ไหม
+            const errors = results.filter(r => r.error);
+            if (errors.length > 0) {
+                console.error("❌ [SEASON RESET] Errors:", errors.map(e => e.error));
+                window.spawn("❌ เกิดข้อผิดพลาดบางส่วน ลองตรวจสอบ Console", "text-rose-500");
+                return;
+            }
+
+            // ==========================================
+            // ⏰ STEP 3: อัปเดตเลขซีซั่น + รีเซ็ตเวลาเริ่มซีซั่นใหม่
+            // ==========================================
             ADMIN_STATE.season_number = nextS;
+            ADMIN_STATE.season_start_at = new Date().toISOString();
+            
             const input = $('input-season-num');
             if (input) {
                 input.value = nextS;
                 input.classList.add('animate-bounce', 'text-yellow-400');
             }
+            
+            // บันทึกเลขซีซั่นใหม่ + เวลาเริ่มต้นซีซั่นขึ้น Config
+            if (window.saveAll) await window.saveAll();
+            
             window.spawn?.(`🚀 เริ่มซีซั่น ${nextS} สำเร็จ! ทุกคนกลับไปเริ่มใหม่แล้ว`, "text-emerald-400 font-black");
             
             // รีโหลดหน้าเพื่อให้ State ล่าสุดทำงาน
             setTimeout(() => location.reload(), 2000);
-        } else {
-            console.error(error);
-            window.spawn("❌ เกิดข้อผิดพลาดในการรีเซ็ตซีซั่น", "text-rose-500");
+        } catch (err) {
+            console.error("❌ [SEASON RESET] Critical Error:", err);
+            window.spawn("❌ เกิดข้อผิดพลาดร้ายแรง", "text-rose-500");
         }
     }
 };

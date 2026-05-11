@@ -263,11 +263,20 @@ window.updateUI = function() {
 
         const loginDot = $('login-noti-dot');
         if (loginDot) {
-            // 🛡️ [AUDIT FIX] เช็ควันที่ล็อกอินจาก Local โดยใช้ ID
             const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
             const localLastLogin = localStorage.getItem('last_login_verified_' + userIdKey);
             const today = new Date().toDateString();
-            const canClaim = STATE.last_login_date !== today && localLastLogin !== today;
+            
+            // 🛡️ [RESILIENCE CHECK] แจ้งเตือนเมื่อมีรางวัลที่ยังไม่ได้รับในวันนี้
+            const globalDay = getCurrentSeasonDay();
+            const claimedToday = (STATE.last_login_date === today || localLastLogin === today);
+            
+            let canClaim = !claimedToday;
+            if (globalDay !== null) {
+                // ในโหมด Global: เช็คว่าวันนี้ (Global Day) กดรับไปหรือยัง
+                canClaim = !claimedToday && !(STATE.claimed_days || []).includes(globalDay);
+            }
+            
             loginDot.classList.toggle('hidden', !canClaim);
         }
 
@@ -1376,25 +1385,39 @@ window.toggleLoginReward = (close) => {
     // Update Content
     const config = getActiveConfig();
     const rewards = config.login_rewards || [];
-    // 🛡️ [AUDIT FIX] ดึงจาก LocalStorage โดยใช้ UserId เพื่อป้องกันข้อมูล Leak ข้ามไอดี
     const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
     const localLastClaimDate = localStorage.getItem('last_login_verified_' + userIdKey);
-    const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + userIdKey)) || 0;
     const today = new Date().toDateString();
     
-    // ถ้าในเครื่องบอกว่าเช็คอินวันนี้ไปแล้ว ให้ยึด Streak จากในเครื่องไว้ก่อนเลย
-    const streak = (localLastClaimDate === today) ? Math.max(STATE.login_streak || 0, localStreak) : (STATE.login_streak || 0);
+    // 🎯 [UI LOGIC UPGRADE] คำนวณวันปัจจุบันเพื่อไฮไลท์
+    const globalDay = getCurrentSeasonDay();
+    const streak = STATE.login_streak || 0;
+    const isClaimedToday = (localLastClaimDate === today || STATE.last_login_date === today);
     const duration = STATE.config?.season_duration || 7;
 
     const subtitle = $('login-reward-subtitle');
-    if (subtitle) subtitle.innerText = `${duration}-DAY SEASON REWARDS`;
+    if (subtitle) {
+        if (globalDay !== null) subtitle.innerText = `SEASON DAY ${globalDay} / ${duration}`;
+        else subtitle.innerText = `${duration}-DAY LOGIN STREAK`;
+    }
 
     const grid = $('login-rewards-grid');
     if (grid) {
         grid.innerHTML = rewards.map((r, i) => {
-            const isClaimed = r.day <= streak;
-            const isNext = r.day === streak + 1;
+            // 🎯 [STRICT CALENDAR UI] แยกสถานะ: รับแล้ว, พลาดแล้ว, กำลังจะถึง, ล็อคอยู่
+            const isClaimed = (STATE.claimed_days || []).includes(r.day);
+            const isMissed = (globalDay !== null && r.day < globalDay && !isClaimed);
+            let isNext = false;
+            
+            if (globalDay !== null) {
+                isNext = (r.day === globalDay && !isClaimedToday);
+            } else {
+                const streak = STATE.login_streak || 0;
+                isNext = (r.day === streak + 1 && !isClaimedToday);
+            }
+
             const isJackpot = r.day % 7 === 0;
+            const isLocked = (globalDay !== null && r.day > globalDay);
             
             let icon = '🪙';
             if (r.reward_type === 'gold') icon = isJackpot ? '💰' : '🪙';
@@ -1405,11 +1428,29 @@ window.toggleLoginReward = (close) => {
             const rewardVal = r.reward_type === 'gold' ? r.reward_value.toLocaleString() : `${r.reward_value} MIN`;
             const rewardLabel = r.reward_type === 'gold' ? 'TOKENS' : 'ACTIVE BUFF';
 
+            // จัดการสีและการ์ดตามสถานะ
+            let cardClass = "bg-white/5 border-white/5";
+            let subText = `Day ${r.day}`;
+            let opacity = "opacity-100";
+
+            if (isClaimed) {
+                cardClass = "bg-emerald-500/10 border-emerald-500/20";
+                opacity = "opacity-50";
+            } else if (isMissed) {
+                cardClass = "bg-red-500/5 border-red-500/10";
+                opacity = "opacity-30";
+                subText = `Day ${r.day} (Missed)`;
+            } else if (isNext) {
+                cardClass = "bg-indigo-500/20 border-indigo-500/40 glow-indigo border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)]";
+            } else if (isLocked) {
+                opacity = "opacity-20";
+            }
+
             return `
                 <div class="login-day-card relative flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${isJackpot ? 'col-span-2 flex-row gap-3 h-28' : 'h-28'} 
-                    ${isClaimed ? 'bg-white/5 border-white/5 opacity-50' : (isNext ? 'bg-indigo-500/20 border-indigo-500/40 glow-indigo' : 'bg-white/5 border-white/5')}">
-                    <span class="text-[7px] font-black text-white/30 uppercase absolute top-2">${isJackpot ? 'Jackpot' : ''} Day ${r.day}</span>
-                    <span class="${isJackpot ? 'text-3xl' : 'text-xl'} mb-1 mt-2">${icon}</span>
+                    ${cardClass} ${opacity}">
+                    <span class="text-[7px] font-black ${isNext ? 'text-indigo-400' : 'text-white/30'} uppercase absolute top-2">${isJackpot ? 'Jackpot' : ''} ${subText}</span>
+                    <span class="${isJackpot ? 'text-3xl' : 'text-xl'} mb-1 mt-2 ${isNext ? 'animate-bounce' : ''}">${isLocked ? '🔒' : icon}</span>
                     <div class="flex flex-col items-center">
                         <span class="${isJackpot ? 'text-lg' : 'text-[10px]'} font-black text-white">${rewardVal}</span>
                         <span class="text-[7px] font-black text-indigo-400 uppercase mt-0.5">${rewardLabel}</span>
@@ -1417,6 +1458,7 @@ window.toggleLoginReward = (close) => {
                     <div class="${isClaimed ? '' : 'hidden'} absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0a0e1a]">
                         <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg>
                     </div>
+                    ${isMissed ? '<div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="text-red-500/40 text-4xl font-black -rotate-12">MISSED</span></div>' : ''}
                 </div>
             `;
         }).join('');
@@ -1425,37 +1467,70 @@ window.toggleLoginReward = (close) => {
     const statusMsg = $('login-status-msg');
     const claimBtn = $('login-claim-btn');
 
-    // 🛡️ [HYBRID CHECK] ตรวจสอบทั้ง Cloud และ Local โดยใช้ ID
     const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + userIdKey);
-    const canClaim = lastLoginSaved !== today;
+    const canClaimToday = lastLoginSaved !== today;
 
     if (statusMsg) {
-        if (canClaim) {
-            statusMsg.innerText = `🎁 วันนี้คุณมีรางวัลรออยู่! (ต่อเนื่อง ${streak} วัน)`;
-            statusMsg.classList.add('text-emerald-400');
-            statusMsg.classList.remove('text-white/40');
+        if (globalDay !== null) {
+            // 🌍 Global Mode Text
+            const alreadyClaimedGlobal = (STATE.claimed_days || []).includes(globalDay);
+            if (!canClaimToday || alreadyClaimedGlobal) {
+                statusMsg.innerText = `✅ วันนี้คุณรับรางวัลซีซั่นวันที่ ${globalDay} เรียบร้อยแล้ว`;
+                statusMsg.classList.add('text-white/40');
+                statusMsg.classList.remove('text-emerald-400');
+            } else {
+                statusMsg.innerText = `🎁 วันนี้คือวันที่ ${globalDay} ของซีซั่น! รับรางวัลกันเลย`;
+                statusMsg.classList.add('text-emerald-400');
+                statusMsg.classList.remove('text-white/40');
+            }
         } else {
-            // 🔥 [FIX] แสดงผลตามจริงจาก Streak ที่คำนวณแบบ Hybrid
-            statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${streak} เรียบร้อยแล้ว`;
-            statusMsg.classList.remove('text-emerald-400');
-            statusMsg.classList.add('text-white/40');
+            // 🏃 Streak Mode Text
+            if (canClaimToday) {
+                const nextDay = streak + 1;
+                statusMsg.innerText = `🎁 วันนี้คุณมีรางวัลวันที่ ${nextDay} รออยู่!`;
+                statusMsg.classList.add('text-emerald-400');
+                statusMsg.classList.remove('text-white/40');
+            } else {
+                const displayDay = Math.max(1, streak);
+                statusMsg.innerText = `✅ วันนี้คุณรับรางวัลเช็คอินวันที่ ${displayDay} เรียบร้อยแล้ว`;
+                statusMsg.classList.add('text-white/40');
+                statusMsg.classList.remove('text-emerald-400');
+            }
         }
     }
 
     if (claimBtn) {
-        claimBtn.style.display = canClaim ? 'block' : 'none';
+        claimBtn.style.display = canClaimToday ? 'block' : 'none';
     }
 };
 
+// 📅 [SEASON CALENDAR] ฟังก์ชันคำนวณวันปัจจุบันของซีซั่น
+function getCurrentSeasonDay() {
+    const config = STATE.config || {};
+    if (!config.season_start_at) return null; // ถ้าไม่มี Config ให้ใช้ระบบ Streak เดิม
+
+    try {
+        const start = new Date(config.season_start_at).getTime();
+        const now = Date.now();
+        if (isNaN(start)) return null;
+        if (now < start) return 1; // ยังไม่ถึงวันเริ่ม ให้เริ่มที่วันที่ 1
+
+        const diff = now - start;
+        return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
+    } catch (e) {
+        console.error("❌ [SEASON] Date calculation error:", e);
+        return null;
+    }
+}
+
 window.claimDailyReward = async () => {
-    // 🌐 [SECURITY FIX] ใช้เวลาจริงจาก Server แทนเวลาเครื่องผู้เล่นเพื่อป้องกันการโกง
+    // 🌐 [SECURITY FIX] ใช้เวลาจริงจาก Server แทนเวลาเครื่องผู้เล่น
     let now = new Date();
     if (window.SupabaseSvc && window.SupabaseSvc.supabase) {
         try {
             const { data: timeData } = await window.SupabaseSvc.supabase.rpc('get_server_time');
             if (timeData) now = new Date(timeData);
             else {
-                // Fallback: ถ้า RPC ไม่มี ให้ยึดเวลาจากข้อมูล updated_at ล่าสุด
                 const { data } = await window.SupabaseSvc.supabase.from('game_configs').select('updated_at').limit(1).single();
                 if (data && data.updated_at) now = new Date(data.updated_at);
             }
@@ -1463,8 +1538,6 @@ window.claimDailyReward = async () => {
     }
 
     const today = now.toDateString();
-    
-    // 🛡️ [HYBRID CHECK] ดึงจาก LocalStorage โดยใช้ UserId เพื่อป้องกันข้อมูล Leak
     const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id')) || 'GUEST';
     const lastLoginSaved = STATE.last_login_date || localStorage.getItem('last_login_verified_' + userIdKey);
     
@@ -1473,35 +1546,39 @@ window.claimDailyReward = async () => {
         return;
     }
 
-    // 1. คำนวณ Streak
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toDateString();
+    // 🎯 [LOGIC UPGRADE] คำนวณวันที่จะได้รับรางวัล
+    const globalDay = getCurrentSeasonDay();
+    let targetDay = 1;
 
-    // กู้คืนค่า Streak จาก Local ถ้าใน Cloud ไม่มี
-    if (!STATE.last_login_date || STATE.last_login_date === "") {
-        const localStreak = parseInt(localStorage.getItem('login_streak_verified_' + userIdKey)) || 0;
-        if (lastLoginSaved === yesterdayStr && localStreak > 0) {
-            console.log("💾 [AUTH] Recovering login streak from Local Storage...");
-            STATE.login_streak = localStreak;
-        }
-    }
-
-    if (lastLoginSaved === yesterdayStr) {
-        STATE.login_streak = (STATE.login_streak || 0) + 1;
+    if (globalDay !== null) {
+        // --- 🌍 Global Calendar Mode ---
+        console.log(`🌍 [SEASON] Global Mode: Current Day ${globalDay}`);
+        targetDay = globalDay;
+        STATE.login_streak = globalDay; // Sync streak ให้ตรงกับวันของซีซั่น
     } else {
-        // ถ้าไม่ได้ล็อกอินต่อเนื่อง ให้เริ่มนับ 1 ใหม่
-        STATE.login_streak = 1;
+        // --- 🏃 Legacy Streak Mode ---
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toDateString();
+
+        if (lastLoginSaved === yesterdayStr) {
+            STATE.login_streak = (STATE.login_streak || 0) + 1;
+        } else {
+            STATE.login_streak = 1;
+        }
+        targetDay = STATE.login_streak;
     }
 
     const seasonDuration = STATE.config?.season_duration || 7;
-    if (STATE.login_streak > seasonDuration) STATE.login_streak = 1;
-    STATE.last_login_date = today;
+    if (targetDay > seasonDuration) {
+        spawn('🏆 ซีซั่นนี้จบลงแล้ว! รอเริ่มซีซั่นใหม่นะครับ', 'text-white font-bold');
+        return;
+    }
 
     // 2. รับรางวัลตาม Config
     const config = getActiveConfig();
     const rewards = config.login_rewards || [];
-    const reward = rewards.find(r => r.day === STATE.login_streak);
+    const reward = rewards.find(r => r.day === targetDay);
 
     if (reward) {
         let rewardText = "";
@@ -1514,15 +1591,21 @@ window.claimDailyReward = async () => {
             rewardText = `บัฟ${buffLabel} (${reward.reward_value} นาที)`;
         }
 
-        logScoreAction(STATE.username, 'LOGIN_REWARD', 0, (reward.reward_type === 'gold' ? reward.reward_value : 0), `รางวัลเช็คอินวันที่ ${STATE.login_streak} (${reward.reward_type})`);
+        logScoreAction(STATE.username, 'LOGIN_REWARD', 0, (reward.reward_type === 'gold' ? reward.reward_value : 0), `รางวัลเช็คอินวันที่ ${targetDay} (${reward.reward_type})`);
         spawn(`🎉 รับรางวัลเช็คอินแล้ว: ${rewardText}`, 'text-neon-gold scale-125');
         SFX.playAsset('bell');
         showEmoticon('🎁', 3000);
+
+        // 🛡️ [STRICT CALENDAR] บันทึกประวัติการรับรางวัล
+        if (!STATE.claimed_days) STATE.claimed_days = [];
+        if (!STATE.claimed_days.includes(targetDay)) {
+            STATE.claimed_days.push(targetDay);
+        }
     }
 
     STATE.last_login_date = today;
     
-    // 🛡️ [AUDIT FIX] บันทึกหลักฐานการเช็คอินลงเครื่องทันที โดยใช้ ID เป็น Key
+    // 🛡️ [AUDIT FIX] บันทึกหลักฐานการเช็คอินลงเครื่องทันที
     localStorage.setItem('last_login_verified_' + userIdKey, today);
     localStorage.setItem('login_streak_verified_' + userIdKey, STATE.login_streak.toString());
     

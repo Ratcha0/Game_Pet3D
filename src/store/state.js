@@ -29,6 +29,7 @@ export const STATE = {
     current_season: 1,
     login_streak: 0,
     last_login_date: "",
+    claimed_days: [], // 📅 [SEASON CALENDAR] เก็บวันที่เคยกดรับรางวัลจริง (Global Days)
     carrying_rock: 0,
     boss_skills: {
         lvl: 1, xp: 0, next: 5000, points: 0,
@@ -89,7 +90,8 @@ export function resetStateToDefaults() {
     // 🔥 [AUDIT FIX] ล้างข้อมูลกิจกรรมและการล็อกอินทั้งหมด (ป้องกันการ Leak ข้ามไอดี)
     STATE.last_quest_date = ""; 
     STATE.last_login_date = "";
-    STATE.login_streak = 0; // 🛡️ เพิ่มจุดนี้เพื่อให้ไอดีใหม่เริ่มที่วันที่ 1 เสมอ
+    STATE.login_streak = 0; 
+    STATE.claimed_days = []; // 🛡️ ล้างข้อมูลการรับรางวัลเก่า
     STATE.achievements = [];
 
     // 🛡️ [ZERO-LEAKAGE HARDENING] ล้างข้อมูลเชิงลึกทั้งหมด
@@ -157,15 +159,30 @@ export async function loadState(forceId = null) {
             
             if (localRaw) {
                 const local = JSON.parse(localRaw);
-                const cloudXP = parseFloat(cloudData.xp) || 0;
-                const localXP = parseFloat(local.xp) || 0;
-                const cloudTokens = parseFloat(cloudData.tokens) || 0;
-                const localTokens = parseFloat(local.tokens) || 0;
+                
+                // 🛡️ [CRITICAL] ถ้าซีซั่นเปลี่ยน → ห้ามใช้ข้อมูลเก่าจาก localStorage เด็ดขาด!
+                const cloudSeason = parseInt(cloudData.current_season) || 1;
+                const localSeason = parseInt(local.current_season) || 1;
+                
+                if (cloudSeason !== localSeason) {
+                    // ซีซั่นเปลี่ยนแล้ว → ล้าง localStorage ทิ้งทั้งหมด ใช้ Cloud เท่านั้น
+                    console.warn(`🚨 [STATE] Season changed (Local: S${localSeason} → Cloud: S${cloudSeason}). Discarding local cache.`);
+                    localStorage.removeItem('likegotchi_state_' + currentUserId);
+                    // 🔥 [FIX] ล้างบันทึกการรับรางวัลด้วย เพื่อให้รับรางวัลซีซั่นใหม่ได้ทันที
+                    localStorage.removeItem('last_login_verified_' + currentUserId);
+                    localStorage.removeItem('login_streak_verified_' + currentUserId);
+                } else {
+                    // ซีซั่นเดียวกัน → เปรียบเทียบตามปกติ
+                    const cloudXP = parseFloat(cloudData.xp) || 0;
+                    const localXP = parseFloat(local.xp) || 0;
+                    const cloudTokens = parseFloat(cloudData.tokens) || 0;
+                    const localTokens = parseFloat(local.tokens) || 0;
 
-                // ⚖️ ถ้าข้อมูลในเครื่องใหม่กว่า (XP หรือ Tokens เยอะกว่า) ให้ใช้ค่าในเครื่องนำทาง
-                if (localXP > cloudXP || localTokens > cloudTokens) {
-                    console.log("📦 [STATE] Local data is newer than Cloud. Using Local for session.");
-                    finalData = { ...cloudData, ...local };
+                    // ⚖️ ถ้าข้อมูลในเครื่องใหม่กว่า (XP หรือ Tokens เยอะกว่า) ให้ใช้ค่าในเครื่องนำทาง
+                    if (localXP > cloudXP || localTokens > cloudTokens) {
+                        console.log("📦 [STATE] Local data is newer than Cloud. Using Local for session.");
+                        finalData = { ...cloudData, ...local };
+                    }
                 }
             }
 
@@ -317,11 +334,14 @@ export function sanitizeState() {
     if (!STATE.inventory) {
         STATE.inventory = { equipped_skins: { pet: null, car: null, plant: null }, skins: [], boosters: {} };
     }
-    if (!STATE.quests) {
+    if (!STATE.quests || STATE.quests.feed_max === undefined) {
         STATE.quests = { feed: 0, feed_max: 5, clean: 0, clean_max: 3, play: 0, play_max: 3, claimed: false, special: { label: 'สะสม Stamina', type: 'spend', current: 0, target: 100 }, special_claimed: false };
     }
     if (!STATE.config) {
         STATE.config = { template: 'pet', difficulty_mode: 'normal', sky: 'day', ground: 'grass', custom_model: '', custom_rotation_y: 0, available_skins: [], matrix: {} };
+    }
+    if (!STATE.claimed_days) {
+        STATE.claimed_days = [];
     }
 }
 
@@ -389,6 +409,16 @@ function checkSeasonReset() {
         STATE.current_season = cloudSeason;
         STATE.level = 1; STATE.xp = 0; STATE.score = 0; STATE.tokens = 500;
         
+        // 📅 [SEASON RESET] ล้างข้อมูลรางวัลล็อกอินเมื่อขึ้นซีซั่นใหม่
+        STATE.login_streak = 0;
+        STATE.last_login_date = "";
+        STATE.claimed_days = [];
+        
+        // 🔥 [FIX] ล้างบันทึกการรับรางวัลในเครื่องด้วย เพื่อให้เริ่มซีซั่นใหม่รับวันแรกได้ทันที (แม้จะเคยกดรับของซีซั่นเก่าไปแล้วในวันเดียวกัน)
+        const userIdKey = currentUserId || localStorage.getItem('last_user_id') || 'GUEST';
+        localStorage.removeItem('last_login_verified_' + userIdKey);
+        localStorage.removeItem('login_streak_verified_' + userIdKey);
+
         // 🛡️ [FINAL AUDIT] รีเซ็ตสกิลบอสด้วยเพื่อให้ซีซั่นใหม่เริ่มจากศูนย์เท่ากันทุกคน
         STATE.boss_skills = {
             lvl: 1, xp: 0, next: 5000, points: 0,
@@ -396,6 +426,7 @@ function checkSeasonReset() {
         };
         
         saveState(true);
+        if (window.updateUI) window.updateUI();
         if (window.spawn) window.spawn(`🚀 เริ่มซีซั่นใหม่ที่ ${cloudSeason}!`, "text-yellow-400 font-black");
     }
 }

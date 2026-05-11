@@ -80,6 +80,7 @@ export async function loadPetState(userId) {
             last_quest_date: activity.data?.last_quest_date,
             login_streak: activity.data?.login_streak ?? 0,
             last_login_date: activity.data?.last_login_date,
+            claimed_days: activity.data?.claimed_days ?? [],
             achievements: activity.data?.achievements ?? [],
 
             // Buffs
@@ -160,6 +161,7 @@ export async function savePetState(userId, state) {
             last_quest_date: state.last_quest_date,
             login_streak: parseInt(state.login_streak) || 0,
             last_login_date: state.last_login_date,
+            claimed_days: state.claimed_days || [],
             achievements: state.achievements || []
         };
 
@@ -300,7 +302,10 @@ export async function updateLoginTime(userId) {
  * 🏆 ดึงอันดับโลก (Compatibility Alias)
  */
 export async function fetchLeaderboard(limit = 10) {
-    return await fetchLiveRankings(1); // ดึงซีซั่น 1 เป็นหลัก
+    // 🔥 [FIX] ดึง season ปัจจุบันจาก config แทน hardcode 1
+    const { data: cfg } = await supabase.from('game_configs').select('config').eq('id', 'current').maybeSingle();
+    const currentSeason = cfg?.config?.season_number || 1;
+    return await fetchLiveRankings(currentSeason);
 }
 
 /**
@@ -321,4 +326,17 @@ export const fetchAllUsers = fetchAllPlayers;
 export async function checkBanStatus(userId) {
     const { data } = await supabase.from('profiles').select('is_banned').eq('id', userId).maybeSingle();
     return data?.is_banned || false;
+}
+
+/**
+ * 🚀 [ADMIN] สั่งรีเซ็ตผู้เล่นทุกคนทั้งเซิร์ฟเวอร์ (เรียกใช้ RPC global_season_reset)
+ */
+export async function triggerGlobalReset() {
+    console.log("🚀 [ADMIN] Triggering Global Season Reset...");
+    const { error } = await supabase.rpc('global_season_reset');
+    if (error) {
+        console.error("❌ Reset Failed:", error.message);
+        return { success: false, error };
+    }
+    return { success: true };
 }
