@@ -256,7 +256,7 @@ export async function fetchSeasonRankings(seasonNum) {
     console.log(`🔍 [DB] Fetching History Rankings for Season: ${seasonNum}`);
     const { data, error } = await supabase
         .from('season_history')
-        .select(`player_id, final_score, final_level, profiles (display_name), created_at`)
+        .select(`player_id, final_score, final_level, profiles (display_name)`)
         .eq('season_number', seasonNum)
         .order('final_score', { ascending: false });
     
@@ -270,8 +270,7 @@ export async function fetchSeasonRankings(seasonNum) {
             player_id: item.player_id,
             pet_name: item.profiles?.display_name || item.player_id,
             score: item.final_score,
-            level: item.final_level,
-            created_at: item.created_at
+            level: item.final_level
         })),
         error: null
     };
