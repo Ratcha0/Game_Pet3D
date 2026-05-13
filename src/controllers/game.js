@@ -1907,10 +1907,7 @@ function updateLoading(progress) {
         if (type === 'diamond' || type === 'gold') SFX.playJingle();
         else SFX.playCoin();
 
-        // 🚀 [DEEP AUDIT FIX] ใช้ระบบ Atomic Rewards (RPC) เพื่อป้องกันเงินหาย
-        if (SupabaseSvc && SupabaseSvc.addPlayerRewards) {
-            SupabaseSvc.addPlayerRewards(STATE.username, tokens, finalXP, score);
-        }
+        // 💾 [NOTE] Rewards จะถูกบันทึกลง Cloud ผ่าน saveState() ด้านล่างโดยอัตโนมัติ
         
         // ส่ง Log ขึ้น Cloud
         const finalScore = Math.floor(score * diffMult); // 🏆 คูณโหมดความยาก

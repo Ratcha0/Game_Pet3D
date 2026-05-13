@@ -701,7 +701,7 @@ window.renderUserLists = () => {
     if($('stat-active')) $('stat-active').innerText = stats.active.toLocaleString();
     if($('stat-banned')) $('stat-banned').innerText = stats.banned.toLocaleString();
     
-    const activePlayers = CACHED_USERS.filter(u => !u.is_banned && u.player_id.toLowerCase().includes(search));
+    const activePlayers = CACHED_USERS.filter(u => !u.is_banned && (u.player_id.toLowerCase().includes(search) || (u.pet_name || '').toLowerCase().includes(search)));
     const bannedPlayers = CACHED_USERS.filter(u => u.is_banned);
 
     allContainer.innerHTML = activePlayers.map(u => `
@@ -709,8 +709,8 @@ window.renderUserLists = () => {
             <div class="flex items-center gap-4">
                 <div class="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-xs text-cyan-400">#</div>
                 <div>
-                    <div class="font-bold text-slate-200 text-sm">${u.player_id}</div>
-                    <div class="text-[8px] text-white/20 uppercase tracking-widest">LV.${u.level} | $${u.tokens}</div>
+                    <div class="font-bold text-slate-200 text-sm">${u.pet_name || u.player_id}</div>
+                    <div class="text-[8px] text-white/20 uppercase tracking-widest">ID: ${u.player_id} | LV.${u.level} | $${u.tokens}</div>
                 </div>
             </div>
             <button onclick="toggleBanUser('${u.player_id}', true)" class="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/30 text-red-500 rounded-lg text-[10px] font-black border border-red-500/20">แบน (BAN)</button>
@@ -722,8 +722,8 @@ window.renderUserLists = () => {
             <div class="flex items-center gap-4">
                 <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-xs text-red-500">🚫</div>
                 <div>
-                    <div class="font-bold text-red-200 text-sm">${u.player_id}</div>
-                    <div class="text-[8px] text-red-500/40 uppercase tracking-widest font-black">บัญชีถูกระงับ (BANNED)</div>
+                    <div class="font-bold text-red-200 text-sm">${u.pet_name || u.player_id}</div>
+                    <div class="text-[8px] text-red-500/40 uppercase tracking-widest font-black">ID: ${u.player_id} | บัญชีถูกระงับ (BANNED)</div>
                 </div>
             </div>
             <button onclick="toggleBanUser('${u.player_id}', false)" class="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/30 text-green-500 rounded-lg text-[10px] font-black border border-green-500/20">ปลดแบน (UNBAN)</button>
@@ -827,8 +827,8 @@ window.renderBossHistoryRankings = async () => {
                         <div class="flex items-center gap-6">
                             <div class="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-black ${isTop3 ? 'text-xl text-rose-400' : 'text-[10px] text-white/20'}">${rankNum}</div>
                             <div>
-                                <div class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors tracking-tight">${player.player_id}</div>
-                                <div class="text-[8px] text-rose-400/40 uppercase tracking-[0.2em] mt-1">BOSS HUNTER</div>
+                                <div class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors tracking-tight">${player.display_name || player.player_id}</div>
+                                <div class="text-[8px] text-rose-400/40 uppercase tracking-[0.2em] mt-1">ID: ${player.player_id} | BOSS HUNTER</div>
                             </div>
                         </div>
                         <div class="text-right pr-4">

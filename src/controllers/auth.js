@@ -175,7 +175,7 @@ function unlockScreen() {
     console.log("🔓 [AUTH] Unlocking game screen...");
     
     // 🔥 [DEEP AUDIT FIX] บันทึกเวลาเข้าใช้งานล่าสุดลง Cloud ทันทีที่ปลดล็อค
-    if (STATE.username) SupabaseSvc.updateLoginTime(STATE.username);
+    if (STATE.username && window.SupabaseSvc?.updateLoginTime) window.SupabaseSvc.updateLoginTime(STATE.username);
 
     const screen = $('pin-lock-screen');
     if(screen) {

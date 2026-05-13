@@ -59,7 +59,7 @@ export const STATE = {
         custom_model: '', custom_rotation_y: 0,
         available_skins: [],
         matrix: {},
-        season_number: 1, // 👈 [FIX] เริ่มต้นที่ 1
+        season_number: 0, // 👈 [FIX] เริ่มต้นที่ 0 เพื่อบังคับ Sync กับ Cloud ก่อนใช้งาน
         world_boss: { active: false, hp: 0, max_hp: 1000000, schedules: [] }
     }
 };
@@ -398,10 +398,10 @@ export function resetDailyQuests() {
 function checkSeasonReset() {
     if (!window._isStateLoaded || !window._isConfigLoaded) return;
     
-    const cloudSeason = parseInt(STATE.config.season_number || 1);
-    const userSeason = parseInt(STATE.current_season || 1);
+    const cloudSeason = parseInt(STATE.config.season_number || 0);
+    const userSeason = parseInt(STATE.current_season || 0);
 
-    if (cloudSeason > userSeason) {
+    if (cloudSeason > 0 && cloudSeason > userSeason) {
         console.warn(`🚨 [SEASON] Resetting user from S${userSeason} to S${cloudSeason}`);
         STATE.current_season = cloudSeason;
         STATE.level = 1; STATE.xp = 0; STATE.score = 0; STATE.tokens = 500;

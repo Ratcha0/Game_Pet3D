@@ -202,7 +202,7 @@ export async function fetchLiveRankings(seasonNum = 1) {
     console.log(`🔍 [DB] Fetching Live Rankings for Season: ${seasonNum}`);
     const { data, error } = await supabase
         .from('pet_progression')
-        .select(`player_id, score, level, profiles!inner (display_name)`)
+        .select(`player_id, score, level, profiles (display_name)`)
         .eq('current_season', seasonNum)
         .order('score', { ascending: false })
         .limit(50);
@@ -256,7 +256,7 @@ export async function fetchSeasonRankings(seasonNum) {
     console.log(`🔍 [DB] Fetching History Rankings for Season: ${seasonNum}`);
     const { data, error } = await supabase
         .from('season_history')
-        .select(`player_id, final_score, final_level, profiles!inner (display_name), created_at`)
+        .select(`player_id, final_score, final_level, profiles (display_name), created_at`)
         .eq('season_number', seasonNum)
         .order('final_score', { ascending: false });
     

@@ -79,7 +79,7 @@ export const BossRewardController = {
                         <div class="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center font-black text-xs">
                             ${(index + 1)}
                         </div>
-                        <div class="font-bold text-sm ${isMe ? 'text-neon-purple' : 'text-white'}">${player.player_id}</div>
+                        <div class="font-bold text-sm ${isMe ? 'text-neon-purple' : 'text-white'}">${player.display_name || player.pet_name || player.player_id}</div>
                     </div>
                     <div class="text-right">
                         <div class="text-xs font-black text-rose-400">${player.damage.toLocaleString()}</div>
