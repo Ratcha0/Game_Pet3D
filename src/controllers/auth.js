@@ -1,5 +1,6 @@
 import { STATE, saveState, loadState, setUserId } from '../store/state.js';
 import { SFX } from '../services/sound.js';
+import { showDifficultyModal } from './difficulty_controller.js';
 
 const $ = id => document.getElementById(id);
 
@@ -147,7 +148,7 @@ async function verifyPin() {
         $('pin-msg').classList.remove('text-white/50', 'text-red-400');
         $('pin-msg').classList.add('text-green-400');
         
-        setTimeout(unlockScreen, 600);
+        setTimeout(() => showDifficultyModal(unlockScreen), 600);
     } else {
         // --- 2. โหมดปลดล็อคปกติ ---
         if (currentPin === STATE.pin_code) {
@@ -156,7 +157,7 @@ async function verifyPin() {
             $('pin-msg').innerText = "รหัสถูกต้อง! กำลังเข้าสู่ระบบ...";
             $('pin-msg').classList.remove('text-white/50', 'text-red-400');
             $('pin-msg').classList.add('text-green-400');
-            setTimeout(unlockScreen, 600);
+            setTimeout(() => showDifficultyModal(unlockScreen), 600);
         } else {
             console.warn("⚠️ [AUTH] Invalid PIN attempt.");
             dots.forEach(d => d.classList.add('pin-error'));
