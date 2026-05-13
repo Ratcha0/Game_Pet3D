@@ -776,13 +776,16 @@ window.renderHistoryRankings = async () => {
                                   (index === 1 && isTop3) ? 'border-white/20' : 
                                   (index === 2 && isTop3) ? 'border-white/10' : 'border-white/5';
 
+                const displayName = player.pet_name || player.player_id || "Unknown";
+                const subId = player.pet_name ? `ID: ${player.player_id}` : "Unknown Player";
+
                 return `
                     <div class="flex items-center justify-between p-5 bg-white/[0.02] hover:bg-white/[0.05] rounded-3xl border ${glowClass} transition-all group">
                         <div class="flex items-center gap-6">
                             <div class="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center font-black ${isTop3 ? 'text-xl' : 'text-[10px] text-white/20'}">${rankNum}</div>
                             <div>
-                                <div class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors tracking-tight">${player.player_id}</div>
-                                <div class="text-[8px] text-white/20 uppercase tracking-[0.2em] mt-1">${new Date(timestamp).toLocaleDateString('th-TH', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} น.</div>
+                                <div class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors tracking-tight">${displayName}</div>
+                                <div class="text-[8px] text-white/20 uppercase tracking-[0.2em] mt-1">${subId} | ${new Date(timestamp).toLocaleDateString('th-TH', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} น.</div>
                             </div>
                         </div>
                         <div class="text-right pr-4">

@@ -199,17 +199,23 @@ export async function savePetState(userId, state) {
 }
 
 export async function fetchLiveRankings(seasonNum = 1) {
+    console.log(`🔍 [DB] Fetching Live Rankings for Season: ${seasonNum}`);
     const { data, error } = await supabase
         .from('pet_progression')
-        .select(`score, level, profiles!inner (display_name)`)
+        .select(`player_id, score, level, profiles!inner (display_name)`)
         .eq('current_season', seasonNum)
         .order('score', { ascending: false })
         .limit(50);
 
-    if (error) return { data: [], error };
+    if (error) {
+        console.error("🚨 [DB] fetchLiveRankings Error:", error.message);
+        return { data: [], error };
+    }
+    
     return { 
         data: data.map(item => ({
-            pet_name: item.profiles?.display_name || "Unknown",
+            player_id: item.player_id,
+            pet_name: item.profiles?.display_name || item.player_id || "Unknown",
             level: item.level,
             score: item.score
         })), 
@@ -247,18 +253,25 @@ export async function logSeasonHistory(userId, season, score, level) {
 }
 
 export async function fetchSeasonRankings(seasonNum) {
+    console.log(`🔍 [DB] Fetching History Rankings for Season: ${seasonNum}`);
     const { data, error } = await supabase
         .from('season_history')
-        .select(`final_score, final_level, profiles!inner (display_name)`)
+        .select(`player_id, final_score, final_level, profiles!inner (display_name), created_at`)
         .eq('season_number', seasonNum)
         .order('final_score', { ascending: false });
     
-    if (error) return { data: [], error };
+    if (error) {
+        console.error("🚨 [DB] fetchSeasonRankings Error:", error.message);
+        return { data: [], error };
+    }
+
     return {
         data: data.map(item => ({
-            pet_name: item.profiles?.display_name,
+            player_id: item.player_id,
+            pet_name: item.profiles?.display_name || item.player_id,
             score: item.final_score,
-            level: item.final_level
+            level: item.final_level,
+            created_at: item.created_at
         })),
         error: null
     };

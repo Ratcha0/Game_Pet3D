@@ -1185,7 +1185,7 @@ function isEasyMode() { return STATE.config.difficulty_mode === 'easy'; }
 window.currentRankingTab = 'world';
 window.selectedRankingSeason = null;
 
-window.switchRankingTab = (tab) => {
+window.switchRankingTab = async (tab) => {
     window.currentRankingTab = tab;
     const btnWorld = $('btn-rank-world');
     const btnBoss = $('btn-rank-boss');
@@ -1198,9 +1198,18 @@ window.switchRankingTab = (tab) => {
         if(seasonContainer) seasonContainer.classList.remove('hidden');
         if(titleText) titleText.innerText = "อันดับโลก";
         
-        // Populate custom dropdown seasons if not done
-        const currentS = STATE.config?.season_number || 1;
-        if (window.selectedRankingSeason === null) window.selectedRankingSeason = currentS;
+        // 🔥 [AUTHORITATIVE SYNC] ดึง Config ล่าสุดเพื่อให้เลขซีซั่นแม่นยำ 100% เหมือน Dashboard
+        const { data: cfg } = await SupabaseSvc.supabase.from('game_configs').select('config').eq('id', 'current').maybeSingle();
+        if (cfg?.config) applyConfigToState(cfg.config); // 🔄 Sync global state
+        
+        const currentS = parseInt(STATE.config?.season_number || 1);
+        
+        const seasonBadge = $('season-badge');
+        if (seasonBadge) seasonBadge.innerText = `Season ${currentS}`;
+        
+        if (window.selectedRankingSeason === null || window.selectedRankingSeason > currentS) {
+            window.selectedRankingSeason = currentS;
+        }
         
         renderSeasonOptions(currentS);
     } else {
@@ -1246,15 +1255,16 @@ document.addEventListener('click', (e) => {
 
 window.selectSeason = (num) => {
     window.selectedRankingSeason = num;
+    const currentS = parseInt(STATE.config?.season_number || 1); // 🛡️ Use current sync state
     const opts = $('rank-season-options');
     if (opts) opts.classList.add('hidden');
     
     const label = $('rank-season-current');
-    if (label) label.innerText = `ซีซั่น ${num} ${num === (STATE.config?.season_number || 1) ? '(LIVE)' : ''}`;
+    if (label) label.innerText = `ซีซั่น ${num} ${num === currentS ? '(LIVE)' : ''}`;
     
     // Update active class in options
     document.querySelectorAll('.season-option').forEach((el, idx) => {
-        const seasonVal = (STATE.config?.season_number || 1) - idx;
+        const seasonVal = currentS - idx;
         if (seasonVal === num) el.classList.add('active');
         else el.classList.remove('active');
     });
@@ -1270,21 +1280,31 @@ window.refreshRankingList = async () => {
 
     let data = [], error = null;
     
+    // 🔥 [AUTHORITATIVE SYNC] ดึงข้อมูล Config สดๆ อีกครั้งเพื่อป้องกันปัญหาข้ามซีซั่น (เหมือน Dashboard)
+    const { data: cfg } = await SupabaseSvc.supabase.from('game_configs').select('config').eq('id', 'current').maybeSingle();
+    if (cfg?.config) applyConfigToState(cfg.config); // 🔄 Sync global state
+    
+    const currentS = parseInt(STATE.config?.season_number || 1);
+    const selectedS = parseInt(window.selectedRankingSeason || currentS);
+    
+    console.log(`🏆 [RANK] Refreshing List: Season ${selectedS} (Current Cloud Season: ${currentS})`);
+
     if (window.currentRankingTab === 'world') {
-        const currentS = STATE.config?.season_number || 1;
-        if (window.selectedRankingSeason === currentS) {
-            ({ data, error } = await SupabaseSvc.fetchLiveRankings(currentS));
+        if (selectedS === currentS) {
+            console.log(`📊 [RANK] Fetching Live Rankings for S${selectedS}`);
+            ({ data, error } = await SupabaseSvc.fetchLiveRankings(selectedS));
         } else {
-            ({ data, error } = await SupabaseSvc.fetchSeasonRankings(window.selectedRankingSeason));
+            console.log(`📜 [RANK] Fetching History Rankings for S${selectedS}`);
+            ({ data, error } = await SupabaseSvc.fetchSeasonRankings(selectedS));
         }
     } else {
         // Fetch Boss Leaderboard
+        console.log(`👹 [RANK] Fetching Boss Leaderboard`);
         ({ data, error } = await SupabaseSvc.supabase.rpc('get_boss_leaderboard'));
-        // Map boss data to standard format for the list
         if (data) {
             data = data.map(p => ({
                 player_id: p.player_id,
-                pet_name: p.pet_name, // If RPC returns it, otherwise use ID
+                pet_name: p.display_name || p.pet_name || p.player_id, // 🔥 [FIX] ซิงค์ลำดับการหาชื่อให้เหมือน Dashboard
                 score: p.damage,
                 level: p.level || '-',
                 is_boss_tab: true
@@ -1292,10 +1312,20 @@ window.refreshRankingList = async () => {
         }
     }
 
+    if (error) {
+        console.error("🚨 [RANK] Load Error:", error);
+        listEl.innerHTML = `<div class="text-rose-400/50 text-center py-12 italic text-xs">เกิดข้อผิดพลาดในการโหลดข้อมูล<br>${error.message || ''}</div>`;
+        return;
+    }
+
     if (data && data.length > 0) {
+        const userIdKey = (typeof currentUserId !== 'undefined' ? currentUserId : localStorage.getItem('last_user_id'));
+        
         listEl.innerHTML = data.map((p, i) => {
-            const isMe = p.player_id === STATE.username;
-            const shortName = p.pet_name || (p.player_id === 'ADMIN_TEST_MODE' ? 'ADMIN' : p.player_id.substring(0, 8));
+            const isMe = p.player_id === userIdKey;
+            // 🔥 [UI ALIGNMENT] ปรับการแสดงผลชื่อให้เต็มและตรงมาตรฐาน Dashboard
+            const displayName = p.pet_name || p.player_id;
+            const shortName = displayName.length > 12 ? displayName.substring(0, 10) + '...' : displayName;
             const score = p.score ?? 0;
             const level = p.level ?? 1;
 
@@ -1322,7 +1352,7 @@ window.refreshRankingList = async () => {
             `;
         }).join('');
     } else {
-        listEl.innerHTML = `<div class="text-white/20 text-center py-12 italic">ยังไม่มีข้อมูลในส่วนนี้</div>`;
+        listEl.innerHTML = `<div class="text-white/20 text-center py-12 italic">ยังไม่มีข้อมูลอันดับในซีซั่นที่ ${selectedS}</div>`;
     }
 };
 

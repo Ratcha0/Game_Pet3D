@@ -59,6 +59,7 @@ export const STATE = {
         custom_model: '', custom_rotation_y: 0,
         available_skins: [],
         matrix: {},
+        season_number: 1, // 👈 [FIX] เริ่มต้นที่ 1
         world_boss: { active: false, hp: 0, max_hp: 1000000, schedules: [] }
     }
 };
@@ -121,13 +122,9 @@ export function resetStateToDefaults() {
         regen_mult: 1, regen_expiry: 0
     };
 
-    STATE.config = {
-        template: 'pet', difficulty_mode: 'normal',
-        sky: 'day', ground: 'grass',
-        custom_model: '', custom_rotation_y: 0,
-        available_skins: [],
-        matrix: {}
-    };
+    // 🛡️ [CONFIG AUTHORITY] ไม่รีเซ็ต STATE.config เพราะเป็นค่า Global จาก Cloud
+    // ที่ถูกโหลดไว้ตั้งแต่เริ่มแอป (ใน loadGameConfigCloud)
+    console.log("🛡️ [STATE] Preserving Global Config during reset.");
 }
 
 export async function loadState(forceId = null) {
