@@ -148,7 +148,8 @@ export async function savePetState(userId, state) {
                 ...(state.inventory || {}),
                 config: {
                     template: state.config?.template || 'pet',
-                    difficulty_mode: state.config?.difficulty_mode || 'normal'
+                    difficulty_mode: state.config?.difficulty_mode || 'normal',
+                    difficulty_season: state.config?.difficulty_season || null
                 }
             },
             boss_skills: state.boss_skills || {}

@@ -185,12 +185,18 @@ export async function loadState(forceId = null) {
 
             Object.assign(STATE, finalData);
             
-            // 🛡️ [CONFIG AUTHORITY] ห้ามเอาข้อมูลส่วนตัวผู้เล่นมาทับค่าธีมที่แอดมินตั้งไว้ (Global Config Only)
-            // STATE.config.template = config_meta.template || STATE.config.template; 
-            // STATE.config.difficulty_mode = config_meta.difficulty_mode || STATE.config.difficulty_mode;
+            // 🛡️ [CONFIG AUTHORITY] ผู้เล่นสามารถมีระดับความยากส่วนตัวได้ (Personalized Config)
+            if (cloudData.config_meta) {
+                STATE.config.template = cloudData.config_meta.template || STATE.config.template; 
+                STATE.config.difficulty_mode = cloudData.config_meta.difficulty_mode || STATE.config.difficulty_mode;
+                STATE.config.difficulty_season = cloudData.config_meta.difficulty_season || null;
+            }
             
             // คำนวณความเสียหายบอส
             if (cloudData.boss_damage) STATE.boss_damage = cloudData.boss_damage;
+
+            // 🛡️ [BUGFIX] คำนวณ max_exp ใหม่เสมอเมื่อดึงเลเวลมาจาก Cloud
+            STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 2) * 45));
 
             // 🕰️ [OFFLINE CALCULATIONS] คำนวณค่าสถานะที่ลดลงขณะปิดเกม
             if (cloudData.last_interaction_at) {
@@ -310,6 +316,9 @@ export function sanitizeState() {
     if (STATE.love === undefined || isNaN(STATE.love)) STATE.love = 100;
     if (STATE.stamina === undefined || isNaN(STATE.stamina)) STATE.stamina = 100;
     
+    // 🛡️ [BUGFIX] คำนวณ max_exp ใหม่เสมออิงจากเลเวลปัจจุบัน (ครอบคลุมทั้งคนเก่าและใหม่)
+    STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 2) * 45));
+
     // 🛡️ [DEEP AUDIT] ป้องกันค่าติดลบหรือเกิน 100
     STATE.hunger = Math.min(100, Math.max(0, parseFloat(STATE.hunger)));
     STATE.clean = Math.min(100, Math.max(0, parseFloat(STATE.clean)));

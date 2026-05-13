@@ -904,8 +904,10 @@ async function checkLevelUp() {
         // หัก XP เก่าออก
         STATE.xp = Math.max(0, STATE.xp - STATE.max_exp);
         
-        // คำนวณเพดาน XP ใหม่สำหรับเลเวลปัจจุบัน
-        STATE.max_exp = Math.floor(200 + (STATE.level * STATE.level * 1.25));
+        // ⚖️ [BALANCING] ปรับสมดุลหลอด EXP ใหม่ให้ขึ้นยากและท้าทายขึ้น 
+        // ของเดิม (1.25) ทำให้ปลายทางขึ้นง่ายไป โดนปั้มเลเวลได้
+        // ของใหม่ (45) จะทำให้ช่วงเลเวล 1-5 ขึ้นไว แต่พอ 10+ จะเริ่มหนืด ต้องรอ Stamina
+        STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 2) * 45));
         
         totalScoreBonus += 5000 + (STATE.level * 1000); 
         totalTokenBonus += 500 + (STATE.level * 50); 

@@ -8,6 +8,13 @@ export function showDifficultyModal(onComplete) {
         return;
     }
 
+    // 🎯 [SEASON LOCK] ตรวจสอบว่าเคยเลือกความยากในซีซั่นปัจจุบันไปแล้วหรือยัง
+    // ถ้าเคยเลือกแล้ว ให้ข้ามหน้าต่างนี้ไปเข้าเกมเลย
+    if (STATE.config && STATE.config.difficulty_season === STATE.current_season) {
+        if (onComplete) onComplete();
+        return;
+    }
+
     const modalId = 'difficulty-selection-modal';
     if (document.getElementById(modalId)) return;
 
@@ -85,6 +92,7 @@ export function showDifficultyModal(onComplete) {
         // 💾 Save state
         if (!STATE.config) STATE.config = {};
         STATE.config.difficulty_mode = selectedMode;
+        STATE.config.difficulty_season = STATE.current_season; // 🔒 ล็อคว่าเลือกของซีซั่นนี้ไปแล้ว
         
         // เราเรียก saveState เพื่อเก็บค่าการตั้งค่าลง Cloud (ไปอยู่รวมใน pet_assets -> inventory -> config)
         saveState(true);
