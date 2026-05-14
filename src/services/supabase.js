@@ -137,8 +137,7 @@ export async function savePetState(userId, state) {
             max_exp: parseFloat(state.max_exp) || 200,
             score: parseInt(state.score) || 0,
             tokens: parseInt(state.tokens) || 500,
-            current_season: parseInt(state.current_season) || 1,
-            boss_damage: parseInt(state.boss_damage) || 0
+            current_season: parseInt(state.current_season) || 1
         };
 
         // 4. Assets

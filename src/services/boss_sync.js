@@ -23,6 +23,11 @@ export const BossService = {
                 console.error("❌ [BOSS] RPC Error Detail:", error.message, error.details, error.hint);
                 return;
             }
+            
+            // 🛡️ [SYNC FIX] อัปเดตดาเมจในเครื่องทันทีเพื่อให้ UI ขยับ และ Modal สรุปผลมีข้อมูล
+            STATE.boss_damage = (STATE.boss_damage || 0) + Math.floor(damage);
+            if (window.updateUI) window.updateUI();
+
             console.log("✨ [BOSS] Damage successfully synced. Server HP:", data);
         } catch (e) {
             console.error("🚨 [BOSS] Critical submission error:", e);
@@ -35,9 +40,29 @@ export const BossService = {
         const { data: cfg } = await supabase.from('game_configs').select('config').eq('id', 'current').single();
         if (cfg?.config?.world_boss) {
             const wb = cfg.config.world_boss;
+            
+            // 🏆 [ARCHIVE LOGIC] ถ้ากำลังจะปิดบอส (เพราะตายหรือ Despawn) ให้เก็บอันดับไว้ดูย้อนหลัง
+            let lastResults = wb.last_results || [];
+            if (active === false) {
+                console.log("🏆 [BOSS] Archiving leaderboard before despawn...");
+                const { data: leaderboard } = await supabase.rpc('get_boss_leaderboard');
+                if (leaderboard && leaderboard.length > 0) {
+                    lastResults = leaderboard.map(p => ({
+                        player_id: p.player_id,
+                        name: p.display_name || p.pet_name || p.player_id,
+                        damage: p.damage
+                    }));
+                }
+            }
+
             const updatedConfig = { 
                 ...cfg.config, 
-                world_boss: { ...wb, active, hp: (hp !== null ? hp : wb.hp) } 
+                world_boss: { 
+                    ...wb, 
+                    active, 
+                    hp: (hp !== null ? hp : wb.hp),
+                    last_results: lastResults // บันทึกผลลัพธ์ล่าสุดลง Config
+                } 
             };
             const result = await supabase.from('game_configs').update({ config: updatedConfig }).eq('id', 'current');
             
@@ -47,6 +72,24 @@ export const BossService = {
             
             console.log("✅ [BOSS-ADMIN] Config updated on Cloud.");
             return result;
+        }
+    },
+    
+    // 📊 [ARCHIVE] บันทึกผลการล่าลงใน Config กลาง
+    async updateBossResults(results) {
+        if (!results || results.length === 0) return;
+        console.log(`📊 [BOSS] Archiving ${results.length} records to Cloud Config...`);
+        
+        const { data: cfg } = await supabase.from('game_configs').select('config').eq('id', 'current').single();
+        if (cfg?.config?.world_boss) {
+            const updatedConfig = { 
+                ...cfg.config, 
+                world_boss: { 
+                    ...cfg.config.world_boss, 
+                    last_results: results 
+                } 
+            };
+            return await supabase.from('game_configs').update({ config: updatedConfig }).eq('id', 'current');
         }
     },
 
@@ -69,6 +112,13 @@ export const BossService = {
                 }, payload => {
                     const newBoss = payload.new?.config?.world_boss;
                     if (newBoss) {
+                        // 👹 [SYNC FIX] ถ้าบอสตัวใหม่เพิ่งเกิด (Active: false -> true) ให้ล้างดาเมจเก่าในเครื่องทิ้ง
+                        if (newBoss.active && (!currentBossState || !currentBossState.active)) {
+                            console.log("👹 [BOSS] New boss detected! Resetting local damage counter.");
+                            STATE.boss_damage = 0;
+                            if (window.updateUI) window.updateUI();
+                        }
+
                         // 🛡️ [OPTIMIZATION] บันทึกเฉพาะเมื่อค่าเปลี่ยนจริงๆ เพื่อลด Log Spam ในหน้า Console
                         const bossKey = `${newBoss.active}_${newBoss.hp}`;
                         if (window._lastBossSyncKey === bossKey) return;

@@ -308,47 +308,9 @@ export const initBossController = (STATE, engineHelpers) => {
         });
     };
 
-    const checkBossSchedule = async () => {
-        const wb = STATE.config?.world_boss;
-        if (!wb || !wb.schedules || wb.schedules.length === 0) return;
-
-        // 🛡️ [ADMIN PRIORITY] ถ้ามีการสั่งการด้วยมือ (Manual Override) ห้ามระบบอัตโนมัติทำงานทับ
-        if (wb.manual_override === true) {
-            console.log("⚙️ [BOSS-SCHEDULE] Manual Override is ON. Skipping automatic schedule.");
-            return;
-        }
-
-        const now = new Date();
-        const day = now.getDay();
-        
-        let shouldBeActive = false;
-        for (const slot of wb.schedules) {
-            if (slot.day == day) {
-                const [sHour, sMin] = slot.time.split(':').map(Number);
-                const startTime = new Date(now);
-                startTime.setHours(sHour, sMin, 0, 0);
-                
-                const endTime = new Date(startTime);
-                endTime.setMinutes(endTime.getMinutes() + (slot.duration || 30));
-                
-                if (now >= startTime && now <= endTime) {
-                    shouldBeActive = (wb.hp > 0);
-                    break;
-                }
-            }
-        }
-
-        if (shouldBeActive && !wb.active) {
-            console.log("⏰ [BOSS-SCHEDULE] Time reached! Spawning boss...");
-            await BossService.updateBossStatus(true, (wb.hp <= 0) ? wb.max_hp : wb.hp);
-        } else if (!shouldBeActive && wb.active) {
-            console.log("⏰ [BOSS-SCHEDULE] Time expired! Despawning boss...");
-            await BossService.updateBossStatus(false, wb.max_hp);
-        }
-    };
-
-    setInterval(checkBossSchedule, 30000);
-    checkBossSchedule();
+    // 🛡️ [DEPRECATED] ระบบเช็คเวลาที่เครื่องผู้เล่นถูกยกเลิก (เปลี่ยนไปใช้ Server Authoritative)
+    // ระบบจะรอฟังคำสั่งจาก Supabase Edge Function แทนเพื่อให้เวลาตรงกันทุกคน
+    
     updateBossHUD(STATE.config?.world_boss);
     window.updateSkillUI();
     if (STATE.config?.world_boss) updateBossModel(STATE.config.world_boss);

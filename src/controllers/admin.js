@@ -92,6 +92,7 @@ function highlightUI() {
     
     document.querySelectorAll('[data-global]').forEach(el => {
         const key = el.dataset.global;
+        if (document.activeElement === el) return; // 🛡️ กันการเขียนทับขณะพิมพ์
         const currentVal = getDeepValue(ADMIN_STATE, key);
         
         if (currentVal !== undefined) {
@@ -211,24 +212,21 @@ function syncInputsWithMatrix() {
     window.renderLoginRewards(); // Generate dynamic inputs first
     const config = ADMIN_STATE.matrix[ADMIN_STATE.template][ADMIN_STATE.difficulty_mode];
     
-    // หา Input และ Select ทุกตัวที่มี data-path
+    // 📊 [MATRIX SYNC] หา Input และ Select ทุกตัวที่มี data-path
     document.querySelectorAll('.matrix-input').forEach(el => {
         const path = el.dataset.path;
         if (path) {
             const val = getDeepValue(config, path);
-            if (val !== undefined) el.value = val;
+            if (val !== undefined && document.activeElement !== el) el.value = val;
 
-            // ผูก Event ให้บันทึกลง Matrix (รองรับทั้งการพิมพ์และการเลือก Select)
             if (!el.dataset.bound) {
                 const updateFn = (e) => {
                     let newVal = e.target.value;
-                    // ถ้าเป็นตัวเลขให้แปลงเป็น Float แต่ถ้าเป็น String (เช่น 'score') ให้เก็บเป็น String
                     const num = parseFloat(newVal);
                     setDeepValue(config, path, isNaN(num) ? newVal : num);
                     sendPreview();
                     if (window.saveAll) window.saveAll();
                 };
-                
                 el.addEventListener('input', updateFn);
                 el.addEventListener('change', updateFn);
                 el.dataset.bound = "true";
@@ -236,19 +234,25 @@ function syncInputsWithMatrix() {
         }
     });
 
-    // Support สำหรับค่าเก่าที่เป็น cfg- (สำหรับ Backward Compatibility)
-    Object.keys(config).forEach(key => {
-        if (typeof config[key] !== 'object') {
-            const oldEl = $(`cfg-${key.replace(/_/g, '-')}`);
-            if (oldEl) {
-                oldEl.value = config[key];
-                if (!oldEl.dataset.bound) {
-                    oldEl.addEventListener('input', (e) => {
-                        config[key] = parseFloat(e.target.value) || e.target.value;
-                        sendPreview(); saveLocal();
-                    });
-                    oldEl.dataset.bound = "true";
-                }
+    // 🛡️ [GLOBAL SYNC] เติมค่าให้ช่องที่มี data-global (บอส, สกิน)
+    document.querySelectorAll('[data-global]').forEach(el => {
+        const path = el.dataset.global;
+        if (path) {
+            const val = getDeepValue(ADMIN_STATE, path);
+            if (val !== undefined && document.activeElement !== el) {
+                el.value = val;
+            }
+
+            if (!el.dataset.bound) {
+                const updateFn = (e) => {
+                    let newVal = e.target.value;
+                    if (el.type === 'number') newVal = parseFloat(newVal || 0);
+                    setDeepValue(ADMIN_STATE, path, newVal);
+                    sendPreview(); // 🔥 อัปเดตตัวพรีวิวฝั่งขวาทันที
+                };
+                el.addEventListener('input', updateFn);
+                el.addEventListener('change', updateFn);
+                el.dataset.bound = "true";
             }
         }
     });
@@ -337,7 +341,21 @@ window.saveAll = async () => {
 
     window.spawn("💾 กำลังส่งข้อมูลขึ้น Cloud...", "text-neon-cyan animate-pulse");
     
-    saveLocal();
+    // 🛡️ [DATA AGGREGATION] กวาดข้อมูลจากหน้าจอทั้งหมดลงตัวแปร ADMIN_STATE ก่อนส่ง
+    document.querySelectorAll('[data-global]').forEach(el => {
+        const path = el.dataset.global;
+        if (path) {
+            let val = el.value;
+            if (el.type === 'number') val = parseFloat(val || 0);
+            setDeepValue(ADMIN_STATE, path, val);
+        }
+    });
+
+    // 👕 [SKIN SYNC] มั่นใจว่ารายการสกินถูกบันทึกด้วย
+    if (!ADMIN_STATE.available_skins || ADMIN_STATE.available_skins.length === 0) {
+        ADMIN_STATE.available_skins = window.getDefaultSkins();
+    }
+
     const { error } = await saveGameConfig(ADMIN_STATE);
     
     if (btn) {
@@ -847,6 +865,9 @@ window.renderBossConfig = () => {
     const wb = ADMIN_STATE.world_boss;
     if (!wb) return;
 
+    // 🔥 [ADD] Render Skin Manager too
+    window.renderSkinManager();
+
     const bst = $('boss-status-text');
     const bsi = $('boss-status-indicator');
     const bsp = $('btn-boss-spawn');
@@ -873,21 +894,30 @@ window.renderBossConfig = () => {
         }
     }
 
-    if ($('boss-cur-hp-disp')) $('boss-cur-hp-disp').innerText = (wb.hp || 0).toLocaleString();
-    if ($('boss-max-hp-input')) $('boss-max-hp-input').value = wb.max_hp || 1000000;
-    if ($('boss-reward-tokens')) $('boss-reward-tokens').value = wb.reward_tokens || 5000;
-    if ($('boss-reward-xp')) $('boss-reward-xp').value = wb.reward_xp || 2500;
+    // 🛡️ [SYNC FIX] อัปเดต UI โดยเน้นที่ Attribute Selector (รักษาโครงสร้างเดิมของคุณลูกค้า)
+    const setVal = (selector, val, isText = false) => {
+        const el = document.querySelector(selector) || (selector.includes('world_boss.hp') ? $('boss-cur-hp-disp') : null);
+        if (el) {
+            if (isText) el.innerText = val;
+            else el.value = val;
+        }
+    };
+
+    setVal('[data-global="world_boss.hp"]', (wb.hp || 0).toLocaleString(), true);
+    setVal('[data-global="world_boss.max_hp"]', wb.max_hp || 1000000);
+    setVal('[data-global="world_boss.reward_tokens"]', wb.reward_tokens || 5000);
+    setVal('[data-global="world_boss.reward_xp"]', wb.reward_xp || 2500);
+
     let currentPath = wb.model_path || '/models/truffle_man.glb';
-    // 🛡️ [FORCE MIGRATION] ถ้ายังเป็นนกฟีนิกซ์ ให้เปลี่ยนเป็น Truffle Man ทันทีในหน้าจอ
     if (currentPath.includes('phoenix_bird')) currentPath = '/models/truffle_man.glb';
     
-    if ($('boss-model-path')) $('boss-model-path').value = currentPath;
-    if ($('boss-anim-speed')) $('boss-anim-speed').value = wb.anim_speed || 1.0;
+    setVal('[data-global="world_boss.model_path"]', currentPath);
+    setVal('[data-global="world_boss.anim_speed"]', wb.anim_speed || 1.0);
     
-    // New Rock Mechanics
-    if ($('boss-rock-spawn-limit')) $('boss-rock-spawn-limit').value = wb.rock_spawn_limit ?? 3;
-    if ($('boss-rock-carry-limit')) $('boss-rock-carry-limit').value = wb.rock_carry_limit ?? 2;
-    if ($('boss-rock-spawn-delay')) $('boss-rock-spawn-delay').value = wb.rock_spawn_delay ?? 1.0;
+    // Rock Mechanics
+    setVal('[data-global="world_boss.rock_spawn_limit"]', wb.rock_spawn_limit ?? 3);
+    setVal('[data-global="world_boss.rock_carry_limit"]', wb.rock_carry_limit ?? 2);
+    setVal('[data-global="world_boss.rock_spawn_delay"]', wb.rock_spawn_delay ?? 1.0);
 
     window.renderScheduleList();
 
@@ -948,8 +978,15 @@ window.toggleBossSpawn = async () => {
 
     if (newState) {
         ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
-        await supabase.rpc('reset_all_boss_damage');
-        window.spawn?.("👹 เริ่มศึกบอสใหม่! ล้างอันดับดาเมจแล้ว", "text-yellow-400 font-bold");
+        
+        // 🛡️ [SAFETY WRAP] ป้องกัน RPC พังแล้วทำให้บอสไม่ยอมโผล่
+        try {
+            await supabase.rpc('reset_all_boss_damage');
+        } catch (e) {
+            console.warn("⚠️ [ADMIN] Could not reset damage leaderboard, but proceeding with spawn.");
+        }
+
+        window.spawn?.("👹 เริ่มศึกบอสใหม่! เลือดเต็มหลอดแล้ว", "text-yellow-400 font-bold");
     } else {
         ADMIN_STATE.world_boss.hp = 0;
         window.spawn?.("🌬️ บอสถูกถอนตัวออกไปแล้ว (Manual Despawn)", "text-slate-400 font-bold");
@@ -972,10 +1009,18 @@ window.resetToSchedule = async () => {
 
 window.resetBossHP = async () => {
     if(!ADMIN_STATE.world_boss) return;
-    ADMIN_STATE.world_boss.hp = ADMIN_STATE.world_boss.max_hp;
-    // 🔥 ล้างดาเมจทุกคนเมื่อรีเซ็ตเลือด
-    await supabase.rpc('reset_all_boss_damage');
-    window.spawn?.("🔄 รีเซ็ตเลือดบอสและอันดับดาเมจแล้ว", "text-cyan-400");
+    
+    // 🛡️ [DIRECT FIX] ดึงค่าเลือดจากช่องกรอกข้อมูล
+    const currentMaxInput = parseInt(document.querySelector('[data-global="world_boss.max_hp"]')?.value || 1000000);
+    console.log(`🧪 [ADMIN-DEBUG] Setting Boss HP directly to: ${currentMaxInput}`);
+    
+    // บังคับเปลี่ยนค่าในตัวแปรหลัก
+    ADMIN_STATE.world_boss.max_hp = currentMaxInput;
+    ADMIN_STATE.world_boss.hp = currentMaxInput;
+
+    window.spawn?.(`🔄 กำลังรีเซ็ตเลือดบอสเป็น ${currentMaxInput.toLocaleString()}...`, "text-cyan-400 font-bold");
+    
+    // 🔥 บังคับเซฟลง Cloud ทันที (ข้าม RPC ที่มีปัญหา)
     await window.saveBossConfig();
 };
 
@@ -985,22 +1030,83 @@ window.saveBossConfig = async () => {
         return;
     }
     if(!ADMIN_STATE.world_boss) return;
-    ADMIN_STATE.world_boss.max_hp = parseInt($('boss-max-hp-input')?.value || 1000000);
-    ADMIN_STATE.world_boss.reward_tokens = parseInt($('boss-reward-tokens')?.value || 5000);
-    ADMIN_STATE.world_boss.reward_xp = parseInt($('boss-reward-xp')?.value || 2500);
-    ADMIN_STATE.world_boss.model_path = $('boss-model-path')?.value || '/models/truffle_man.glb';
-    ADMIN_STATE.world_boss.anim_speed = parseFloat($('boss-anim-speed')?.value || 1.0);
+    if(!ADMIN_STATE.world_boss) return;
     
-    // New Rock Mechanics
-    ADMIN_STATE.world_boss.rock_spawn_limit = parseInt($('boss-rock-spawn-limit')?.value ?? 3);
-    ADMIN_STATE.world_boss.rock_carry_limit = parseInt($('boss-rock-carry-limit')?.value ?? 2);
-    ADMIN_STATE.world_boss.rock_spawn_delay = parseFloat($('boss-rock-spawn-delay')?.value ?? 1.0);
+    // 🛡️ [ACCURACY FIX] ดึงค่าจาก Attribute data-global ให้หมดทุกตัว (ไม่ง้อ ID)
+    ADMIN_STATE.world_boss.max_hp = parseInt(document.querySelector('[data-global="world_boss.max_hp"]')?.value || 1000000);
+    ADMIN_STATE.world_boss.reward_tokens = parseInt(document.querySelector('[data-global="world_boss.reward_tokens"]')?.value || 2500);
+    ADMIN_STATE.world_boss.reward_xp = parseInt(document.querySelector('[data-global="world_boss.reward_xp"]')?.value || 1000);
+    ADMIN_STATE.world_boss.model_path = document.querySelector('[data-global="world_boss.model_path"]')?.value || '/models/truffle_man.glb';
+    ADMIN_STATE.world_boss.anim_speed = parseFloat(document.querySelector('[data-global="world_boss.anim_speed"]')?.value || 1.0);
+    
+    // Rock Mechanics
+    ADMIN_STATE.world_boss.rock_spawn_limit = parseInt(document.querySelector('[data-global="world_boss.rock_spawn_limit"]')?.value || 3);
+    ADMIN_STATE.world_boss.rock_carry_limit = parseInt(document.querySelector('[data-global="world_boss.rock_carry_limit"]')?.value || 2);
+    ADMIN_STATE.world_boss.rock_spawn_delay = parseFloat(document.querySelector('[data-global="world_boss.rock_spawn_delay"]')?.value || 1.0);
+
+    // 👕 [SKIN SYNC] เก็บรายการสกินที่ถูกแก้ไขราคาแล้วลง Config
+    if (!ADMIN_STATE.available_skins || ADMIN_STATE.available_skins.length === 0) {
+        ADMIN_STATE.available_skins = window.getDefaultSkins();
+    }
 
     const { error } = await saveGameConfig(ADMIN_STATE);
     if (!error) {
         window.renderBossConfig();
+        window.renderSkinManager(); // อัปเดตตารางสกินด้วย
         if (typeof sendPreview === 'function') sendPreview();
-        window.spawn?.('บันทึกการตั้งค่าบอสเรียบร้อย!', 'text-emerald-400 font-bold');
+        window.spawn?.('บันทึกการตั้งค่าทั้งหมดเรียบร้อย!', 'text-emerald-400 font-bold');
+    }
+};
+
+// --- 👕 SKIN MANAGEMENT LOGIC ---
+window.getDefaultSkins = () => [
+    { id: 'cat-toon', template: 'pet', name: 'Classic Cat', desc: 'แมวหน้าบูดคู่บุญ', icon: '🐱', cost: 0, model: '/toon_cat_free.glb', colorCls: 'neon-gold' },
+    { id: 'plant-stylized', template: 'plant', name: 'Classic Tree', desc: 'ต้นไม้แห้งๆ', icon: '🌳', cost: 0, model: '/stylized_tree.glb', colorCls: 'emerald' },
+    { id: 'car-carton', template: 'car', name: 'Classic Car', desc: 'รถบังคับสุดจ๊าบ', icon: '🚗', cost: 0, model: '/car_carton.glb', colorCls: 'emerald', rotationY: 3.14159 },
+    { id: 'cyberpunk_car', template: 'car', name: 'Cyberpunk 2077', desc: 'รถโลกอนาคตสุดเท่', icon: '🚀💨', cost: 50000, model: '/cyberpunk_car.glb', colorCls: 'neon-cyan' }
+];
+
+window.renderSkinManager = () => {
+    const list = document.getElementById('admin-skin-list');
+    if (!list) return;
+
+    if (!ADMIN_STATE.available_skins || ADMIN_STATE.available_skins.length === 0) {
+        ADMIN_STATE.available_skins = window.getDefaultSkins();
+    }
+
+    list.innerHTML = ADMIN_STATE.available_skins.map((s, idx) => `
+        <div class="flex items-center gap-4 bg-black/20 p-3 rounded-xl border border-white/5 hover:border-pink-500/20 transition-all">
+            <div class="w-10 h-10 rounded-lg bg-pink-500/10 flex items-center justify-center text-xl shadow-inner">${s.icon}</div>
+            <div class="flex-1">
+                <div class="text-[10px] font-black text-white uppercase">${s.name}</div>
+                <div class="text-[7px] text-white/30 uppercase tracking-widest">${s.template} | ${s.id}</div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[8px] text-white/40 font-bold uppercase">ราคา</span>
+                <input type="number" 
+                    value="${s.cost}" 
+                    onchange="window.updateSkinCost(${idx}, this.value)"
+                    class="bg-black/60 border-none rounded-lg p-2 text-xs font-black text-neon-gold w-24 text-center outline-none focus:ring-1 ring-pink-500/50"
+                >
+                <span class="text-[8px] text-neon-gold font-black">🪙</span>
+            </div>
+        </div>
+    `).join('');
+};
+
+window.updateSkinCost = (index, value) => {
+    if (ADMIN_STATE.available_skins[index]) {
+        ADMIN_STATE.available_skins[index].cost = parseInt(value || 0);
+        console.log(`👕 [ADMIN] Updated skin cost: ${ADMIN_STATE.available_skins[index].name} -> ${value}`);
+        // ไม่สั่ง Save ทันทีเพื่อให้ User ปรับหลายตัวแล้วกด Save ทีเดียว
+    }
+};
+
+window.resetSkinsToDefault = () => {
+    if (confirm("คุณต้องการรีเซ็ตราคาสกินทั้งหมดกลับเป็นค่าเริ่มต้นใช่หรือไม่?")) {
+        ADMIN_STATE.available_skins = window.getDefaultSkins();
+        window.renderSkinManager();
+        window.saveBossConfig();
     }
 };
 

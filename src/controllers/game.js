@@ -1303,10 +1303,25 @@ window.refreshRankingList = async () => {
         // Fetch Boss Leaderboard
         console.log(`👹 [RANK] Fetching Boss Leaderboard`);
         ({ data, error } = await SupabaseSvc.supabase.rpc('get_boss_leaderboard'));
-        if (data) {
+        
+        // 🛡️ [HISTORY FALLBACK] ถ้าบอสปัจจุบันยังไม่มีใครตี (หรือเพิ่งรีเซ็ต) ให้ดึงประวัติล่าสุดมาโชว์แทน
+        if (!error && (!data || data.length === 0)) {
+            const lastResults = STATE.config?.world_boss?.last_results;
+            if (lastResults && lastResults.length > 0) {
+                console.log("📜 [RANK] Using historical boss results as fallback");
+                data = lastResults.map(p => ({
+                    player_id: p.player_id,
+                    pet_name: p.name || p.player_id,
+                    score: p.damage,
+                    level: '-',
+                    is_boss_tab: true,
+                    is_history: true // มาร์คว่าเป็นประวัติ
+                }));
+            }
+        } else if (data) {
             data = data.map(p => ({
                 player_id: p.player_id,
-                pet_name: p.display_name || p.pet_name || p.player_id, // 🔥 [FIX] ซิงค์ลำดับการหาชื่อให้เหมือน Dashboard
+                pet_name: p.display_name || p.pet_name || p.player_id,
                 score: p.damage,
                 level: p.level || '-',
                 is_boss_tab: true
@@ -1339,7 +1354,9 @@ window.refreshRankingList = async () => {
                         </div>
                         <div class="flex flex-col">
                             <div class="text-xs font-black ${isMe ? 'text-neon-purple' : 'text-white'} flex items-center gap-1">
-                                ${shortName} ${isMe ? '<span class="text-[8px] bg-neon-purple px-1 rounded text-white">YOU</span>' : ''}
+                                ${shortName} 
+                                ${isMe ? '<span class="text-[8px] bg-neon-purple px-1 rounded text-white">YOU</span>' : ''}
+                                ${p.is_history ? '<span class="text-[7px] bg-white/10 px-1.5 py-0.5 rounded border border-white/10 text-white/40 tracking-widest">LATEST</span>' : ''}
                             </div>
                             <div class="text-[9px] text-white/40 font-black uppercase">LV.${level}</div>
                         </div>

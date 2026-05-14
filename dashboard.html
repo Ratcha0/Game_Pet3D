@@ -731,6 +731,18 @@
                             </div>
                         </div>
 
+                        <!-- 👕 SKIN MANAGEMENT ZONE -->
+                        <div class="mt-8 p-6 bg-pink-500/5 rounded-2xl border border-pink-500/10">
+                            <div class="text-pink-400 font-black text-[10px] uppercase tracking-widest mb-4 flex items-center justify-between">
+                                <div class="flex items-center gap-2"><span>👕 จัดการราคาสกินในร้านค้า</span></div>
+                                <button onclick="resetSkinsToDefault()" class="text-[8px] text-white/30 hover:text-white underline">คืนค่าเริ่มต้น</button>
+                            </div>
+                            <div id="admin-skin-list" class="grid grid-cols-1 gap-2">
+                                <!-- Skins will be rendered here -->
+                                <div class="text-center py-4 text-white/20 text-[10px] uppercase font-black">กำลังโหลดรายการสกิน...</div>
+                            </div>
+                        </div>
+
                     </div>
                 </section>
             </div>
@@ -754,7 +766,7 @@
     </aside>
 
     <script src="https://unpkg.com/twemoji@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
-    <script type="module" src="/src/controllers/admin.js"></script>
+    <script type="module" src="/src/controllers/admin.js?v=999"></script>
     <script>
         // ปล่อยให้หน้าจอแสดงผลเมื่อทุกอย่างโหลดเสร็จ
         window.addEventListener('DOMContentLoaded', () => {

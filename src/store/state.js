@@ -61,7 +61,8 @@ export const STATE = {
         matrix: {},
         season_number: 0, // 👈 [FIX] เริ่มต้นที่ 0 เพื่อบังคับ Sync กับ Cloud ก่อนใช้งาน
         world_boss: { active: false, hp: 0, max_hp: 1000000, schedules: [] }
-    }
+    },
+    boss_damage: 0, // 👹 [INITIALIZATION] สะสมความเสียหายบอสในเครื่อง
 };
 
 export let currentUserId = null;
@@ -302,6 +303,7 @@ function subscribeToPlayerState() {
             if (d) {
                 console.log("⚡ [SYNC] Progression Updated from Cloud:", d);
                 STATE.tokens = d.tokens; STATE.xp = d.xp; STATE.level = d.level; STATE.score = d.score;
+                if (d.boss_damage !== undefined) STATE.boss_damage = d.boss_damage; // 👹 [SYNC FIX] ดึงดาเมจบอสกลับมาอัปเดตในเครื่องด้วย
                 if (window.updateUI) window.updateUI();
             }
         }).subscribe();
