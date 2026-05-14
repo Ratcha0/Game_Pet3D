@@ -317,7 +317,7 @@ export function sanitizeState() {
     if (STATE.stamina === undefined || isNaN(STATE.stamina)) STATE.stamina = 100;
     
     // 🛡️ [BUGFIX] คำนวณ max_exp ใหม่เสมออิงจากเลเวลปัจจุบัน (ครอบคลุมทั้งคนเก่าและใหม่)
-    STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 2) * 45));
+    STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 1.8) * 35));
 
     // 🛡️ [DEEP AUDIT] ป้องกันค่าติดลบหรือเกิน 100
     STATE.hunger = Math.min(100, Math.max(0, parseFloat(STATE.hunger)));
@@ -325,7 +325,7 @@ export function sanitizeState() {
     STATE.love = Math.min(100, Math.max(0, parseFloat(STATE.love)));
     
     const maxStam = STATE.max_stamina || 100;
-    STATE.stamina = Math.min(maxStam, Math.max(0, parseFloat(STATE.stamina)));
+    STATE.stamina = Math.max(0, parseFloat(STATE.stamina));
 
     // 🛡️ [DEEP HEALING] ซ่อมแซมโครงสร้างที่อาจจะหายไปจากการโหลด Cloud
     if (!STATE.boss_skills || !STATE.boss_skills.damage) {

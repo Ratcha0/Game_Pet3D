@@ -907,7 +907,7 @@ async function checkLevelUp() {
         // ⚖️ [BALANCING] ปรับสมดุลหลอด EXP ใหม่ให้ขึ้นยากและท้าทายขึ้น 
         // ของเดิม (1.25) ทำให้ปลายทางขึ้นง่ายไป โดนปั้มเลเวลได้
         // ของใหม่ (45) จะทำให้ช่วงเลเวล 1-5 ขึ้นไว แต่พอ 10+ จะเริ่มหนืด ต้องรอ Stamina
-        STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 2) * 45));
+        STATE.max_exp = Math.floor(200 + (Math.pow(STATE.level, 1.8) * 35));
         
         totalScoreBonus += 5000 + (STATE.level * 1000); 
         totalTokenBonus += 500 + (STATE.level * 50); 
@@ -916,7 +916,7 @@ async function checkLevelUp() {
         STATE.hunger = Math.min(100, STATE.hunger + 30);
         STATE.love = Math.min(100, STATE.love + 20);
         STATE.clean = Math.min(100, STATE.clean + 30);
-        STATE.stamina = Math.min(STATE.max_stamina || 100, STATE.stamina + 50);
+        STATE.stamina += 50;
 
         // [SAFETY] กัน Loop ตายถ้าค่าเป็น NaN หรือเกิดเหตุไม่คาดคิด
         if (isNaN(STATE.xp) || isNaN(STATE.max_exp) || STATE.max_exp <= 0) {
